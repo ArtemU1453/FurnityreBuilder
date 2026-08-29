@@ -1,0 +1,206 @@
+# Feature Matrix
+
+**Приоритеты:** P0 — фундамент · P1 — обязательная функциональность ·
+P2 — расширенная · P3 — дополнительные возможности.
+**Сложность:** S / M / L / XL.
+**Статус:** `NOT_STARTED` для всего — репозиторий пуст (`CURRENT_PROJECT_AUDIT.md`).
+
+Колонка «Референс» отражает реальное состояние знания:
+`CONFIRMED` — подтверждено источником · `UNKNOWN` — сайт недоступен, см.
+`PRIVETMAKET_FUNCTIONAL_SPEC.md` §0 · `N/A` — наше решение, не связанное с референсом.
+
+---
+
+## 1. ФУНДАМЕНТ
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| INF-01 | Каркас проекта (Vite + React + TS strict) | N/A | Vite, React 19, TypeScript strict | P0 | S | NOT_STARTED |
+| INF-02 | Границы слоёв в линтере | N/A | `eslint-plugin-boundaries`; React запрещён в домене | P0 | S | NOT_STARTED |
+| INF-03 | Тестовая инфраструктура | N/A | Vitest + Playwright + fast-check | P0 | M | NOT_STARTED |
+| INF-04 | CI (typecheck, lint, test, build) | N/A | GitHub Actions | P0 | S | NOT_STARTED |
+| INF-05 | Реестр UNKNOWN + проверка маркеров `ASSUMPTION` | N/A | `docs/UNKNOWNS.json` + скрипт в CI | P0 | S | NOT_STARTED |
+| INF-06 | Локальный шрифт с кириллицей для PDF | N/A | свободный шрифт в репозитории | P0 | S | NOT_STARTED |
+| INF-07 | PWA / офлайн | N/A | Service worker, установка на устройство | P2 | M | NOT_STARTED |
+
+## 2. ДОМЕН И ГЕОМЕТРИЯ
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| DOM-01 | Типы доменной модели | N/A | `DATA_MODEL.md` | P0 | M | NOT_STARTED |
+| DOM-02 | Инварианты модели | N/A | проверки + property-тесты | P0 | M | NOT_STARTED |
+| DOM-03 | Команды и история (undo/redo) | UNKNOWN | Immer patches, глубина 200, коалесценция | P0 | M | NOT_STARTED |
+| GEO-01 | Базовый расчёт габаритов | CONFIRMED (поля W/H/D в мм) | `Dimensions` + нормализация | P0 | S | NOT_STARTED |
+| GEO-02 | Схемы стыка каркаса (3 варианта) | UNKNOWN T-CAR-01 | параметр `ConstructionScheme` | P0 | M | NOT_STARTED |
+| GEO-03 | Боковины, верх, низ | UNKNOWN T-CAR-01 | по схеме | P0 | M | NOT_STARTED |
+| GEO-04 | Внутренний объём | UNKNOWN T-CAR-04 | по схеме + `Tolerances` | P0 | S | NOT_STARTED |
+| GEO-05 | Дерево секций и раскладка | UNKNOWN T-GRID-01 | рекурсивный `SplitNode`, `fixed`/`flex` | P0 | L | NOT_STARTED |
+| GEO-06 | Перегородки | UNKNOWN T-CAR-02 | детали разделителей | P0 | M | NOT_STARTED |
+| GEO-07 | Полки (равномерные и ручные) | UNKNOWN T-SHF-01 | `Shelf.placement` | P0 | M | NOT_STARTED |
+| GEO-08 | Задняя стенка (накладная / в паз) | UNKNOWN T-CAR-04 | `BackPanelMount` | P1 | M | NOT_STARTED |
+| GEO-09 | Ящики: короб, дно, направляющие | UNKNOWN T-DRW-02 | `SlideSpec` + `DrawerBoxSpec` | P1 | L | NOT_STARTED |
+| GEO-10 | Фасады распашные | UNKNOWN T-DOOR-02 | `OverlaySpec`, накладной/вкладной | P1 | L | NOT_STARTED |
+| GEO-11 | Штанга для одежды | UNKNOWN T-HW-05 | `HangingRod` | P1 | S | NOT_STARTED |
+| GEO-12 | Цоколь / ножки | UNKNOWN T-CAR-05 | `BaseSpec` | P1 | M | NOT_STARTED |
+| GEO-13 | Столешница со свесами | UNKNOWN T-CAR-06 | `CountertopSpec` | P2 | M | NOT_STARTED |
+| GEO-14 | Кромка и коррекция размера раскроя | UNKNOWN T-EDG-03 | `EdgeSpec` + `EdgeSizingPolicy` | P1 | M | NOT_STARTED |
+| GEO-15 | Присадка (координаты отверстий) | CONFIRMED (формат есть) | `DrillHole[]`, система 32 | P2 | XL | NOT_STARTED |
+| GEO-16 | Фасады купе | UNKNOWN T-DOOR-01 | отдельная система направляющих | P2 | XL | NOT_STARTED |
+| GEO-17 | Фасады складные | UNKNOWN T-DOOR-01 | — | P3 | L | NOT_STARTED |
+| GEO-18 | Подъёмные фасады | UNKNOWN T-DOOR-01 | — | P3 | M | NOT_STARTED |
+| GEO-19 | Индивидуальная правка отдельной детали | UNKNOWN T-PART-01 | переопределения на уровне детали | P2 | L | NOT_STARTED |
+| GEO-20 | Скошенные / нестандартные формы | UNKNOWN | — | P3 | XL | NOT_STARTED |
+
+## 3. ВАЛИДАЦИЯ
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| VAL-01 | Минимальные размеры ячеек | UNKNOWN | правило + предупреждение | P0 | S | NOT_STARTED |
+| VAL-02 | Пролёт полки и нагрузка | **CONFIRMED** (≈600 мм для 16 мм при глубине 300–400) | таблица правил, предупреждение | P1 | M | NOT_STARTED |
+| VAL-03 | Совместимость направляющей и глубины | UNKNOWN T-DRW-03 | ошибка с указанием максимума | P1 | S | NOT_STARTED |
+| VAL-04 | Количество петель по высоте фасада | UNKNOWN T-DOOR-05 | таблица порогов | P1 | S | NOT_STARTED |
+| VAL-05 | Пересечение деталей | N/A | геометрическая проверка объёмов | P1 | M | NOT_STARTED |
+| VAL-06 | Целостность структуры | N/A | инварианты модели | P0 | S | NOT_STARTED |
+| VAL-07 | Исправление в один клик | N/A | `Issue.fix` | P2 | M | NOT_STARTED |
+
+## 4. ВЗАИМОДЕЙСТВИЕ
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| INT-01 | Контроллер жестов (Pointer Events, capture, точка захвата, скорость) | N/A | общий `DragController` | P0 | L | NOT_STARTED |
+| INT-02 | Пружинный движок с перехватом и передачей скорости | N/A | Motion + свои обёртки | P0 | M | NOT_STARTED |
+| INT-03 | Разделение interaction / domain state | N/A | ref + rAF, коммит на `pointerup` | P0 | M | NOT_STARTED |
+| INT-04 | Перетаскивание перегородки | UNKNOWN T-GRID-04 | 1:1, жёсткие границы, магниты | P1 | L | NOT_STARTED |
+| INT-05 | Перетаскивание габаритного маркера | UNKNOWN | 1:1 + preview-пересчёт | P1 | L | NOT_STARTED |
+| INT-06 | Прямое редактирование размера на схеме | N/A | двойной клик по размерной линии | P1 | M | NOT_STARTED |
+| INT-07 | Drag-and-drop наполнения из палитры | UNKNOWN | призрак + посадка с velocity | P1 | L | NOT_STARTED |
+| INT-08 | Множественный выбор ячеек | UNKNOWN T-GRID-02 | Shift / Ctrl | P2 | M | NOT_STARTED |
+| INT-09 | Zoom / pan с резиновостью | N/A | одна матрица viewport | P1 | M | NOT_STARTED |
+| INT-10 | Полная работа с клавиатуры | N/A | `INTERACTION_MODEL.md` §5 | P1 | L | NOT_STARTED |
+| INT-11 | Фиксация размера ячейки (замок fixed/flex) | UNKNOWN T-DIM-04 | переключатель на размерной линии | P1 | M | NOT_STARTED |
+
+## 5. ИНТЕРФЕЙС
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| UI-01 | Токены design system | N/A | `DESIGN_SYSTEM.md` | P0 | M | NOT_STARTED |
+| UI-02 | Базовые примитивы (кнопка, поле, селект, вкладки) | N/A | полная матрица состояний | P0 | L | NOT_STARTED |
+| UI-03 | Числовое поле размера | UNKNOWN T-DIM-03 | без debounce, стрелки, колесо | P0 | M | NOT_STARTED |
+| UI-04 | 2D-схема (фасад) | UNKNOWN | SVG | P0 | L | NOT_STARTED |
+| UI-05 | Виды: разрез, план | UNKNOWN | SVG | P1 | M | NOT_STARTED |
+| UI-06 | Размерные линии и цепочки | UNKNOWN | интерактивные | P1 | L | NOT_STARTED |
+| UI-07 | Панель структуры (дерево секций) | UNKNOWN | синхронна со схемой | P1 | M | NOT_STARTED |
+| UI-08 | Панель свойств | UNKNOWN | контекстна выделению | P1 | L | NOT_STARTED |
+| UI-09 | Панель проблем | N/A | группировка, переход к объекту | P1 | M | NOT_STARTED |
+| UI-10 | Таблица деталировки в приложении | CONFIRMED (есть в выгрузке) | сортировка, группировка, синхронное выделение | P1 | M | NOT_STARTED |
+| UI-11 | 3D-просмотр | UNKNOWN | three.js, только просмотр | P2 | L | NOT_STARTED |
+| UI-12 | Тёмная тема | N/A | переопределение ролей | P2 | S | NOT_STARTED |
+| UI-13 | Мобильная раскладка | N/A | sheet вместо панелей | P2 | L | NOT_STARTED |
+| UI-14 | Режимы плотности | N/A | переопределение токенов | P3 | S | NOT_STARTED |
+| UI-15 | Список горячих клавиш | N/A | `?` | P2 | S | NOT_STARTED |
+
+## 6. МАТЕРИАЛЫ И ФУРНИТУРА
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| MAT-01 | Пользовательская библиотека материалов | UNKNOWN T-MAT-01 | имя, толщина, цвет, текстура, лист | P1 | M | NOT_STARTED |
+| MAT-02 | Назначение материала по ролям | UNKNOWN T-MAT-02 | корпус / фасад / полки / зад / ящики | P1 | M | NOT_STARTED |
+| MAT-03 | Направление текстуры | N/A | `grain`, влияет на раскрой | P2 | M | NOT_STARTED |
+| MAT-04 | Правила кромки по умолчанию | UNKNOWN T-EDG-02 | видимые 2 мм / внутренние 0.4 | P1 | M | NOT_STARTED |
+| MAT-05 | Ручная кромка по сторонам детали | UNKNOWN | редактор четырёх сторон | P2 | M | NOT_STARTED |
+| MAT-06 | Итог по погонным метрам кромки | N/A | сводка в приложении | P1 | S | NOT_STARTED |
+| HW-01 | Крепёж корпуса и правило количества | UNKNOWN T-HW-03 | таблица по глубине стыка | P1 | M | NOT_STARTED |
+| HW-02 | Петли | UNKNOWN T-HW-01 | тип, накладность, количество | P1 | M | NOT_STARTED |
+| HW-03 | Направляющие | UNKNOWN T-DRW-01 | тип, ряд длин | P1 | M | NOT_STARTED |
+| HW-04 | Ручки | UNKNOWN T-DOOR-04 | тип, позиционирование, присадка | P2 | M | NOT_STARTED |
+| HW-05 | PUSH-открывание | UNKNOWN T-HW-04 | вместо ручки | P2 | S | NOT_STARTED |
+| HW-06 | Полкодержатели | UNKNOWN T-SHF-02 | 4 на съёмную полку | P1 | S | NOT_STARTED |
+| HW-07 | Штанга и фланцы | UNKNOWN T-HW-05 | комплект | P1 | S | NOT_STARTED |
+| HW-08 | Сводная спецификация фурнитуры | CONFIRMED (есть в выгрузке) | группировка с трассировкой к деталям | P1 | M | NOT_STARTED |
+
+## 7. ХРАНЕНИЕ И ОБМЕН
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| PER-01 | IndexedDB | N/A | `idb`, три хранилища | P0 | M | NOT_STARTED |
+| PER-02 | Автосохранение | N/A | дебаунс + `pagehide` | P0 | M | NOT_STARTED |
+| PER-03 | Ревизии и восстановление | N/A | кольцевой буфер на 20 | P2 | M | NOT_STARTED |
+| PER-04 | Список проектов | N/A | превью, переименование, удаление, копия | P1 | M | NOT_STARTED |
+| PER-05 | Экспорт проекта в JSON | N/A | `*.furniture.json` | P0 | S | NOT_STARTED |
+| PER-06 | Импорт JSON с валидацией | N/A | Zod + миграции | P0 | M | NOT_STARTED |
+| PER-07 | Миграции схемы | N/A | чистые функции + фикстуры | P1 | M | NOT_STARTED |
+| PER-08 | Обработка отсутствия хранилища | N/A | режим в памяти + предупреждение | P1 | S | NOT_STARTED |
+
+## 8. ЭКСПОРТ
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| EXP-01 | Деталировка CSV | CONFIRMED | `;`, BOM для Excel | P1 | S | NOT_STARTED |
+| EXP-02 | Деталировка XLSX (листы: детали, кромка, фурнитура) | **CONFIRMED** | `exceljs` | P1 | M | NOT_STARTED |
+| EXP-03 | PDF: чертёж с размерами | **CONFIRMED** | `pdf-lib` + локальный шрифт | P1 | L | NOT_STARTED |
+| EXP-04 | PDF: деталировка таблицей | **CONFIRMED** | `pdf-lib` | P1 | M | NOT_STARTED |
+| EXP-05 | Карта раскроя | **CONFIRMED** | свой гильотинный алгоритм | P2 | XL | NOT_STARTED |
+| EXP-06 | Схема присадки | **CONFIRMED** | по детали, с координатами | P2 | XL | NOT_STARTED |
+| EXP-07 | Сборочная схема / порядок сборки | UNKNOWN | пошаговые виды | P3 | XL | NOT_STARTED |
+| EXP-08 | SVG-чертёж | N/A | сериализация слоя | P2 | S | NOT_STARTED |
+| EXP-09 | PNG-вид | N/A | SVG → canvas | P2 | S | NOT_STARTED |
+| EXP-10 | GLTF для 3D | N/A | боксы по `Part[]` | P3 | M | NOT_STARTED |
+| EXP-11 | Формат стороннего САПР («Базис») | CONFIRMED у референса | **OUT_OF_SCOPE**: проприетарный бинарный формат, публичной спецификации нет | — | — | OUT_OF_SCOPE |
+| EXP-12 | Печать напрямую из браузера | N/A | print-стили | P3 | S | NOT_STARTED |
+
+## 9. ПЛАНИРОВЩИК
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| PLN-01 | Помещение: стены | UNKNOWN T-PLAN-01 | полилиния стен, высота потолка | P2 | L | NOT_STARTED |
+| PLN-02 | Расстановка мебели | UNKNOWN | drag с привязкой к стенам | P2 | L | NOT_STARTED |
+| PLN-03 | Размерные цепочки до стен | UNKNOWN | автоматические | P2 | M | NOT_STARTED |
+| PLN-04 | Поворот с шагом привязки | UNKNOWN | 15° | P2 | S | NOT_STARTED |
+| PLN-05 | Обнаружение пересечений | N/A | предупреждение | P3 | M | NOT_STARTED |
+| PLN-06 | Несколько предметов в проекте | N/A | `Furniture[]` уже в модели | P2 | L | NOT_STARTED |
+
+## 10. ДОСТУПНОСТЬ И КАЧЕСТВО
+
+| ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
+| --- | --- | --- | --- | --- | --- | --- |
+| A11Y-01 | Полная работа с клавиатуры | N/A | сквозной сценарий | P1 | L | NOT_STARTED |
+| A11Y-02 | `prefers-reduced-motion` | N/A | один хук на весь проект | P1 | S | NOT_STARTED |
+| A11Y-03 | `prefers-reduced-transparency` | N/A | непрозрачные поверхности | P1 | S | NOT_STARTED |
+| A11Y-04 | `prefers-contrast: more` | N/A | усиленные границы | P2 | S | NOT_STARTED |
+| A11Y-05 | Screen reader для схемы | N/A | `aria-label` на деталях, `aria-live` | P2 | L | NOT_STARTED |
+| A11Y-06 | Проверка контраста в CI | N/A | тест токенов | P2 | S | NOT_STARTED |
+| A11Y-07 | Масштаб текста до 200 % | N/A | `rem`-раскладка | P1 | M | NOT_STARTED |
+| QA-01 | Property-тесты геометрии | N/A | fast-check | P1 | M | NOT_STARTED |
+| QA-02 | Снапшоты реперных изделий | N/A | Vitest | P1 | M | NOT_STARTED |
+| QA-03 | E2E-сценарии | N/A | Playwright | P1 | L | NOT_STARTED |
+| QA-04 | Бюджет производительности в CI | N/A | трассировка кадров | P2 | M | NOT_STARTED |
+| QA-05 | Визуальные регрессии схемы | N/A | скриншот-тесты | P2 | M | NOT_STARTED |
+
+---
+
+## 11. СВОДКА
+
+| Приоритет | Количество |
+| --- | --- |
+| P0 | 29 |
+| P1 | 47 |
+| P2 | 30 |
+| P3 | 8 |
+| OUT_OF_SCOPE | 1 |
+| **Всего** | **115** |
+
+| Сложность | Количество |
+| --- | --- |
+| S | 30 |
+| M | 55 |
+| L | 23 |
+| XL | 6 |
+| не оценивается (OUT_OF_SCOPE) | 1 |
+
+Сложные функции (`XL`: карта раскроя, присадка, купе, сборочные схемы,
+нестандартные формы) **не исключены** — они вынесены в поздние этапы плана,
+но остаются в области проекта.
+
+Единственное исключение — `EXP-11`: не из-за сложности, а потому что формат
+проприетарный и публичной спецификации не имеет. Реализовать его добросовестно
+невозможно.

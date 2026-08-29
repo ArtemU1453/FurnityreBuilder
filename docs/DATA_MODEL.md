@@ -1,0 +1,717 @@
+# Доменная модель
+
+**Правило документа:** модель не знает о React, DOM, canvas, SVG, единицах экрана
+и о том, как выглядит интерфейс. Она описывает мебель, а не приложение.
+Любой тип отсюда должен быть сериализуем в JSON без потерь.
+
+---
+
+## 1. БАЗОВЫЕ СОГЛАШЕНИЯ
+
+### 1.1 Единицы
+
+Все линейные величины — **миллиметры**. Одно целое число не подходит: зазоры и
+половины зазоров дают доли (например, два накладных фасада на 1000 мм при зазоре
+3 мм → 498.5 мм). Решение:
+
+```ts
+/** Миллиметры. Инвариант: кратно 0.1. Нормализация — только через roundMm(). */
+export type Mm = number;
+
+export const MM_PRECISION = 0.1;
+export const MM_EPSILON  = 0.05;
+
+export const roundMm = (v: number): Mm => Math.round(v * 10) / 10;
+export const eqMm = (a: Mm, b: Mm): boolean => Math.abs(a - b) < MM_EPSILON;
+```
+
+**Правило.** Каждая величина, попадающая в `Part`, проходит через `roundMm`.
+Сравнения размеров — только через `eqMm`, никогда через `===`.
+
+### 1.2 Система координат
+
+Правая тройка, начало — левый-нижний-задний угол габарита изделия.
+
+| Ось | Направление | Смысл |
+| --- | --- | --- |
+| `x` | вправо | ширина `W` |
+| `y` | вверх | высота `H` |
+| `z` | от задней стенки вперёд, к пользователю | глубина `D` |
+
+Причина выбора: `y` вверх совпадает с интуицией «полка выше / ниже» и с тем, как
+пользователь читает фасад. Экранная инверсия `y` — задача слоя отрисовки, не домена.
+
+Позиция детали `position` — координата её **минимального угла** (min-x, min-y, min-z).
+
+### 1.3 Идентификаторы
+
+```ts
+export type Id<T extends string> = string & { readonly __brand: T };
+export type NodeId  = Id<'Node'>;
+export type PartId  = Id<'Part'>;
+export type MaterialId = Id<'Material'>;
+```
+
+Генерация — `crypto.randomUUID()`. Идентификаторы стабильны между пересчётами
+геометрии: `PartId` детерминированно выводится из пути в дереве и роли детали,
+чтобы выделение не слетало после изменения размера (см. `INTERACTION_MODEL.md` §9).
+
+### 1.4 Версионирование
+
+```ts
+export const SCHEMA_VERSION = 1;
+```
+Каждый сохранённый проект несёт `schemaVersion`. Миграции — чистые функции
+`migrate_N_to_N+1(doc)`, см. `ARCHITECTURE.md` §8.4.
+
+---
+
+## 2. КОРНЕВЫЕ СУЩНОСТИ
+
+```ts
+export interface Project {
+  readonly id: Id<'Project'>;
+  schemaVersion: number;
+  name: string;
+  createdAt: string;          // ISO 8601
+  updatedAt: string;
+  units: 'mm';                // зарезервировано на будущее
+  materials: MaterialLibrary;
+  hardware: HardwareLibrary;
+  furniture: Furniture[];      // сейчас 1; массив — задел под планировщик
+  room?: Room;                 // планировщик, опционально
+  settings: ProjectSettings;
+}
+
+export interface ProjectSettings {
+  defaultMaterialId: MaterialId;
+  defaultEdge: EdgeSpec;
+  construction: ConstructionScheme;   // см. §4 — ключевая параметризация
+  tolerances: Tolerances;
+}
+```
+
+```ts
+export interface Furniture {
+  readonly id: Id<'Furniture'>;
+  name: string;
+  kind: FurnitureKind;
+  dimensions: Dimensions;
+  carcass: CarcassSpec;
+  root: SectionNode;          // дерево внутреннего пространства — см. §5
+  facades: FacadeGroup[];     // двери, наложенные на секции — см. §7
+  placement?: Placement;      // положение в помещении (планировщик)
+}
+
+export type FurnitureKind =
+  | 'wardrobe'      // гардероб / шкаф
+  | 'shelving'      // стеллаж (без дверей)
+  | 'cabinet'       // тумба
+  | 'dresser';      // комод
+```
+
+`kind` влияет только на пресеты и подсказки, **не на геометрию**.
+Геометрия одинакова для всех: корпус + дерево секций + фасады.
+
+---
+
+## 3. ГАБАРИТЫ
+
+```ts
+export interface Dimensions {
+  width:  Mm;   // W — габарит по X
+  height: Mm;   // H — габарит по Y
+  depth:  Mm;   // D — габарит по Z
+  panelThickness: Mm;   // T — толщина основного материала корпуса
+}
+```
+
+**Что входит в габарит — параметр, а не догадка:**
+
+```ts
+export interface Tolerances {
+  /** Входит ли толщина задней стенки в габаритную глубину D. UNKNOWN: T-CAR-04 */
+  depthIncludesBackPanel: boolean;
+  /** Входят ли накладные фасады в габаритную глубину D. UNKNOWN: T-DOOR-02 */
+  depthIncludesFacade: boolean;
+  /** Входит ли цоколь/ножки в габаритную высоту H. UNKNOWN: T-CAR-05 */
+  heightIncludesBase: boolean;
+}
+```
+
+Границы значений W/H/D — `UNKNOWN` (тест T-DIM-01). До установления используются
+предупреждающие, а не блокирующие пороги (см. `validation` §10) — приложение не
+запрещает пользователю ввод, а сообщает о риске конструкции.
+
+---
+
+## 4. СХЕМА СБОРКИ КАРКАСА — ЦЕНТРАЛЬНАЯ ПАРАМЕТРИЗАЦИЯ
+
+Это ответ на 9 из 59 неизвестных функциональной спецификации. Вместо выдуманной
+формулы модель хранит **схему стыка**, а геометрия выводится из неё.
+
+```ts
+export interface ConstructionScheme {
+  /** Кто «сквозной» по вертикали: боковины или горизонтали. */
+  verticalPriority: 'sides-through' | 'horizontals-through' | 'mixed';
+  /** Для 'mixed': верх накладной, низ вкладной (частая практика). */
+  topOverlaysSides: boolean;
+  bottomOverlaysSides: boolean;
+  /** Монтаж задней стенки. */
+  backMount: BackPanelMount;
+  /** Крепёж корпусных стыков. */
+  jointType: 'confirmat' | 'eccentric' | 'dowel' | 'eccentric+dowel';
+}
+```
+
+Три поддерживаемых варианта и следствия для деталей при `W`, `H`, `D`, `T`:
+
+| Схема | Боковина | Верх / низ | Проверяется тестом |
+| --- | --- | --- | --- |
+| `sides-through` | `H × D` | `(W − 2T) × D` | T-CAR-01 |
+| `horizontals-through` | `(H − 2T) × D` | `W × D` | T-CAR-01 |
+| `mixed` (верх накладной) | `(H − T) × D` | верх `W × D`, низ `(W − 2T) × D` | T-CAR-01 |
+
+```ts
+// ASSUMPTION (до T-CAR-01): наиболее частая практика для шкафов —
+// боковины сквозные, горизонтали между ними.
+export const DEFAULT_SCHEME: ConstructionScheme = {
+  verticalPriority: 'sides-through',
+  topOverlaysSides: false,
+  bottomOverlaysSides: false,
+  backMount: { kind: 'overlay', thickness: 3 },
+  jointType: 'confirmat',
+};
+```
+
+```ts
+export interface CarcassSpec {
+  hasTop: boolean;
+  hasBottom: boolean;
+  back: BackPanelSpec;
+  base?: BaseSpec;          // цоколь или ножки
+  countertop?: CountertopSpec;
+}
+```
+
+---
+
+## 5. ВНУТРЕННЕЕ ПРОСТРАНСТВО: ДЕРЕВО СЕКЦИЙ
+
+### 5.1 Почему дерево, а не плоская сетка
+
+Задание говорит о «сетке, строках, колонках». Плоская сетка `rows × cols` не
+описывает реальную мебель: в шкафу левая колонка может быть разделена на 5 полок,
+а правая — на штангу сверху и 3 ящика снизу, причём ящичная зона делится дальше.
+Плоская сетка вынуждает создавать фиктивные строки во всех колонках.
+
+**Решение: рекурсивное дерево с чередующейся осью деления.**
+Дерево — надмножество сетки: плоская сетка = split по X, каждый ребёнок = split по Y
+с одинаковым числом детей. Поэтому выбор дерева ничего не теряет.
+
+`UNKNOWN (T-GRID-01)`: использует ли референс плоскую сетку или дерево. На нашу
+модель это не влияет — она покрывает оба случая. Влияет только на UI-пресеты.
+
+### 5.2 Типы узлов
+
+```ts
+export type SectionNode = SplitNode | LeafNode;
+
+export interface SplitNode {
+  readonly id: NodeId;
+  kind: 'split';
+  axis: 'x' | 'y';                 // 'x' → колонки (вертикальные стойки)
+                                   // 'y' → строки (горизонтальные полки-разделители)
+  divider: DividerSpec;            // чем именно разделено
+  children: SectionChild[];        // ≥ 2
+}
+
+export interface SectionChild {
+  size: SizeSpec;
+  node: SectionNode;
+}
+
+export interface LeafNode {
+  readonly id: NodeId;
+  kind: 'leaf';
+  fill: LeafFill;                  // наполнение ячейки
+}
+```
+
+### 5.3 Размеры детей — как ведут себя ячейки при изменении габарита
+
+Это прямой ответ на UNKNOWN T-DIM-04, вынесенный в решение пользователя:
+
+```ts
+export type SizeSpec =
+  | { mode: 'fixed'; value: Mm }   // держит абсолютный размер; при росте корпуса не меняется
+  | { mode: 'flex'; weight: number }; // делит остаток пропорционально весу
+```
+
+Алгоритм раскладки одного `SplitNode` по доступной длине `L` вдоль оси:
+
+```
+usable = L − divider.thickness × (children.length − 1)
+fixedSum = Σ fixed.value
+flexSum  = Σ flex.weight
+rest = usable − fixedSum
+for each flex child: size = rest × (weight / flexSum)
+```
+
+Инварианты:
+- `rest ≥ 0` — иначе `ValidationError('OVERCONSTRAINED_SPLIT')`;
+- размер любой ячейки `≥ minCellSize` (по умолчанию 50 мм) — иначе `warning`.
+
+Поведение при изменении габарита следует из режима:
+`fixed` — ячейка сохраняет размер, `flex` — растягивается. Пользователь видит и
+переключает режим прямо в схеме (замок на размерной линии), см. `UX_FLOW.md` §6.
+
+### 5.4 Разделитель
+
+```ts
+export interface DividerSpec {
+  /** Реальная деталь или воображаемая линия деления. */
+  material: 'panel' | 'none';
+  thickness: Mm;                   // 0 если 'none'
+  /** Для 'y': полка-разделитель. Съёмная или стационарная. */
+  mounting: 'fixed' | 'adjustable';
+  /** Насколько разделитель не доходит до фасада. */
+  frontSetback: Mm;                // UNKNOWN: T-SHF-01, default 0
+  materialId?: MaterialId;         // если отличается от корпуса
+  edge?: EdgeSpec;
+}
+```
+
+`material: 'none'` нужен для чисто логического деления (например, зона под штангой,
+не отделённая физической полкой).
+
+### 5.5 Наполнение ячейки
+
+```ts
+export type LeafFill =
+  | { kind: 'empty' }
+  | { kind: 'shelves'; shelves: Shelf[] }
+  | { kind: 'drawers'; drawers: Drawer[] }
+  | { kind: 'rod'; rod: HangingRod }
+  | { kind: 'rod+shelf'; rod: HangingRod; shelfAbove: Shelf };
+```
+
+Смешанные случаи (полки + ящики в одной ячейке) выражаются делением по `y`
+на две ячейки, а не флагами внутри одной — это сохраняет модель однозначной.
+
+---
+
+## 6. ДЕТАЛИ НАПОЛНЕНИЯ
+
+### 6.1 Полка
+
+```ts
+export interface Shelf {
+  readonly id: NodeId;
+  /** Положение вдоль высоты ячейки. */
+  placement:
+    | { mode: 'auto'; index: number; count: number }  // равномерно
+    | { mode: 'manual'; offsetFromBottom: Mm };
+  mounting: 'adjustable' | 'fixed';   // полкодержатель / конфирмат
+  thickness?: Mm;                     // если отличается от корпуса
+  materialId?: MaterialId;
+  edge?: EdgeSpec;
+  /** Отступ передней кромки от плоскости фасада. UNKNOWN: T-SHF-01 */
+  frontSetback?: Mm;
+}
+```
+
+Расчёт ширины и глубины — в `ARCHITECTURE.md` §5.4. Правило допустимого пролёта
+(`CONFIRMED`, см. функциональную спецификацию §1.3) реализуется как валидация,
+а не как ограничение ввода.
+
+### 6.2 Ящик
+
+```ts
+export interface Drawer {
+  readonly id: NodeId;
+  /** Высота фасада как доля ячейки или фиксированная. */
+  size: SizeSpec;
+  slide: SlideSpec;
+  box: DrawerBoxSpec;
+  facade: FacadeSpec;
+  handle?: HandleSpec | null;         // null = PUSH-открывание
+}
+
+export interface SlideSpec {
+  type: 'roller' | 'ball-full' | 'ball-partial' | 'hidden-soft-close';
+  /** Номинальная длина, мм. INDUSTRY: 250…600 шаг 50. UNKNOWN точный ряд: T-DRW-03 */
+  nominalLength: Mm;
+  /** Зазор с каждой стороны между коробом и стенкой проёма. UNKNOWN: T-DRW-02 */
+  sideClearance: Mm;
+}
+
+export interface DrawerBoxSpec {
+  sideHeight: Mm;
+  bottom: {
+    mount: 'groove' | 'nailed-under';   // UNKNOWN: T-DRW-02
+    thickness: Mm;                       // обычно 3–4 (ХДФ)
+    grooveDepth?: Mm;
+    grooveOffsetFromBottom?: Mm;
+  };
+  materialId?: MaterialId;
+}
+```
+
+```ts
+// ASSUMPTION (до T-DRW-02): шариковые направляющие полного выдвижения,
+// зазор 13 мм с каждой стороны — наиболее распространённый стандарт.
+export const DEFAULT_SLIDE: SlideSpec = {
+  type: 'ball-full', nominalLength: 450, sideClearance: 13,
+};
+```
+
+### 6.3 Штанга
+
+```ts
+export interface HangingRod {
+  readonly id: NodeId;
+  profile: 'round-25' | 'oval-30x15';
+  /** Отступ от верха ячейки — место для плечиков. */
+  offsetFromTop: Mm;                  // ASSUMPTION 60; UNKNOWN: T-HW-05
+  /** Отступ от фасада. */
+  offsetFromFront: Mm;                // ASSUMPTION 100; UNKNOWN: T-HW-05
+  mount: 'flange' | 'endcap';
+}
+```
+
+---
+
+## 7. ФАСАДЫ
+
+Фасады не принадлежат ячейке: одна дверь может закрывать несколько ячеек.
+Поэтому это отдельный список со ссылкой на покрываемую область.
+
+```ts
+export interface FacadeGroup {
+  readonly id: NodeId;
+  /** Что закрывает: узел дерева (секцию) или весь корпус. */
+  covers: { kind: 'node'; nodeId: NodeId } | { kind: 'carcass' };
+  type: FacadeType;
+  leaves: FacadeLeaf[];               // створки
+  overlay: OverlaySpec;
+}
+
+export type FacadeType =
+  | 'hinged'        // распашные
+  | 'sliding'       // купе        (UNKNOWN наличие: T-DOOR-01)
+  | 'folding'       // складные    (UNKNOWN наличие: T-DOOR-01)
+  | 'lift';         // подъёмные   (UNKNOWN наличие: T-DOOR-01)
+
+export interface FacadeLeaf {
+  readonly id: NodeId;
+  /** Доля ширины проёма. */
+  size: SizeSpec;
+  hingeSide: 'left' | 'right' | 'top' | 'bottom' | 'none';
+  handle?: HandleSpec | null;
+  materialId?: MaterialId;
+  edge?: EdgeSpec;
+}
+
+export interface OverlaySpec {
+  /** Накладной (поверх корпуса) или вкладной (в проём). UNKNOWN: T-DOOR-02 */
+  mode: 'overlay' | 'inset';
+  gapBetweenLeaves: Mm;    // UNKNOWN: T-DOOR-02, ASSUMPTION 3
+  gapTop: Mm;              // ASSUMPTION 2
+  gapBottom: Mm;           // ASSUMPTION 2
+  gapSide: Mm;             // ASSUMPTION 2
+}
+```
+
+---
+
+## 8. ЗАДНЯЯ СТЕНКА, ЦОКОЛЬ, СТОЛЕШНИЦА
+
+```ts
+export type BackPanelMount =
+  | { kind: 'none' }
+  | { kind: 'overlay'; thickness: Mm }              // прибивается сзади
+  | { kind: 'inset-groove'; thickness: Mm;          // в паз
+      grooveDepth: Mm; grooveOffsetFromRear: Mm }
+  | { kind: 'inset-flush'; thickness: Mm };         // в четверть/впотай
+
+export interface BackPanelSpec {
+  mount: BackPanelMount;
+  materialId: MaterialId;
+  /** Одна панель или отдельная на каждую секцию. UNKNOWN: T-CAR-04 */
+  segmentation: 'single' | 'per-section';
+}
+
+export interface BaseSpec {
+  kind: 'plinth' | 'legs' | 'none';
+  height: Mm;
+  /** Отступ цоколя вглубь от плоскости фасада. */
+  setback: Mm;                 // UNKNOWN: T-OFF-01
+  legCount?: number;
+}
+
+export interface CountertopSpec {
+  thickness: Mm;
+  overhangFront: Mm;           // UNKNOWN: T-CAR-06
+  overhangLeft: Mm;
+  overhangRight: Mm;
+  overhangBack: Mm;
+  materialId: MaterialId;
+  edge: EdgeSpec;
+}
+```
+
+---
+
+## 9. МАТЕРИАЛЫ И КРОМКА
+
+```ts
+export interface Material {
+  readonly id: MaterialId;
+  name: string;                 // задаёт пользователь; никаких брендовых каталогов
+  kind: 'chipboard' | 'mdf' | 'plywood' | 'hardboard' | 'solid' | 'glass' | 'other';
+  thickness: Mm;
+  /** Цвет только для отрисовки схемы, не для фотореализма. */
+  displayColor: string;         // hex
+  /** Направление текстуры — критично для карты раскроя. */
+  grain: 'none' | 'along-length' | 'along-width';
+  sheet?: { width: Mm; height: Mm; trim: Mm };  // формат листа для раскроя
+  pricePerSqM?: number;         // опционально, для сметы; по умолчанию не задано
+}
+
+export interface MaterialLibrary {
+  items: Record<MaterialId, Material>;
+  /** Назначение материала по ролям деталей. */
+  assignment: Partial<Record<PartRole, MaterialId>>;
+}
+```
+
+```ts
+export type EdgeThickness = 0 | 0.4 | 1 | 2;
+
+export interface EdgeSpec {
+  /** Кромка на каждой из четырёх сторон детали в её локальных координатах. */
+  front: EdgeThickness;
+  back:  EdgeThickness;
+  left:  EdgeThickness;
+  right: EdgeThickness;
+  materialId?: MaterialId;
+}
+
+/**
+ * Вычитается ли толщина кромки из размера детали при раскрое.
+ * true  → в карту раскроя идёт размер ДО оклейки (деталь + кромка = проектный размер)
+ * false → в карту раскроя идёт проектный размер, кромка «сверху»
+ * UNKNOWN: T-EDG-03 — определяющий тест.
+ */
+export interface EdgeSizingPolicy { subtractFromPartSize: boolean }
+```
+
+Правило по умолчанию (`INDUSTRY`): видимые фронтальные торцы — 2 мм ПВХ,
+невидимые внутренние — 0.4 мм, задние торцы у стены — без кромки.
+Правило референса — `UNKNOWN (T-EDG-02)`.
+
+---
+
+## 10. ФУРНИТУРА
+
+```ts
+export type HardwareKind =
+  | 'confirmat' | 'eccentric' | 'dowel' | 'shelf-support'
+  | 'hinge' | 'slide' | 'handle' | 'push-latch'
+  | 'rod' | 'rod-flange' | 'leg' | 'plinth-clip' | 'back-nail';
+
+export interface HardwareItem {
+  readonly id: Id<'Hardware'>;
+  kind: HardwareKind;
+  name: string;
+  spec: Record<string, string | number>;   // «7×50», «угол 110°» и т.п.
+}
+
+/** Позиция в итоговой спецификации. */
+export interface HardwareLine {
+  hardwareId: Id<'Hardware'>;
+  quantity: number;
+  /** Откуда взялось — для трассируемости и подсветки в схеме. */
+  sourcePartIds: PartId[];
+}
+```
+
+Правила количества (петли по высоте двери, конфирматы по глубине стыка) —
+**не константы модели**, а таблицы в `src/parts/rules/`, покрытые тестами.
+Пороги — `UNKNOWN (T-DOOR-05, T-HW-03)`, значения по умолчанию — `INDUSTRY`.
+
+---
+
+## 11. ДЕТАЛЬ — ВЫХОД ГЕОМЕТРИЧЕСКОГО ДВИЖКА
+
+`Part` **не хранится** в проекте. Это производная величина: `Furniture → Part[]`.
+Хранение деталей означало бы два источника истины.
+
+```ts
+export interface Part {
+  readonly id: PartId;              // детерминированный, стабильный между пересчётами
+  role: PartRole;
+  label: string;                    // «Боковина левая», «Полка 2 (секция A)»
+  /** Позиция минимального угла в системе координат изделия. */
+  position: { x: Mm; y: Mm; z: Mm };
+  /** Габарит детали по осям изделия. */
+  size: { x: Mm; y: Mm; z: Mm };
+  /** Плоскость пласти — определяет, какие два размера являются «длина × ширина». */
+  orientation: 'vertical-yz' | 'horizontal-xz' | 'frontal-xy';
+  /** Размеры для раскроя, уже с учётом EdgeSizingPolicy. */
+  cut: { length: Mm; width: Mm; thickness: Mm };
+  materialId: MaterialId;
+  edge: EdgeSpec;
+  grainLocked: boolean;             // нельзя поворачивать при раскрое
+  /** Трассируемость: какой узел модели породил деталь. */
+  origin: { nodeId?: NodeId; furnitureId: Id<'Furniture'> };
+  drilling: DrillHole[];
+  quantityGroupKey: string;         // для группировки одинаковых деталей в спецификации
+}
+
+export type PartRole =
+  | 'side' | 'top' | 'bottom' | 'partition'
+  | 'shelf-fixed' | 'shelf-adjustable'
+  | 'back' | 'plinth' | 'countertop'
+  | 'facade' | 'drawer-front' | 'drawer-side' | 'drawer-back' | 'drawer-bottom'
+  | 'filler' | 'other';
+
+export interface DrillHole {
+  face: 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
+  /** Координаты в локальной системе детали, от её минимального угла. */
+  u: Mm; v: Mm;
+  diameter: Mm;
+  depth: Mm;
+  purpose: 'confirmat-face' | 'confirmat-end' | 'shelf-support'
+         | 'hinge-cup' | 'hinge-plate' | 'slide' | 'handle' | 'dowel' | 'eccentric';
+}
+```
+
+---
+
+## 12. ВАЛИДАЦИЯ
+
+```ts
+export type Severity = 'error' | 'warning' | 'info';
+
+export interface Issue {
+  code: string;                     // 'SHELF_SPAN_EXCEEDED'
+  severity: Severity;
+  message: string;
+  /** К чему относится — для подсветки в схеме. */
+  target: { nodeId?: NodeId; partId?: PartId };
+  /** Предлагаемое исправление, если оно однозначно. */
+  fix?: { label: string; apply: 'AddPartition' | 'ThickenShelf' | 'ReduceWidth' };
+}
+```
+
+**Принцип (Agency).** `error` не блокирует редактирование — блокирует только
+экспорт производственных файлов. Пользователь всегда может довести проект
+до корректного состояния сам; приложение не отбирает у него управление.
+
+---
+
+## 13. ПОМЕЩЕНИЕ И ПЛАНИРОВЩИК
+
+```ts
+export interface Room {
+  walls: Wall[];
+  ceilingHeight: Mm;
+}
+
+export interface Wall {
+  readonly id: Id<'Wall'>;
+  a: { x: Mm; z: Mm };
+  b: { x: Mm; z: Mm };
+  thickness: Mm;
+  height: Mm;
+}
+
+export interface Placement {
+  /** Позиция в плане помещения. */
+  origin: { x: Mm; z: Mm };
+  /** Поворот вокруг вертикальной оси, градусы, шаг привязки 15°. */
+  rotationDeg: number;
+  /** Зазоры до стен, вычисляются, но могут быть зафиксированы пользователем. */
+  clearances?: { left?: Mm; right?: Mm; back?: Mm };
+}
+```
+
+Планировщик — приоритет P2, см. `FEATURE_MATRIX.md`.
+
+---
+
+## 14. ДОКУМЕНТ И ИСТОРИЯ
+
+```ts
+/** Сохраняемая единица. */
+export interface ProjectDocument {
+  schemaVersion: number;
+  project: Project;
+}
+
+/** Не сохраняется. Живёт только в сессии. */
+export interface HistoryState {
+  past: Patch[][];
+  future: Patch[][];
+  limit: number;   // 200
+}
+```
+
+Undo/redo реализуется патчами Immer (`produceWithPatches`), а не снимками:
+патч дешёв, сериализуем и одновременно служит дельтой для автосохранения.
+Подробности — `ARCHITECTURE.md` §6.3.
+
+---
+
+## 15. ИНВАРИАНТЫ МОДЕЛИ
+
+Проверяются в dev-режиме после каждой мутации, в тестах — всегда.
+
+1. `SplitNode.children.length ≥ 2`.
+2. У `SplitNode` хотя бы один ребёнок имеет `mode: 'flex'`, либо сумма `fixed`
+   в точности равна доступной длине.
+3. Вложенные `SplitNode` с одинаковой `axis` запрещены — вместо этого
+   разделитель добавляется в существующий узел. Гарантирует единственность
+   представления и предсказуемость undo.
+4. Все `NodeId` в пределах `Furniture` уникальны.
+5. `FacadeGroup.covers.nodeId` ссылается на существующий узел.
+6. Толщина любой детали > 0.
+7. Любая величина в `Part` кратна 0.1 мм.
+8. `Part` не пересекается с другим `Part` объёмом более `MM_EPSILON³`
+   (проверка коллизий, `warning` — ловит ошибки формул).
+
+---
+
+## 16. ЧТО МОДЕЛЬ СОЗНАТЕЛЬНО НЕ СОДЕРЖИТ
+
+| Отсутствует | Причина |
+| --- | --- |
+| Пользователь, аккаунт, сессия, токен | Продукт без регистрации и авторизации |
+| Цена, заказ, корзина, подписка, тариф | Продукт бесплатный, без платных функций |
+| Аналитика, идентификаторы устройства | Нет трекинга |
+| Ссылки на внешние API и каталоги | Нет зависимости от внешних сервисов |
+| Состояние UI (выделение, зум, открытая панель) | Это состояние сессии, не документа. См. `ARCHITECTURE.md` §6 |
+| Транзиентное состояние drag | Живёт в ref слоя взаимодействия, никогда не в домене |
+
+---
+
+## 17. СВОДКА UNKNOWN В МОДЕЛИ
+
+| Поле / решение | Тест |
+| --- | --- |
+| Границы W/H/D, шаг, значения по умолчанию | T-DIM-01, T-DIM-03 |
+| Поведение ячеек при изменении габарита | T-DIM-04 (решено параметром `SizeSpec`) |
+| `ConstructionScheme.verticalPriority` | T-CAR-01 |
+| `BackPanelMount`, вхождение в глубину | T-CAR-04 |
+| Плоская сетка или дерево у референса | T-GRID-01 (наша модель покрывает оба) |
+| `OverlaySpec` — режим и зазоры | T-DOOR-02 |
+| Правило количества петель | T-DOOR-05 |
+| `SlideSpec.sideClearance`, ряд длин | T-DRW-02, T-DRW-03 |
+| Формула размеров полки, `frontSetback` | T-SHF-01 |
+| `EdgeSizingPolicy.subtractFromPartSize` | T-EDG-03 |
+| Правило сторон оклейки | T-EDG-02 |
+| Правило количества конфирматов | T-HW-03 |
+| Параметры штанги | T-HW-05 |
+| Свесы столешницы, отступ цоколя | T-CAR-06, T-OFF-01 |
