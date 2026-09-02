@@ -68,7 +68,18 @@ export const carcassStage: GeometryStage = {
   name: 'carcass',
   run(ctx: GeometryContext): void {
     const { furniture, tolerances, edgeSizing, materials } = ctx.input;
-    const { width: W, height: H, depth: D, panelThickness: T } = furniture.dimensions;
+    // Нормализуем входные габариты ОДИН раз и переиспользуем нормализованные
+    // значения во всех формулах ниже. Раньше T бралась «сырой» и округлялась
+    // отдельно на каждом месте использования (в позиции W−T и в размере
+    // детали T) — при T, не лежащей на сетке 0.1 мм (например, T = 8.25),
+    // два независимых округления могли разойтись в одну сторону и правая
+    // боковина оказывалась на 0.1 мм за пределами заявленной ширины.
+    // Найдено property-тестом, см. docs/TESTING_STRATEGY.md §4 и
+    // tests/unit/geometry/properties.test.ts.
+    const W = roundMm(furniture.dimensions.width);
+    const H = roundMm(furniture.dimensions.height);
+    const D = roundMm(furniture.dimensions.depth);
+    const T = roundMm(furniture.dimensions.panelThickness);
     const { hasTop, hasBottom, back } = furniture.carcass;
 
     const backGeom = resolveBackGeometry(back.mount, D, tolerances.depthIncludesBackPanel);

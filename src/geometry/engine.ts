@@ -34,17 +34,32 @@ const IMPLEMENTED: Readonly<Record<string, GeometryStage>> = {
 };
 
 /**
+ * Вырожденный габарит для контекста, пока ни один этап ещё не подтвердил
+ * пригодность входа. Раньше сюда попадали сырые, непроверенные
+ * `furniture.dimensions` — если `carcass` не запускался (например, из-за
+ * отрицательной ширины), наружу утекал `bounds` с отрицательным или NaN
+ * размером. Теперь `bounds` остаётся нулевым, пока `carcass` не установит
+ * его сам, на уже нормализованных данных.
+ */
+const DEGENERATE_BOUNDS = box3(vec3(0, 0, 0), vec3(0, 0, 0));
+
+/**
  * Единственная точка входа геометрии.
  *
  * Функция чистая и детерминированная: не читает часы, не генерирует случайных
  * значений, не обращается к DOM. Одинаковый вход даёт побайтово одинаковый
  * выход, поэтому её можно сравнивать снапшотом и переносить в Web Worker
  * без изменений.
+ *
+ * Аварийная остановка. Как только какой-либо этап сообщает об ошибке
+ * (`GeometryContext.hasFatalError()`), последующие этапы конвейера не
+ * запускаются. Движок не пытается достроить геометрию поверх данных, уже
+ * признанных непригодными: результат для недопустимого входа — пустой список
+ * деталей и понятная диагностика, а не набор деталей со случайными
+ * координатами. См. docs/GEOMETRY_RULES.md, раздел «Аварийная остановка».
  */
 export function buildGeometry(input: GeometryInput): GeometryResult {
-  const { width, height, depth } = input.furniture.dimensions;
-  const initialBounds = box3(vec3(0, 0, 0), vec3(width, height, depth));
-  const ctx = new GeometryContext(input, initialBounds);
+  const ctx = new GeometryContext(input, DEGENERATE_BOUNDS);
 
   const pending: string[] = [];
 
@@ -58,6 +73,7 @@ export function buildGeometry(input: GeometryInput): GeometryResult {
       pending.push(descriptor.name);
       continue;
     }
+    if (ctx.hasFatalError()) continue;
     stage.run(ctx);
   }
 

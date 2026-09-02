@@ -131,6 +131,13 @@ export function App(): React.JSX.Element {
               <span className={styles.statLabel}>Внутренняя глубина</span>
               <span className={styles.statValue}>{formatMm(geometry.innerVolume.size.z)} мм</span>
             </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Bounding box (Ш×В×Г)</span>
+              <span className={styles.statValue}>
+                {formatMm(geometry.boundingBox.totalWidth)} × {formatMm(geometry.boundingBox.totalHeight)} ×{' '}
+                {formatMm(geometry.boundingBox.totalDepth)} мм
+              </span>
+            </li>
           </ul>
 
           {report.issues.length > 0 ? (

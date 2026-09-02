@@ -9,6 +9,7 @@ import type {
   Part,
   Tolerances,
 } from '../domain/index.js';
+import type { BoundingBox } from './bounding-box.js';
 
 /**
  * Вход геометрического движка. Полный и самодостаточный: движок ничего
@@ -39,10 +40,16 @@ export interface CellBox {
 export interface GeometryResult {
   readonly parts: readonly Part[];
   readonly cells: readonly CellBox[];
-  /** Габарит изделия целиком. */
+  /**
+   * Заявленный габарит изделия по W/H/D — то, что ДОЛЖНО получиться.
+   * Вырожден (нулевой) при фатальной ошибке входа: см. §"Аварийная остановка"
+   * в docs/GEOMETRY_RULES.md.
+   */
   readonly bounds: Box3;
   /** Внутренний объём корпуса, в котором раскладывается дерево секций. */
   readonly innerVolume: Box3;
+  /** Измеренный охват реально построенных деталей. См. bounding-box.ts. */
+  readonly boundingBox: BoundingBox;
   readonly diagnostics: readonly Issue[];
   readonly pendingStages: readonly string[];
 }

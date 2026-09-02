@@ -1,0 +1,565 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`снапшот: крупная мебель 5900×2900×1150, T=30 > снапшот полного списка деталей 1`] = `
+[
+  {
+    "cut": {
+      "length": 2900,
+      "thickness": 30,
+      "width": 1147,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/side/0",
+    "label": "Боковина левая",
+    "materialId": "t-1",
+    "orientation": "vertical-yz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "side|t-1|2900.0|1147.0|30.0|2/0/0.4/0.4",
+    "role": "side",
+    "size": {
+      "x": 30,
+      "y": 2900,
+      "z": 1147,
+    },
+  },
+  {
+    "cut": {
+      "length": 2900,
+      "thickness": 30,
+      "width": 1147,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/side/1",
+    "label": "Боковина правая",
+    "materialId": "t-1",
+    "orientation": "vertical-yz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 5870,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "side|t-1|2900.0|1147.0|30.0|2/0/0.4/0.4",
+    "role": "side",
+    "size": {
+      "x": 30,
+      "y": 2900,
+      "z": 1147,
+    },
+  },
+  {
+    "cut": {
+      "length": 5840,
+      "thickness": 30,
+      "width": 1147,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/bottom/0",
+    "label": "Дно",
+    "materialId": "t-1",
+    "orientation": "horizontal-xz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 30,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "bottom|t-1|5840.0|1147.0|30.0|2/0/0.4/0.4",
+    "role": "bottom",
+    "size": {
+      "x": 5840,
+      "y": 30,
+      "z": 1147,
+    },
+  },
+  {
+    "cut": {
+      "length": 5840,
+      "thickness": 30,
+      "width": 1147,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/top/0",
+    "label": "Крышка",
+    "materialId": "t-1",
+    "orientation": "horizontal-xz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 30,
+      "y": 2870,
+      "z": 3,
+    },
+    "quantityGroupKey": "top|t-1|5840.0|1147.0|30.0|2/0/0.4/0.4",
+    "role": "top",
+    "size": {
+      "x": 5840,
+      "y": 30,
+      "z": 1147,
+    },
+  },
+]
+`;
+
+exports[`снапшот: минимальная мебель 100×100×80, T=8 > снапшот полного списка деталей 1`] = `
+[
+  {
+    "cut": {
+      "length": 100,
+      "thickness": 8,
+      "width": 77,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/side/0",
+    "label": "Боковина левая",
+    "materialId": "t-1",
+    "orientation": "vertical-yz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "side|t-1|100.0|77.0|8.0|2/0/0.4/0.4",
+    "role": "side",
+    "size": {
+      "x": 8,
+      "y": 100,
+      "z": 77,
+    },
+  },
+  {
+    "cut": {
+      "length": 100,
+      "thickness": 8,
+      "width": 77,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/side/1",
+    "label": "Боковина правая",
+    "materialId": "t-1",
+    "orientation": "vertical-yz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 92,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "side|t-1|100.0|77.0|8.0|2/0/0.4/0.4",
+    "role": "side",
+    "size": {
+      "x": 8,
+      "y": 100,
+      "z": 77,
+    },
+  },
+  {
+    "cut": {
+      "length": 84,
+      "thickness": 8,
+      "width": 77,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/bottom/0",
+    "label": "Дно",
+    "materialId": "t-1",
+    "orientation": "horizontal-xz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 8,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "bottom|t-1|84.0|77.0|8.0|2/0/0.4/0.4",
+    "role": "bottom",
+    "size": {
+      "x": 84,
+      "y": 8,
+      "z": 77,
+    },
+  },
+  {
+    "cut": {
+      "length": 84,
+      "thickness": 8,
+      "width": 77,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/top/0",
+    "label": "Крышка",
+    "materialId": "t-1",
+    "orientation": "horizontal-xz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 8,
+      "y": 92,
+      "z": 3,
+    },
+    "quantityGroupKey": "top|t-1|84.0|77.0|8.0|2/0/0.4/0.4",
+    "role": "top",
+    "size": {
+      "x": 84,
+      "y": 8,
+      "z": 77,
+    },
+  },
+]
+`;
+
+exports[`снапшот: типовой шкаф 1000×2000×500, T=16 > снапшот полного списка деталей 1`] = `
+[
+  {
+    "cut": {
+      "length": 2000,
+      "thickness": 16,
+      "width": 497,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/side/0",
+    "label": "Боковина левая",
+    "materialId": "t-1",
+    "orientation": "vertical-yz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "side|t-1|2000.0|497.0|16.0|2/0/0.4/0.4",
+    "role": "side",
+    "size": {
+      "x": 16,
+      "y": 2000,
+      "z": 497,
+    },
+  },
+  {
+    "cut": {
+      "length": 2000,
+      "thickness": 16,
+      "width": 497,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/side/1",
+    "label": "Боковина правая",
+    "materialId": "t-1",
+    "orientation": "vertical-yz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 984,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "side|t-1|2000.0|497.0|16.0|2/0/0.4/0.4",
+    "role": "side",
+    "size": {
+      "x": 16,
+      "y": 2000,
+      "z": 497,
+    },
+  },
+  {
+    "cut": {
+      "length": 968,
+      "thickness": 16,
+      "width": 497,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/bottom/0",
+    "label": "Дно",
+    "materialId": "t-1",
+    "orientation": "horizontal-xz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 16,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "bottom|t-1|968.0|497.0|16.0|2/0/0.4/0.4",
+    "role": "bottom",
+    "size": {
+      "x": 968,
+      "y": 16,
+      "z": 497,
+    },
+  },
+  {
+    "cut": {
+      "length": 968,
+      "thickness": 16,
+      "width": 497,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/top/0",
+    "label": "Крышка",
+    "materialId": "t-1",
+    "orientation": "horizontal-xz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 16,
+      "y": 1984,
+      "z": 3,
+    },
+    "quantityGroupKey": "top|t-1|968.0|497.0|16.0|2/0/0.4/0.4",
+    "role": "top",
+    "size": {
+      "x": 968,
+      "y": 16,
+      "z": 497,
+    },
+  },
+]
+`;
+
+exports[`снапшот: увеличенная толщина материала при типовом габарите > снапшот полного списка деталей 1`] = `
+[
+  {
+    "cut": {
+      "length": 2000,
+      "thickness": 40,
+      "width": 497,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/side/0",
+    "label": "Боковина левая",
+    "materialId": "t-1",
+    "orientation": "vertical-yz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "side|t-1|2000.0|497.0|40.0|2/0/0.4/0.4",
+    "role": "side",
+    "size": {
+      "x": 40,
+      "y": 2000,
+      "z": 497,
+    },
+  },
+  {
+    "cut": {
+      "length": 2000,
+      "thickness": 40,
+      "width": 497,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/side/1",
+    "label": "Боковина правая",
+    "materialId": "t-1",
+    "orientation": "vertical-yz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 960,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "side|t-1|2000.0|497.0|40.0|2/0/0.4/0.4",
+    "role": "side",
+    "size": {
+      "x": 40,
+      "y": 2000,
+      "z": 497,
+    },
+  },
+  {
+    "cut": {
+      "length": 920,
+      "thickness": 40,
+      "width": 497,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/bottom/0",
+    "label": "Дно",
+    "materialId": "t-1",
+    "orientation": "horizontal-xz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 40,
+      "y": 0,
+      "z": 3,
+    },
+    "quantityGroupKey": "bottom|t-1|920.0|497.0|40.0|2/0/0.4/0.4",
+    "role": "bottom",
+    "size": {
+      "x": 920,
+      "y": 40,
+      "z": 497,
+    },
+  },
+  {
+    "cut": {
+      "length": 920,
+      "thickness": 40,
+      "width": 497,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 2,
+      "left": 0.4,
+      "right": 0.4,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/top/0",
+    "label": "Крышка",
+    "materialId": "t-1",
+    "orientation": "horizontal-xz",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 40,
+      "y": 1960,
+      "z": 3,
+    },
+    "quantityGroupKey": "top|t-1|920.0|497.0|40.0|2/0/0.4/0.4",
+    "role": "top",
+    "size": {
+      "x": 920,
+      "y": 40,
+      "z": 497,
+    },
+  },
+]
+`;

@@ -15,11 +15,11 @@ P2 — расширенная · P3 — дополнительные возмо�
 
 | ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
 | --- | --- | --- | --- | --- | --- | --- |
-| INF-01 | Каркас проекта (Vite + React + TS strict) | N/A | Vite, React 19, TypeScript strict | P0 | S | NOT_STARTED |
-| INF-02 | Границы слоёв в линтере | N/A | `eslint-plugin-boundaries`; React запрещён в домене | P0 | S | NOT_STARTED |
-| INF-03 | Тестовая инфраструктура | N/A | Vitest + Playwright + fast-check | P0 | M | NOT_STARTED |
-| INF-04 | CI (typecheck, lint, test, build) | N/A | GitHub Actions | P0 | S | NOT_STARTED |
-| INF-05 | Реестр UNKNOWN + проверка маркеров `ASSUMPTION` | N/A | `docs/UNKNOWNS.json` + скрипт в CI | P0 | S | NOT_STARTED |
+| INF-01 | Каркас проекта (Vite + React + TS strict) | N/A | Vite, React 19, TypeScript strict | P0 | S | IMPLEMENTED |
+| INF-02 | Границы слоёв в линтере | N/A | `eslint-plugin-boundaries`; React запрещён в домене | P0 | S | IMPLEMENTED |
+| INF-03 | Тестовая инфраструктура | N/A | Vitest + Playwright + fast-check | P0 | M | IMPLEMENTED |
+| INF-04 | CI (typecheck, lint, test, build) | N/A | GitHub Actions | P0 | S | IMPLEMENTED |
+| INF-05 | Реестр UNKNOWN + проверка маркеров `ASSUMPTION` | N/A | `docs/UNKNOWNS.json` + скрипт в CI | P0 | S | IMPLEMENTED |
 | INF-06 | Локальный шрифт с кириллицей для PDF | N/A | свободный шрифт в репозитории | P0 | S | NOT_STARTED |
 | INF-07 | PWA / офлайн | N/A | Service worker, установка на устройство | P2 | M | NOT_STARTED |
 
@@ -27,13 +27,13 @@ P2 — расширенная · P3 — дополнительные возмо�
 
 | ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
 | --- | --- | --- | --- | --- | --- | --- |
-| DOM-01 | Типы доменной модели | N/A | `DATA_MODEL.md` | P0 | M | NOT_STARTED |
-| DOM-02 | Инварианты модели | N/A | проверки + property-тесты | P0 | M | NOT_STARTED |
-| DOM-03 | Команды и история (undo/redo) | UNKNOWN | Immer patches, глубина 200, коалесценция | P0 | M | NOT_STARTED |
-| GEO-01 | Базовый расчёт габаритов | CONFIRMED (поля W/H/D в мм) | `Dimensions` + нормализация | P0 | S | NOT_STARTED |
-| GEO-02 | Схемы стыка каркаса (3 варианта) | UNKNOWN T-CAR-01 | параметр `ConstructionScheme` | P0 | M | NOT_STARTED |
-| GEO-03 | Боковины, верх, низ | UNKNOWN T-CAR-01 | по схеме | P0 | M | NOT_STARTED |
-| GEO-04 | Внутренний объём | UNKNOWN T-CAR-04 | по схеме + `Tolerances` | P0 | S | NOT_STARTED |
+| DOM-01 | Типы доменной модели | N/A | `DATA_MODEL.md` | P0 | M | IMPLEMENTED |
+| DOM-02 | Инварианты модели | N/A | проверки + property-тесты | P0 | M | IMPLEMENTED |
+| DOM-03 | Команды и история (undo/redo) | UNKNOWN | Immer patches, глубина 200, коалесценция | P0 | M | IMPLEMENTED |
+| GEO-01 | Базовый расчёт габаритов | CONFIRMED (поля W/H/D в мм) | `Dimensions` + нормализация | P0 | S | IMPLEMENTED |
+| GEO-02 | Схемы стыка каркаса (3 варианта) | UNKNOWN T-CAR-01 | параметр `ConstructionScheme` | P0 | M | IMPLEMENTED |
+| GEO-03 | Боковины, верх, низ | UNKNOWN T-CAR-01 | по схеме | P0 | M | IMPLEMENTED |
+| GEO-04 | Внутренний объём | UNKNOWN T-CAR-04 | по схеме + `Tolerances` | P0 | S | IMPLEMENTED |
 | GEO-05 | Дерево секций и раскладка | UNKNOWN T-GRID-01 | рекурсивный `SplitNode`, `fixed`/`flex` | P0 | L | NOT_STARTED |
 | GEO-06 | Перегородки | UNKNOWN T-CAR-02 | детали разделителей | P0 | M | NOT_STARTED |
 | GEO-07 | Полки (равномерные и ручные) | UNKNOWN T-SHF-01 | `Shelf.placement` | P0 | M | NOT_STARTED |
@@ -50,6 +50,8 @@ P2 — расширенная · P3 — дополнительные возмо�
 | GEO-18 | Подъёмные фасады | UNKNOWN T-DOOR-01 | — | P3 | M | NOT_STARTED |
 | GEO-19 | Индивидуальная правка отдельной детали | UNKNOWN T-PART-01 | переопределения на уровне детали | P2 | L | NOT_STARTED |
 | GEO-20 | Скошенные / нестандартные формы | UNKNOWN | — | P3 | XL | NOT_STARTED |
+| GEO-21 | Инварианты движка и аварийная остановка при недопустимом входе | N/A | `GeometryContext`: уникальность ID, положительность размера, неотрицательность координаты, стоп конвейера при фатальной ошибке | P0 | S | IMPLEMENTED |
+| GEO-22 | Bounding box результата | N/A | `computeBoundingBox(parts)` → minX…maxZ, totalWidth/Height/Depth | P1 | S | IMPLEMENTED |
 
 ## 3. ВАЛИДАЦИЯ
 
@@ -60,16 +62,16 @@ P2 — расширенная · P3 — дополнительные возмо�
 | VAL-03 | Совместимость направляющей и глубины | UNKNOWN T-DRW-03 | ошибка с указанием максимума | P1 | S | NOT_STARTED |
 | VAL-04 | Количество петель по высоте фасада | UNKNOWN T-DOOR-05 | таблица порогов | P1 | S | NOT_STARTED |
 | VAL-05 | Пересечение деталей | N/A | геометрическая проверка объёмов | P1 | M | NOT_STARTED |
-| VAL-06 | Целостность структуры | N/A | инварианты модели | P0 | S | NOT_STARTED |
+| VAL-06 | Целостность структуры | N/A | инварианты модели | P0 | S | IMPLEMENTED |
 | VAL-07 | Исправление в один клик | N/A | `Issue.fix` | P2 | M | NOT_STARTED |
 
 ## 4. ВЗАИМОДЕЙСТВИЕ
 
 | ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
 | --- | --- | --- | --- | --- | --- | --- |
-| INT-01 | Контроллер жестов (Pointer Events, capture, точка захвата, скорость) | N/A | общий `DragController` | P0 | L | NOT_STARTED |
-| INT-02 | Пружинный движок с перехватом и передачей скорости | N/A | Motion + свои обёртки | P0 | M | NOT_STARTED |
-| INT-03 | Разделение interaction / domain state | N/A | ref + rAF, коммит на `pointerup` | P0 | M | NOT_STARTED |
+| INT-01 | Контроллер жестов (Pointer Events, capture, точка захвата, скорость) | N/A | общий `DragController` | P0 | L | IMPLEMENTED |
+| INT-02 | Пружинный движок с перехватом и передачей скорости | N/A | собственный `Spring`/`Spring2D` (решение изменено при реализации, см. ARCHITECTURE.md §3) | P0 | M | IMPLEMENTED |
+| INT-03 | Разделение interaction / domain state | N/A | ref + rAF, коммит на `pointerup` | P0 | M | IMPLEMENTED |
 | INT-04 | Перетаскивание перегородки | UNKNOWN T-GRID-04 | 1:1, жёсткие границы, магниты | P1 | L | NOT_STARTED |
 | INT-05 | Перетаскивание габаритного маркера | UNKNOWN | 1:1 + preview-пересчёт | P1 | L | NOT_STARTED |
 | INT-06 | Прямое редактирование размера на схеме | N/A | двойной клик по размерной линии | P1 | M | NOT_STARTED |
@@ -122,14 +124,14 @@ P2 — расширенная · P3 — дополнительные возмо�
 
 | ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
 | --- | --- | --- | --- | --- | --- | --- |
-| PER-01 | IndexedDB | N/A | `idb`, три хранилища | P0 | M | NOT_STARTED |
+| PER-01 | IndexedDB | N/A | `idb`, два хранилища (`projects`, `settings`) | P0 | M | IMPLEMENTED |
 | PER-02 | Автосохранение | N/A | дебаунс + `pagehide` | P0 | M | NOT_STARTED |
 | PER-03 | Ревизии и восстановление | N/A | кольцевой буфер на 20 | P2 | M | NOT_STARTED |
 | PER-04 | Список проектов | N/A | превью, переименование, удаление, копия | P1 | M | NOT_STARTED |
-| PER-05 | Экспорт проекта в JSON | N/A | `*.furniture.json` | P0 | S | NOT_STARTED |
-| PER-06 | Импорт JSON с валидацией | N/A | Zod + миграции | P0 | M | NOT_STARTED |
-| PER-07 | Миграции схемы | N/A | чистые функции + фикстуры | P1 | M | NOT_STARTED |
-| PER-08 | Обработка отсутствия хранилища | N/A | режим в памяти + предупреждение | P1 | S | NOT_STARTED |
+| PER-05 | Экспорт проекта в JSON | N/A | `*.furniture.json` | P0 | S | IMPLEMENTED (сериализация; выбор файла и скачивание — этап 18) |
+| PER-06 | Импорт JSON с валидацией | N/A | Zod + миграции | P0 | M | IMPLEMENTED (разбор и валидация; приём файла в интерфейсе — этап 18) |
+| PER-07 | Миграции схемы | N/A | чистые функции + фикстуры | P1 | M | IMPLEMENTED (механизм и `MigrationError`; реестр миграций пуст — схема пока одна) |
+| PER-08 | Обработка отсутствия хранилища | N/A | режим в памяти + предупреждение | P1 | S | IMPLEMENTED (`isPersistent()`; предупреждение в интерфейсе — этап 17) |
 
 ## 8. ЭКСПОРТ
 
@@ -182,20 +184,30 @@ P2 — расширенная · P3 — дополнительные возмо�
 
 | Приоритет | Количество |
 | --- | --- |
-| P0 | 29 |
-| P1 | 47 |
+| P0 | 30 |
+| P1 | 48 |
 | P2 | 30 |
 | P3 | 8 |
 | OUT_OF_SCOPE | 1 |
-| **Всего** | **115** |
+| **Всего** | **117** |
 
 | Сложность | Количество |
 | --- | --- |
-| S | 30 |
+| S | 32 |
 | M | 55 |
 | L | 23 |
 | XL | 6 |
 | не оценивается (OUT_OF_SCOPE) | 1 |
+
+| Статус | Количество |
+| --- | --- |
+| IMPLEMENTED | 23 |
+| NOT_STARTED | 93 |
+| OUT_OF_SCOPE | 1 |
+
+Две строки добавлены на этапе PROMPT 3 (`GEO-21`, `GEO-22`) — инварианты
+геометрического движка и bounding box, необходимые всем последующим этапам,
+не зависящие от того, какая конвенция сборки корпуса подтвердится.
 
 Сложные функции (`XL`: карта раскроя, присадка, купе, сборочные схемы,
 нестандартные формы) **не исключены** — они вынесены в поздние этапы плана,

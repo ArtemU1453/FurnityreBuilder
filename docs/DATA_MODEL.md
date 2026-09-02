@@ -8,7 +8,8 @@
 > и проверяются линтером на отсутствие зависимости от React, DOM и браузерных API.
 > Отличия реализации от первоначального проекта отмечены по тексту.
 > Подробности по единицам — `UNITS_AND_PRECISION.md`, по координатам —
-> `COORDINATE_SYSTEM.md`.
+> `COORDINATE_SYSTEM.md`. Формулы, использующие эти типы (каркас, внутренний
+> объём, размеры раскроя) — `GEOMETRY_RULES.md`.
 
 ---
 
@@ -618,6 +619,16 @@ export interface DrillHole {
          | 'hinge-cup' | 'hinge-plate' | 'slide' | 'handle' | 'dowel' | 'eccentric';
 }
 ```
+
+**Реализовано** (`src/domain/part/types.ts`, `src/geometry/parts.ts`).
+`Furniture → Part[]` работает через `buildGeometry()`
+(`docs/ARCHITECTURE.md` §5, формулы — `docs/GEOMETRY_RULES.md`).
+Движок даёт гарантию сверх типа: если деталь попала в
+`GeometryResult.parts`, она уникальна по `id`, имеет положительный размер
+по всем трём осям и неотрицательные координаты — это проверяется на каждой
+детали, независимо от того, какой этап её произвёл
+(`docs/GEOMETRY_RULES.md` §7). `DrillHole[]` пока всегда пуст — присадка
+не реализована (этап 28 плана).
 
 ---
 
