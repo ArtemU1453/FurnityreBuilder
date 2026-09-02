@@ -4,6 +4,15 @@
 (фиксированная версия `d23d7f88`). Ниже — не пересказ, а рабочие правила
 для мебельного конструктора.
 
+> **Состояние реализации.** Реализован фундамент: `DragController`
+> (`src/interaction/drag-controller.ts`) с захватом указателя, точкой захвата,
+> порогом, отменой, фиксацией и переносом скорости; трекер скорости по медиане;
+> привязка (`snapping.ts`); реестр сочетаний клавиш (`keyboard.ts`).
+> Карта взаимодействий §4 остаётся проектом: конкретные жесты — перетаскивание
+> перегородки, габаритного маркера, наполнения — появятся на этапах 08–10 и 25
+> плана и будут использовать этот контроллер.
+> Разделение уровней состояния описано в `STATE_ARCHITECTURE.md` §6.
+
 ---
 
 ## 1. ЧЕТЫРЕ ЗАКОНА
@@ -26,15 +35,31 @@ rubber-band не применяется там, где нарушит точно
 
 Один класс контроллера на все drag-взаимодействия.
 
+Реализовано в `src/interaction/drag-controller.ts`:
+
 ```ts
-interface DragController<T> {
-  onPointerDown(e: PointerEvent): void;   // capture, снимок базы, открыть транзакцию
-  onPointerMove(e: PointerEvent): void;   // rAF-обновление чернового слоя
-  onPointerUp(e: PointerEvent): void;     // commit одной командой
-  onPointerCancel(e: PointerEvent): void; // откат к базе
-  onKeyDown(e: KeyboardEvent): void;      // Esc = cancel
+interface DragHandlers<TBase> {
+  onStart(frame: DragFrame): TBase;               // снимок базы ИЗ ДОМЕНА
+  onMove(frame: DragFrame, base: TBase): void;    // домен не трогается
+  onCommit(end: DragEnd, base: TBase): void;      // одна команда, скорость в end.velocity
+  onCancel(base: TBase): void;                    // Esc, pointercancel, потеря окна
+}
+
+class DragController<TBase> {
+  pointerDown(event: PointerLike, element: CapturableElement, now?: number): void;
+  pointerMove(event: PointerLike, now?: number): void;
+  pointerUp(event: PointerLike, now?: number): void;
+  cancel(): void;
+  readonly isDragging: boolean;
 }
 ```
+
+Контроллер принимает не `HTMLElement`, а минимальный интерфейс
+`CapturableElement` с тремя методами захвата указателя. Причина практическая:
+так контроллер полностью тестируется без эмуляции DOM, где `setPointerCapture`
+реализован неполно. Десять тестов проверяют порог, точку захвата, отмену,
+отсутствие фиксации при клике без движения, перенос скорости и игнорирование
+чужого указателя.
 
 Обязательная последовательность на `pointerdown`:
 

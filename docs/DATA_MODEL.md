@@ -4,6 +4,12 @@
 и о том, как выглядит интерфейс. Она описывает мебель, а не приложение.
 Любой тип отсюда должен быть сериализуем в JSON без потерь.
 
+> **Состояние реализации.** Все типы этого документа существуют в `src/domain/`
+> и проверяются линтером на отсутствие зависимости от React, DOM и браузерных API.
+> Отличия реализации от первоначального проекта отмечены по тексту.
+> Подробности по единицам — `UNITS_AND_PRECISION.md`, по координатам —
+> `COORDINATE_SYSTEM.md`.
+
 ---
 
 ## 1. БАЗОВЫЕ СОГЛАШЕНИЯ
@@ -30,7 +36,13 @@ export const eqMm = (a: Mm, b: Mm): boolean => Math.abs(a - b) < MM_EPSILON;
 
 ### 1.2 Система координат
 
-Правая тройка, начало — левый-нижний-задний угол габарита изделия.
+Реализация — `src/domain/coordinates.ts`, полное описание — `COORDINATE_SYSTEM.md`.
+
+Правая тройка, начало — левый-нижний-задний угол габарита изделия
+**включая заднюю стенку**: при накладном монтаже стенка занимает
+`z ∈ [0, Tb]`, а корпусные детали начинаются с `z = Tb`. Это уточнение
+появилось при реализации: без него положение корпуса относительно габарита
+оставалось неоднозначным.
 
 | Ось | Направление | Смысл |
 | --- | --- | --- |
@@ -61,35 +73,51 @@ export type MaterialId = Id<'Material'>;
 ```ts
 export const SCHEMA_VERSION = 1;
 ```
-Каждый сохранённый проект несёт `schemaVersion`. Миграции — чистые функции
-`migrate_N_to_N+1(doc)`, см. `ARCHITECTURE.md` §8.4.
+Каждый сохранённый документ несёт `schemaVersion` **снаружи** проекта:
+читатель обязан узнать версию до разбора содержимого. Миграции и правила
+отказа — `REPOSITORY_ARCHITECTURE.md` §5.
 
 ---
 
 ## 2. КОРНЕВЫЕ СУЩНОСТИ
 
 ```ts
+// Реализовано в src/domain/project/types.ts
 export interface Project {
-  readonly id: Id<'Project'>;
-  schemaVersion: number;
-  name: string;
-  createdAt: string;          // ISO 8601
-  updatedAt: string;
-  units: 'mm';                // зарезервировано на будущее
-  materials: MaterialLibrary;
-  hardware: HardwareLibrary;
-  furniture: Furniture[];      // сейчас 1; массив — задел под планировщик
-  room?: Room;                 // планировщик, опционально
-  settings: ProjectSettings;
+  readonly id: ProjectId;
+  readonly name: string;
+  readonly units: 'mm';
+  readonly metadata: ProjectMetadata;   // даты и версия приложения вынесены сюда
+  readonly materials: MaterialLibrary;
+  readonly hardware: HardwareLibrary;
+  readonly furniture: readonly Furniture[];  // сейчас 1; массив — задел под планировщик
+  readonly room?: Room;
+  readonly settings: ProjectSettings;
+}
+
+export interface ProjectMetadata {
+  readonly createdAt: string;   // ISO 8601
+  readonly updatedAt: string;
+  readonly appVersion: string;
 }
 
 export interface ProjectSettings {
-  defaultMaterialId: MaterialId;
-  defaultEdge: EdgeSpec;
-  construction: ConstructionScheme;   // см. §4 — ключевая параметризация
-  tolerances: Tolerances;
+  readonly defaultMaterialId: string;
+  readonly defaultEdge: EdgeSpec;
+  readonly construction: ConstructionScheme;   // см. §4 — ключевая параметризация
+  readonly tolerances: Tolerances;
+  readonly edgeSizing: EdgeSizingPolicy;       // добавлено при реализации
 }
 ```
+
+Три отличия от первоначального проекта, появившиеся при реализации:
+`schemaVersion` переехал в `ProjectDocument` (версия должна читаться раньше
+содержимого); даты собраны в `metadata` вместе с версией приложения;
+`edgeSizing` перенесён из отдельного места в настройки проекта, потому что
+это выбор пользователя, а не константа сборки.
+
+Все поля объявлены `readonly`: изменения идут только через команды
+(`STATE_ARCHITECTURE.md` §3).
 
 ```ts
 export interface Furniture {
@@ -157,12 +185,15 @@ export interface ConstructionScheme {
   /** Для 'mixed': верх накладной, низ вкладной (частая практика). */
   topOverlaysSides: boolean;
   bottomOverlaysSides: boolean;
-  /** Монтаж задней стенки. */
-  backMount: BackPanelMount;
   /** Крепёж корпусных стыков. */
   jointType: 'confirmat' | 'eccentric' | 'dowel' | 'eccentric+dowel';
 }
 ```
+
+`backMount` в реализации не входит в схему сборки: монтаж задней стенки —
+свойство конкретного изделия (`Furniture.carcass.back.mount`), а схема стыка
+общая для проекта. Формулы каркаса для всех трёх схем реализованы
+в `src/geometry/stages/carcass.ts` и покрыты тестами.
 
 Три поддерживаемых варианта и следствия для деталей при `W`, `H`, `D`, `T`:
 
@@ -667,7 +698,10 @@ Undo/redo реализуется патчами Immer (`produceWithPatches`), а
 
 ## 15. ИНВАРИАНТЫ МОДЕЛИ
 
-Проверяются в dev-режиме после каждой мутации, в тестах — всегда.
+Реализованные проверки — в `src/validation/rules/`. Пункты 1, 3, 4, 5
+проверяет правило `structure` и `references`, пункт 6 — `values`,
+пункт 7 обеспечивается конструктором детали `makePart`, пункт 8 покрыт
+тестом каркаса. Пункт 2 станет проверяемым вместе с раскладкой (этап 09).
 
 1. `SplitNode.children.length ≥ 2`.
 2. У `SplitNode` хотя бы один ребёнок имеет `mode: 'flex'`, либо сумма `fixed`

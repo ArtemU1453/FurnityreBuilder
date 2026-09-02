@@ -1,0 +1,231 @@
+/*
+ * Токены design system. Единственный источник значений: цвет или отступ,
+ * записанный числом внутри компонента, — ошибка ревью.
+ *
+ * Светлая тема базовая. Тёмная переопределяет ТОЛЬКО роли, не палитру:
+ * так исключается набор цветов, определённый лишь внутри медиазапроса.
+ */
+
+:root {
+  /* ── Нейтральная шкала ─────────────────────────────────────────────── */
+  --n-0: #ffffff;
+  --n-25: #fcfcfd;
+  --n-50: #f7f8fa;
+  --n-100: #eff1f4;
+  --n-200: #e2e5ea;
+  --n-300: #cbd0d8;
+  --n-400: #9ba3af;
+  --n-500: #6f7885;
+  --n-600: #4e5663;
+  --n-700: #363d48;
+  --n-800: #232932;
+  --n-900: #14181f;
+  --n-950: #0b0e13;
+
+  /* ── Акцент ────────────────────────────────────────────────────────── */
+  --accent-50: #edf4ff;
+  --accent-100: #dbe8ff;
+  --accent-300: #8fb6ff;
+  --accent-500: #2f6fed;
+  --accent-600: #1f58c9;
+  --accent-700: #17429a;
+
+  /* ── Семантика ─────────────────────────────────────────────────────── */
+  --success-500: #1f9d5b;
+  --warning-500: #c8830e;
+  --danger-500: #d0392b;
+  --danger-600: #b02b1f;
+
+  /* ── Роли: этим пользуются компоненты ──────────────────────────────── */
+  --bg-canvas: var(--n-50);
+  --bg-app: var(--n-100);
+  --bg-surface: var(--n-0);
+  --bg-surface-raised: var(--n-0);
+  --bg-sunken: var(--n-50);
+  --text-primary: var(--n-900);
+  --text-secondary: var(--n-600);
+  --text-tertiary: var(--n-500);
+  --text-inverse: var(--n-0);
+  --border-subtle: var(--n-200);
+  --border-default: var(--n-300);
+  --border-strong: var(--n-400);
+  --focus-ring: var(--accent-500);
+
+  /* ── Типографика ───────────────────────────────────────────────────── */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-num: ui-monospace, 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+
+  /* Tracking и leading зависят от размера: фиксированный letter-spacing
+     на всю шкалу неверен где-нибудь обязательно. */
+  --t-display-size: 1.75rem;
+  --t-display-lh: 1.15;
+  --t-display-ls: -0.02em;
+  --t-title-size: 1.25rem;
+  --t-title-lh: 1.25;
+  --t-title-ls: -0.01em;
+  --t-heading-size: 1rem;
+  --t-heading-lh: 1.35;
+  --t-heading-ls: -0.005em;
+  --t-body-size: 0.875rem;
+  --t-body-lh: 1.5;
+  --t-body-ls: 0;
+  --t-label-size: 0.8125rem;
+  --t-label-lh: 1.4;
+  --t-label-ls: 0.005em;
+  --t-caption-size: 0.75rem;
+  --t-caption-lh: 1.4;
+  --t-caption-ls: 0.01em;
+
+  /* ── Ритм ──────────────────────────────────────────────────────────── */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-10: 2.5rem;
+  --sp-12: 3rem;
+
+  --h-control-sm: 1.75rem;
+  --h-control-md: 2rem;
+  --h-control-lg: 2.5rem;
+  --h-toolbar: 3rem;
+
+  /* ── Форма ─────────────────────────────────────────────────────────── */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-full: 9999px;
+
+  --border-hairline: 1px;
+  --border-emphasis: 1.5px;
+  --border-focus: 2px;
+
+  /* ── Глубина ───────────────────────────────────────────────────────── */
+  --shadow-1: 0 1px 2px rgb(11 14 19 / 0.06), 0 1px 1px rgb(11 14 19 / 0.04);
+  --shadow-2: 0 2px 8px rgb(11 14 19 / 0.08), 0 1px 2px rgb(11 14 19 / 0.05);
+  --shadow-3: 0 8px 24px rgb(11 14 19 / 0.12), 0 2px 6px rgb(11 14 19 / 0.06);
+  --shadow-4: 0 16px 48px rgb(11 14 19 / 0.18), 0 4px 12px rgb(11 14 19 / 0.08);
+  --shadow-drag: 0 12px 32px rgb(11 14 19 / 0.22);
+
+  /* Полупрозрачен только плавающий уровень 2. Панели непрозрачны:
+     под ними ничего нет, размытие было бы декорацией. */
+  --surface-floating-bg: rgb(255 255 255 / 0.72);
+  --surface-floating-blur: blur(20px) saturate(160%);
+
+  --duration-color: 120ms;
+  --duration-fade: 180ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0.2, 1);
+
+  color-scheme: light dark;
+}
+
+/* Тёмная тема: по системной настройке, если пользователь не выбрал явно. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg-canvas: var(--n-950);
+    --bg-app: var(--n-900);
+    --bg-surface: var(--n-800);
+    --bg-surface-raised: var(--n-700);
+    --bg-sunken: var(--n-900);
+    --text-primary: var(--n-50);
+    --text-secondary: var(--n-300);
+    --text-tertiary: var(--n-400);
+    --text-inverse: var(--n-950);
+    --border-subtle: var(--n-700);
+    --border-default: var(--n-600);
+    --border-strong: var(--n-500);
+    --accent-500: #5b93ff;
+    --accent-600: #7aa8ff;
+    --surface-floating-bg: rgb(20 24 31 / 0.72);
+  }
+}
+
+/* Явный выбор пользователя перекрывает системный в обе стороны. */
+:root[data-theme='dark'] {
+  --bg-canvas: var(--n-950);
+  --bg-app: var(--n-900);
+  --bg-surface: var(--n-800);
+  --bg-surface-raised: var(--n-700);
+  --bg-sunken: var(--n-900);
+  --text-primary: var(--n-50);
+  --text-secondary: var(--n-300);
+  --text-tertiary: var(--n-400);
+  --text-inverse: var(--n-950);
+  --border-subtle: var(--n-700);
+  --border-default: var(--n-600);
+  --border-strong: var(--n-500);
+  --accent-500: #5b93ff;
+  --accent-600: #7aa8ff;
+  --surface-floating-bg: rgb(20 24 31 / 0.72);
+}
+
+/* Reduced transparency: стекло становится непрозрачным, размытие снимается. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --surface-floating-bg: var(--bg-surface);
+    --surface-floating-blur: none;
+  }
+}
+
+/* Increased contrast: почти сплошные фоны, чёткие границы, тени убраны. */
+@media (prefers-contrast: more) {
+  :root {
+    --border-subtle: var(--n-500);
+    --border-default: var(--n-600);
+    --border-hairline: 1.5px;
+    --shadow-1: none;
+    --shadow-2: none;
+    --shadow-3: 0 0 0 1px var(--n-600);
+    --surface-floating-bg: var(--bg-surface);
+    --surface-floating-blur: none;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Размеры в rem: системное увеличение текста масштабирует раскладку,
+     а не ломает её. */
+  font-size: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--t-body-size);
+  line-height: var(--t-body-lh);
+  color: var(--text-primary);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Фокус виден только при работе с клавиатуры — но виден всегда, когда нужен. */
+:focus-visible {
+  outline: var(--border-focus) solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+/*
+ * Reduced motion: убираем смещения и пружины, оставляем изменения цвета
+ * и прозрачности — они помогают понимать интерфейс и не вызывают
+ * вестибулярной нагрузки.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--duration-color) !important;
+    scroll-behavior: auto !important;
+  }
+}

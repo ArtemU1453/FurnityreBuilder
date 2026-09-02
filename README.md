@@ -20,9 +20,30 @@
 
 ## Состояние
 
-**Этап проектирования.** Кода приложения пока нет — репозиторий содержит
-техническую спецификацию, архитектуру, доменную модель, design system,
-motion system и план разработки.
+**Этап 2 из 38: архитектурный фундамент.** Полноценного конструктора ещё нет —
+заложены слои, на которых он будет построен.
+
+Реализовано: доменная модель, контракт геометрического движка с расчётом
+каркаса, слой валидации, сериализация с версионированием, локальное хранилище
+за абстракцией репозитория, состояние с командами и историей на патчах,
+контроллер жестов, пружинный движок, токены design system.
+
+Не реализовано: раскладка секций, наполнение, фасады, фурнитура, отрисовка
+схемы, экспорт, планировщик — см. план разработки.
+
+Проверки: 135 unit-тестов, 7 E2E-сценариев, lint, typecheck, сборка.
+
+## Разработка
+
+```bash
+npm install
+npm run dev        # запуск в режиме разработки
+npm run verify     # реестр предположений → lint → typecheck → тесты → сборка → аудит автономности
+npm run test:e2e   # сквозные тесты (Playwright)
+```
+
+Архитектурные границы между слоями проверяются линтером и тестом:
+импорт React в `src/geometry` роняет сборку.
 
 ## Документация
 
@@ -38,6 +59,11 @@ motion system и план разработки.
 | [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | 38 этапов разработки |
 | [`docs/CURRENT_PROJECT_AUDIT.md`](docs/CURRENT_PROJECT_AUDIT.md) | Аудит репозитория |
 | [`docs/BRAND_INDEPENDENCE_AUDIT.md`](docs/BRAND_INDEPENDENCE_AUDIT.md) | Проверка самостоятельности продукта |
+| [`docs/COORDINATE_SYSTEM.md`](docs/COORDINATE_SYSTEM.md) | Оси, начало координат, локальные координаты детали |
+| [`docs/UNITS_AND_PRECISION.md`](docs/UNITS_AND_PRECISION.md) | Миллиметры, округление, точность, сравнение |
+| [`docs/STATE_ARCHITECTURE.md`](docs/STATE_ARCHITECTURE.md) | Документ, сессия, взаимодействие; команды и история |
+| [`docs/REPOSITORY_ARCHITECTURE.md`](docs/REPOSITORY_ARCHITECTURE.md) | Локальное хранение, формат, миграции |
+| [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | Уровни тестов и что именно проверяется |
 | [`docs/PRIVETMAKET_FUNCTIONAL_SPEC.md`](docs/PRIVETMAKET_FUNCTIONAL_SPEC.md) | Исследовательский материал (только для разработки) |
 
 ## Лицензия

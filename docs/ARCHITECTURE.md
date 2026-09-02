@@ -1,5 +1,18 @@
 # Архитектура
 
+> **Состояние реализации.** Этап «Архитектурный фундамент» завершён.
+> Реализованы: доменный слой, контракт геометрического движка с этапом каркаса,
+> слой валидации, сериализация с версионированием, `ProjectRepository`,
+> сторы документа и сессии с историей на патчах, контроллер жестов,
+> пружинный движок, токены design system, оболочка приложения.
+> Не реализованы: раскладка дерева секций, наполнение, фасады, присадка,
+> отрисовка схемы, экспорт, планировщик — см. `IMPLEMENTATION_PLAN.md`.
+> Разделы ниже помечают, что уже есть в коде, а что остаётся проектом.
+>
+> Смежные документы, появившиеся вместе с кодом:
+> `COORDINATE_SYSTEM.md`, `UNITS_AND_PRECISION.md`, `STATE_ARCHITECTURE.md`,
+> `REPOSITORY_ARCHITECTURE.md`, `TESTING_STRATEGY.md`.
+
 ---
 
 ## 1. ГЛАВНОЕ ПРАВИЛО
@@ -94,11 +107,12 @@ boundaries: {
 | Стор | Zustand + Immer patches | Минимальный, без провайдеров; патчи дают дешёвый undo (§6.3) |
 | Схема 2D | **SVG** | Векторная чёткость, встроенный hit-testing, доступность через ARIA на элементах, простой экспорт в PDF |
 | 3D (P2) | Three.js через react-three-fiber | Только просмотр; геометрия приходит из движка |
-| Анимация | Motion (`motion` / Framer Motion) | Пружины с re-target от текущего значения и velocity — обязательное требование |
+| Анимация | **собственный пружинный движок** (`src/motion`) | Решение изменено при реализации. Требуются точные семантики прерывания и переноса скорости; свой интегратор — около 80 строк, даёт полный контроль и не тянет зависимость, которая на этапе фундамента использовалась бы на несколько процентов. Готовая библиотека остаётся вариантом для декларативных переходов компонентов |
 | Хранилище | IndexedDB через `idb` | Ёмкость, бинарные превью, транзакции |
 | PDF | `pdf-lib` + `@pdf-lib/fontkit` | Встраивание локального шрифта с кириллицей |
 | XLSX | `exceljs` | Полноценный XLSX локально, без сервера |
-| Тесты | Vitest + Playwright | Chromium уже в окружении |
+| Тесты | Vitest + Playwright + fast-check | Chromium уже в окружении; property-тесты обязательны для инвариантов геометрии |
+| Границы слоёв | `eslint-plugin-boundaries` + `eslint-import-resolver-typescript` | Резолвер обязателен: без него плагин не сопоставляет импорт `../state/x.js` с файлом `.ts` и молча считает зависимость разрешённой |
 
 **Почему SVG, а не Canvas.** Схема мебели — десятки-сотни прямоугольников, не
 десятки тысяч. SVG даёт бесплатно: попадание указателя, фокус с клавиатуры,
@@ -115,31 +129,43 @@ Canvas потребовал бы своей системы hit-testing и был
 
 ## 4. СТРУКТУРА КАТАЛОГОВ
 
+Существует сейчас:
+
 ```
 src/
-  domain/          типы, конструкторы сущностей, инварианты        (0 зависимостей)
-  geometry/        Furniture → Part[]                              (чистые функции)
-    scheme/        реализации ConstructionScheme
-    carcass.ts     boxWalls, top, bottom, back
-    layout.ts      раскладка дерева секций
-    fill.ts        полки, ящики, штанги
-    facade.ts      фасады и зазоры
-    drilling.ts    присадка
-  validation/      правила → Issue[]
-  parts/           группировка, кромка, спецификация фурнитуры
-  export/
-    pdf/  xlsx/  csv/  nesting/  drawing/
-  persistence/     IndexedDB, миграции, import/export JSON
-  state/           стор документа, сессии, истории
-  interaction/     pointer-контроллеры, drag-машины, hotkeys
-  motion/          spring-движок, токены движения
-  design-system/   токены и примитивы UI
-  render/          SVG-схема, размерные линии, 3D-вид
-  app/             экраны, панели, компоновка
+  domain/                    источник истины, 0 зависимостей
+    units.ts                 миллиметры, округление, сравнение
+    ids.ts                   брендированные идентификаторы, инъекция генератора
+    coordinates.ts           Vec3, Box3, операции над телами
+    diagnostics.ts           Issue, Severity
+    furniture/               типы изделия, дерево секций, раскладка, значения по умолчанию
+    materials/               материалы, кромка, политика размеров
+    hardware/                типы фурнитуры
+    part/                    модель детали, детерминированные идентификаторы
+    project/                 проект, настройки, фабрика
+  geometry/                  Furniture → Part[], чистые функции
+    types.ts                 GeometryInput, GeometryResult, CellBox
+    context.ts               аккумулятор прогона, GeometryStage
+    parts.ts                 конструктор детали, размеры раскроя, кромка
+    engine.ts                конвейер PIPELINE
+    stages/normalize.ts      пригодность входа
+    stages/carcass.ts        три схемы стыка, внутренний объём
+  validation/                правила → Issue[]
+    rules/{values,references,structure}.ts
+  persistence/               схема Zod, сериализация, миграции, репозитории
+  state/                     команды, история на патчах, сторы документа и сессии
+  motion/                    пружины, проекция момента, reduced motion
+  interaction/               контроллер жестов, скорость, привязка, клавиатура
+  design-system/             токены, Button, Field
+  app/                       оболочка приложения
 tests/
-  unit/  geometry/  e2e/
-docs/
+  unit/{domain,geometry,validation,persistence,state,interaction,motion,architecture}/
+  e2e/
+scripts/                     проверки реестра предположений и самостоятельности
 ```
+
+Появится на следующих этапах: `geometry/stages/{layout,fill,facades,back,drilling}`,
+`parts/` (спецификация и группировка), `export/`, `render/`, `planner/`.
 
 ---
 

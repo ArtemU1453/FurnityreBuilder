@@ -128,7 +128,33 @@ $ ls -la
 
 ---
 
-## 6. ЧТО СДЕЛАНО В РАМКАХ PROMPT 1
+## 6. СОСТОЯНИЕ ПОСЛЕ ЭТАПА «АРХИТЕКТУРНЫЙ ФУНДАМЕНТ»
+
+Аудит выше — снимок на 2026-08-29 до начала разработки. Он остаётся верен
+как исходная точка: репозиторий действительно был пуст, и baseline проверок
+(build, lint, typecheck, tests) не существовал — ломать было нечего.
+
+Что появилось с тех пор:
+
+| Категория | Состояние |
+| --- | --- |
+| Framework | Vite + React 19 |
+| Язык | TypeScript strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
+| Build | `npm run build` — typecheck + Vite |
+| State management | Zustand + Immer patches, разделение документа и сессии |
+| Geometry engine | контракт + конвейер, реализованы этапы `normalize` и `carcass` |
+| Storage | `ProjectRepository`, IndexedDB и реализация в памяти |
+| Export | не реализован |
+| Тесты | 135 unit, 7 E2E |
+| UI | оболочка приложения, `Button`, `Field`, токены |
+| Технический долг | отсутствует; предположения учтены в `UNKNOWNS.json` |
+
+Проверка границ слоёв включена до первого компонента и подтверждена тестом:
+импорт React в `src/geometry` роняет сборку.
+
+---
+
+## 7. ЧТО СДЕЛАНО В РАМКАХ PROMPT 1
 
 Создана только документация в `docs/`. Кода приложения не добавлено —
 это соответствует пункту 30 задания («не начинай разработку»).
@@ -147,3 +173,7 @@ docs/
 ├── BRAND_INDEPENDENCE_AUDIT.md
 └── IMPLEMENTATION_PLAN.md
 ```
+
+На этапе «Архитектурный фундамент» к ним добавились `COORDINATE_SYSTEM.md`,
+`UNITS_AND_PRECISION.md`, `STATE_ARCHITECTURE.md`, `REPOSITORY_ARCHITECTURE.md`,
+`TESTING_STRATEGY.md` и машиночитаемый реестр `UNKNOWNS.json`.

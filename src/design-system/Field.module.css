@@ -1,0 +1,44 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.label {
+  font-size: var(--t-label-size);
+  line-height: var(--t-label-lh);
+  letter-spacing: var(--t-label-ls);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.message {
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  letter-spacing: var(--t-caption-ls);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.hint {
+  color: var(--text-tertiary);
+}
+
+/*
+ * Цвет никогда не единственный носитель смысла: рядом с цветом стоит иконка
+ * и текст. Иначе сообщение теряется при дальтонизме и в высококонтрастном режиме.
+ */
+.error {
+  color: var(--danger-500);
+}
+
+.warning {
+  color: var(--warning-500);
+}

@@ -1,0 +1,116 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--h-control-md);
+  padding: 0 var(--sp-3);
+  border: var(--border-hairline) solid transparent;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  /* Только цвет: смещение и масштаб при нажатии задаются отдельно и мгновенно. */
+  transition:
+    background-color var(--duration-color) var(--easing-standard),
+    border-color var(--duration-color) var(--easing-standard),
+    color var(--duration-color) var(--easing-standard);
+  /* Зона попадания не меньше 44px даже у компактной кнопки. */
+  position: relative;
+}
+
+.button::after {
+  content: '';
+  position: absolute;
+  inset: calc((var(--h-control-md) - 44px) / 2) 0;
+  min-height: 44px;
+}
+
+/*
+ * Реакция на НАЖАТИЕ, а не на отпускание. Ожидание click читается как
+ * подвисание: ощущение непосредственности рушится на первой же задержке.
+ */
+.button:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 100ms var(--easing-standard);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--accent-500);
+  color: var(--text-inverse);
+}
+.primary:hover:not(:disabled) {
+  background: var(--accent-600);
+}
+.primary:active:not(:disabled) {
+  background: var(--accent-700);
+}
+
+.secondary {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.secondary:hover:not(:disabled) {
+  background: var(--bg-sunken);
+  border-color: var(--border-strong);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.ghost:hover:not(:disabled) {
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+}
+
+.danger {
+  background: var(--danger-500);
+  color: var(--text-inverse);
+}
+.danger:hover:not(:disabled) {
+  background: var(--danger-600);
+}
+
+.button:disabled {
+  background: var(--bg-sunken);
+  border-color: var(--border-subtle);
+  color: var(--text-tertiary);
+}
+
+.pressed {
+  background: var(--accent-100);
+  color: var(--accent-700);
+}
+
+.spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--r-full);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Ширина не меняется при переходе в загрузку: раскладка не должна дёргаться. */
+.loadingLabel {
+  visibility: hidden;
+}
+
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
