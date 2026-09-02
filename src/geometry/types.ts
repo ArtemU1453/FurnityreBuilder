@@ -66,9 +66,16 @@ export interface GeometryResult {
   readonly parts: readonly Part[];
   readonly cells: readonly CellBox[];
   /**
-   * Заявленный габарит изделия по W/H/D — то, что ДОЛЖНО получиться.
-   * Вырожден (нулевой) при фатальной ошибке входа: см. §"Аварийная остановка"
-   * в docs/GEOMETRY_RULES.md.
+   * Измеренный физический охват построенного корпуса — НЕ буквальная копия
+   * входных `width`/`height`/`depth`. По X и Y всегда совпадает с `W`/`H`.
+   * По Z совпадает с `D` только когда `tolerances.depthIncludesBackPanel`
+   * истинно (или задней стенки нет); если ложно — `bounds.size.z = D + Tb`,
+   * потому что начало координат — задняя плоскость изделия ЦЕЛИКОМ, включая
+   * стенку (docs/COORDINATE_SYSTEM.md §3), а `D` в этом случае описывает
+   * только глубину корпуса, не считая стенки поверх него. Формула и тест —
+   * docs/GEOMETRY_RULES.md, раздел «Carcass Calculation Rules» (`overallDepth`),
+   * PROMPT 5 аудит. Вырожден (нулевой) при фатальной ошибке входа: см.
+   * §«Аварийная остановка» в docs/GEOMETRY_RULES.md.
    */
   readonly bounds: Box3;
   /** Внутренний объём корпуса, в котором раскладывается дерево секций. */
