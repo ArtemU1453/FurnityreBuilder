@@ -1,6 +1,9 @@
-import { useMemo } from 'react';
-import { formatMm } from '../domain/index.js';
+import { useMemo, useState } from 'react';
+import { createEmptyLeaf } from '../domain/furniture/defaults.js';
+import { createRandomIdFactory, formatMm } from '../domain/index.js';
+import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
+import { buildDebugView, DebugSchema } from '../render/index.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import { Button, Field } from '../design-system/index.js';
@@ -30,6 +33,15 @@ export function App(): React.JSX.Element {
   const redo = useDocumentStore((s) => s.redo);
   const history = useDocumentStore((s) => s.history);
 
+  // Черновые значения полей сетки: рабочий проект не трогается до нажатия
+  // «Применить» — перестроение дерева секций является отдельным осознанным
+  // действием пользователя, а не непрерывным вводом вроде габарита
+  // (docs/GEOMETRY_RULES.md §10, docs/INTERACTION_MODEL.md §4.4 — то же
+  // разграничение «черновое значение / коммит», что и у транзакций drag).
+  const [rowsDraft, setRowsDraft] = useState(1);
+  const [columnsDraft, setColumnsDraft] = useState(1);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+
   const furniture = project.furniture[0];
 
   // Пересчёт синхронный и мемоизированный по ссылке на проект. Immer даёт
@@ -47,10 +59,24 @@ export function App(): React.JSX.Element {
   }, [furniture, project.settings, project.materials]);
 
   const report = useMemo(() => validateProject(project), [project]);
+  const debugView = useMemo(() => (geometry === undefined ? undefined : buildDebugView(geometry)), [geometry]);
 
-  if (furniture === undefined || geometry === undefined) {
+  if (furniture === undefined || geometry === undefined || debugView === undefined) {
     return <p>Проект не содержит изделий.</p>;
   }
+
+  // Дерево секций заменяется целиком одной командой SetRoot (см.
+  // state/commands.ts) — построение равномерной сетки rows×columns здесь
+  // и есть демонстрация PROMPT 4 §11: изменение количества строк/колонок
+  // пересчитывает перегородки, ячейки и bounding box за один шаг истории.
+  const applyGrid = (): void => {
+    const ids = createRandomIdFactory();
+    const root =
+      rowsDraft <= 1 && columnsDraft <= 1
+        ? createEmptyLeaf(ids)
+        : createUniformGrid(ids, rowsDraft, columnsDraft, furniture.dimensions.panelThickness, furniture.dimensions.panelThickness);
+    execute({ type: 'SetRoot', furnitureIndex: 0, root }, `Сетка ${String(rowsDraft)}×${String(columnsDraft)}`);
+  };
 
   return (
     <div className={styles.shell}>
@@ -110,6 +136,49 @@ export function App(): React.JSX.Element {
           </div>
         </section>
 
+        <section className={styles.panel} aria-labelledby="grid-title">
+          <h2 id="grid-title" className={styles.panelTitle}>
+            Сетка
+          </h2>
+          <div className={styles.grid}>
+            <Field label="Строк">
+              {({ id }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={rowsDraft}
+                  onChange={(event) => {
+                    const next = event.target.valueAsNumber;
+                    if (Number.isFinite(next) && next >= 1) setRowsDraft(Math.round(next));
+                  }}
+                />
+              )}
+            </Field>
+            <Field label="Колонок">
+              {({ id }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={columnsDraft}
+                  onChange={(event) => {
+                    const next = event.target.valueAsNumber;
+                    if (Number.isFinite(next) && next >= 1) setColumnsDraft(Math.round(next));
+                  }}
+                />
+              )}
+            </Field>
+          </div>
+          <Button onClick={applyGrid} style={{ marginTop: 'var(--sp-3)' }}>
+            Применить сетку {rowsDraft}×{columnsDraft}
+          </Button>
+        </section>
+
         <aside className={styles.panel} aria-labelledby="result-title">
           <h2 id="result-title" className={styles.panelTitle}>
             Результат расчёта
@@ -118,6 +187,10 @@ export function App(): React.JSX.Element {
             <li className={styles.stat}>
               <span className={styles.statLabel}>Деталей</span>
               <span className={styles.statValue}>{geometry.parts.length}</span>
+            </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Ячеек</span>
+              <span className={styles.statValue}>{geometry.cells.length}</span>
             </li>
             <li className={styles.stat}>
               <span className={styles.statLabel}>Внутренняя ширина</span>
@@ -162,6 +235,34 @@ export function App(): React.JSX.Element {
             Этапы конвейера геометрии, ещё не реализованные: {geometry.pendingStages.join(', ')}.
           </p>
         </aside>
+
+        {/*
+          Технический debug-renderer (PROMPT 4 §17). НЕ часть конечного
+          интерфейса: собран только для проверки Geometry Engine и явно
+          исключён из production-сборки через import.meta.env.DEV — Vite
+          заменяет это константой на этапе сборки, и Rollup выбрасывает
+          мёртвую ветку целиком (docs/GEOMETRY_RULES.md §12).
+        */}
+        {import.meta.env.DEV ? (
+          <section className={`${styles.panel} ${styles.fullWidth}`} aria-labelledby="schema-title">
+            <h2 id="schema-title" className={styles.panelTitle}>
+              Схема (debug, только в разработке)
+            </h2>
+            <div className={styles.debugToolbar}>
+              <label className={styles.debugToggle}>
+                <input
+                  type="checkbox"
+                  checked={showDebugInfo}
+                  onChange={(event) => {
+                    setShowDebugInfo(event.target.checked);
+                  }}
+                />
+                Показывать ID и координаты
+              </label>
+            </div>
+            <DebugSchema view={debugView} showDebugInfo={showDebugInfo} />
+          </section>
+        ) : null}
       </main>
 
       <footer className={styles.status}>

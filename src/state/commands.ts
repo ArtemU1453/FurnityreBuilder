@@ -8,6 +8,7 @@ import type {
   NodeId,
   PartRole,
   Project,
+  SectionNode,
   SizeSpec,
   SplitAxis,
   Tolerances,
@@ -45,6 +46,19 @@ export type Command =
       readonly dividerThickness: number;
     }
   | { readonly type: 'CollapseNode'; readonly furnitureIndex: number; readonly nodeId: NodeId; readonly leafId: NodeId }
+  | {
+      /**
+       * Заменяет дерево секций изделия целиком заранее построенным деревом
+       * (например, `createUniformGrid`/`createSections` из
+       * `domain/furniture/sections.ts`). Атомарная альтернатива серии
+       * `SplitNode`: построение равномерной сетки — одно пользовательское
+       * действие и один шаг истории, а не N отдельных делений с
+       * промежуточными недостроенными состояниями между ними.
+       */
+      readonly type: 'SetRoot';
+      readonly furnitureIndex: number;
+      readonly root: SectionNode;
+    }
   | {
       readonly type: 'SetChildSize';
       readonly furnitureIndex: number;
@@ -178,6 +192,17 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
       delete asLeaf.axis;
       delete asLeaf.divider;
       delete asLeaf.children;
+      return;
+    }
+
+    case 'SetRoot': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      // Дерево заменяется целиком — источник истины остаётся один: сама
+      // структура, а не отдельно хранимые «количество секций»/«строк»/
+      // «колонок» (docs/DATA_MODEL.md §5). Draft снимает readonly с уже
+      // неизменяемого значения, копия не нужна — как и в SetFill.
+      furniture.root = command.root as Draft<SectionNode>;
       return;
     }
 

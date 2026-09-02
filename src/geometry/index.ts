@@ -6,3 +6,4 @@ export type { GeometryStage } from './context.js';
 export { buildGeometry, PIPELINE } from './engine.js';
 export { makePart, rawCutSize, applyEdgeSizing, edgeKey, resolveMaterial } from './parts.js';
 export { resolveBackGeometry } from './stages/carcass.js';
+export { layoutStage } from './stages/layout.js';

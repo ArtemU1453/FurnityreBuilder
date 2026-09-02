@@ -60,8 +60,17 @@ execute({ type: 'SetDimension', furnitureIndex: 0, axis: 'width', value: 1200 })
 
 Реализованные команды: `SetProjectName`, `SetFurnitureName`, `SetDimension`,
 `SetCarcassFlags`, `SplitNode`, `CollapseNode`, `SetChildSize`, `SetFill`,
-`SetConstructionScheme`, `SetTolerances`, `SetEdgeSizingPolicy`,
+`SetRoot`, `SetConstructionScheme`, `SetTolerances`, `SetEdgeSizingPolicy`,
 `SetMaterialAssignment`, `UpsertMaterial`, `RemoveMaterial`.
+
+`SetRoot` (PROMPT 4) заменяет дерево секций изделия целиком заранее
+построенным деревом — атомарная альтернатива серии `SplitNode` для
+операций вроде «построить равномерную сетку 2×3», где промежуточные
+состояния (сетка наполовину построена) не имеют смысла как отдельные шаги
+истории. Дерево строится ЧИСТЫМИ функциями домена
+(`createSections`/`createUniformGrid`, `src/domain/furniture/sections.ts`)
+с id из `IdFactory`, переданной вызывающей стороной — сама команда не
+генерирует id, как и остальные команды, работающие со структурой дерева.
 
 Запланированные перечислены в константе `PLANNED_COMMANDS` — список
 существует в коде, чтобы «пока не реализовано» было видно, а не

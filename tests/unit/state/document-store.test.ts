@@ -3,7 +3,8 @@ import { createDocumentStore } from '../../../src/state/document-store.js';
 import { createProject } from '../../../src/domain/project/factory.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
 import { asId } from '../../../src/domain/ids.js';
-import { isSplit } from '../../../src/domain/furniture/tree.js';
+import { isLeaf, isSplit } from '../../../src/domain/furniture/tree.js';
+import { createUniformGrid } from '../../../src/domain/furniture/sections.js';
 
 const project = () =>
   createProject({ ids: createSequentialIdFactory('t'), now: () => '2026-01-01T00:00:00.000Z' });
@@ -44,6 +45,19 @@ describe('стор документа: команды', () => {
     const root = s.getState().project.furniture[0]!.root;
     expect(isSplit(root)).toBe(true);
     expect(isSplit(root) ? root.children.length : 0).toBe(2);
+  });
+
+  it('SetRoot заменяет дерево секций целиком одним шагом истории', () => {
+    const s = store();
+    const newRoot = createUniformGrid(createSequentialIdFactory('g'), 2, 3, 16, 16);
+
+    s.getState().execute({ type: 'SetRoot', furnitureIndex: 0, root: newRoot }, 'Сетка 2×3');
+
+    expect(s.getState().project.furniture[0]!.root).toBe(newRoot);
+    expect(s.getState().history.past).toHaveLength(1);
+
+    s.getState().undo();
+    expect(isLeaf(s.getState().project.furniture[0]!.root)).toBe(true);
   });
 });
 

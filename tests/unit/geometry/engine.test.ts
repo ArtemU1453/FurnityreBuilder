@@ -26,7 +26,9 @@ describe('контракт геометрического движка', () => {
     const result = buildGeometry(makeInput());
     const planned = PIPELINE.filter((s) => s.status === 'planned').map((s) => s.name);
     expect(result.pendingStages).toEqual(planned);
-    expect(result.pendingStages).toContain('layout');
+    // 'layout' реализован на PROMPT 4 (объединён с 'dividers' — см. engine.ts)
+    // и больше не входит в pendingStages.
+    expect(result.pendingStages).not.toContain('layout');
     expect(result.pendingStages).toContain('facades');
   });
 

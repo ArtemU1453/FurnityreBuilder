@@ -2,6 +2,7 @@ import { box3, vec3 } from '../domain/index.js';
 import { GeometryContext } from './context.js';
 import type { GeometryStage } from './context.js';
 import { carcassStage } from './stages/carcass.js';
+import { layoutStage } from './stages/layout.js';
 import { normalizeStage } from './stages/normalize.js';
 import type { GeometryInput, GeometryResult, StageDescriptor } from './types.js';
 
@@ -17,8 +18,10 @@ import type { GeometryInput, GeometryResult, StageDescriptor } from './types.js'
 export const PIPELINE: readonly StageDescriptor[] = [
   { name: 'normalize', status: 'implemented' },
   { name: 'carcass', status: 'implemented' },
-  { name: 'layout', status: 'planned', plannedAt: '09' },
-  { name: 'dividers', status: 'planned', plannedAt: '10' },
+  // 'dividers' из первоначального плана объединён с 'layout': оба вычисляются
+  // из одного resolveSizes() на каждом делении дерева. Обоснование —
+  // docs/GEOMETRY_RULES.md §10, история решения — docs/ARCHITECTURE.md §5.2.
+  { name: 'layout', status: 'implemented' },
   { name: 'fill', status: 'planned', plannedAt: '11' },
   { name: 'back', status: 'planned', plannedAt: '13' },
   { name: 'base', status: 'planned', plannedAt: '23' },
@@ -31,6 +34,7 @@ export const PIPELINE: readonly StageDescriptor[] = [
 const IMPLEMENTED: Readonly<Record<string, GeometryStage>> = {
   normalize: normalizeStage,
   carcass: carcassStage,
+  layout: layoutStage,
 };
 
 /**

@@ -1,16 +1,21 @@
 # Архитектура
 
-> **Состояние реализации.** Этап «Параметрическая модель размеров и Geometry
-> Engine» завершён (PROMPT 3). Геометрический движок теперь не просто считает
-> каркас, а даёт полную гарантию результата: аварийная остановка при
-> недопустимом входе (§5.5), инварианты каждой детали (§5.6), общий
-> bounding box (§5.7). Реализованы: доменный слой, движок с этапами
-> `normalize` и `carcass` (три схемы стыка), слой валидации, сериализация
-> с версионированием, `ProjectRepository`, сторы документа и сессии
-> с историей на патчах, контроллер жестов, пружинный движок, токены design
-> system, оболочка приложения.
-> Не реализованы: раскладка дерева секций, наполнение, фасады, присадка,
-> отрисовка схемы, экспорт, планировщик — см. `IMPLEMENTATION_PLAN.md`.
+> **Состояние реализации.** Этап «Корпус, секции и параметрическая сетка
+> ячеек» завершён (PROMPT 4). Дерево секций (`Furniture.root`, ранее только
+> тип) теперь по-настоящему раскладывается: этап `layout` конвейера строит
+> ячейки и перегородки из дерева `SplitNode`/`LeafNode` (§5.7). Появился
+> первый рендерер — технический debug-слой `src/render/` (§10.1),
+> отрисовывающий именно то, что посчитал движок, без собственной геометрии.
+> Реализованы: доменный слой (включая фабрики секций/сетки), движок с
+> этапами `normalize`, `carcass`, `layout` (объединил исходные `layout` и
+> `dividers` — §5.2), слой валидации, сериализация с версионированием,
+> `ProjectRepository`, сторы документа и сессии с историей на патчах
+> (включая команду `SetRoot` для атомарной замены дерева), контроллер
+> жестов, пружинный движок, токены design system, оболочка приложения
+> с интерактивной технической панелью сетки.
+> Не реализованы: наполнение ячеек содержимым (полки/ящики/штанга —
+> тип уже есть, геометрия ещё нет), фасады, присадка, интерактивная (не
+> debug) отрисовка схемы, экспорт, планировщик — см. `IMPLEMENTATION_PLAN.md`.
 > Разделы ниже помечают, что уже есть в коде, а что остаётся проектом.
 >
 > Смежные документы, появившиеся вместе с кодом:
@@ -49,39 +54,50 @@ Persistence            — IndexedDB, JSON
 
 ### 1.1 Как правило защищается технически
 
-Не комментарием, а линтером. `eslint-plugin-boundaries` в конфигурации:
+Не комментарием, а линтером. `eslint-plugin-boundaries` в `eslint.config.js`
+(фактическая конфигурация, не черновик):
 
 ```js
-// .eslintrc — слои и разрешённые направления импорта
-boundaries: {
-  elements: [
-    { type: 'domain',      pattern: 'src/domain/*' },
-    { type: 'geometry',    pattern: 'src/geometry/*' },
-    { type: 'validation',  pattern: 'src/validation/*' },
-    { type: 'parts',       pattern: 'src/parts/*' },
-    { type: 'export',      pattern: 'src/export/*' },
-    { type: 'persistence', pattern: 'src/persistence/*' },
-    { type: 'state',       pattern: 'src/state/*' },
-    { type: 'interaction', pattern: 'src/interaction/*' },
-    { type: 'ui',          pattern: 'src/{app,design-system,render}/*' },
-  ],
-  rules: [
-    { from: 'domain',      allow: [] },
-    { from: 'geometry',    allow: ['domain'] },
-    { from: 'validation',  allow: ['domain', 'geometry'] },
-    { from: 'parts',       allow: ['domain', 'geometry'] },
-    { from: 'export',      allow: ['domain', 'geometry', 'parts'] },
-    { from: 'persistence', allow: ['domain'] },
-    { from: 'state',       allow: ['domain','geometry','validation','parts','persistence'] },
-    { from: 'interaction', allow: ['domain','state'] },
-    { from: 'ui',          allow: ['*'] },
-  ],
-}
+const LAYERS = [
+  { type: 'domain',       pattern: 'src/domain/**/*' },
+  { type: 'geometry',     pattern: 'src/geometry/**/*' },
+  { type: 'validation',   pattern: 'src/validation/**/*' },
+  { type: 'persistence',  pattern: 'src/persistence/**/*' },
+  { type: 'state',        pattern: 'src/state/**/*' },
+  { type: 'motion',       pattern: 'src/motion/**/*' },
+  { type: 'interaction',  pattern: 'src/interaction/**/*' },
+  { type: 'design-system', pattern: 'src/design-system/**/*' },
+  { type: 'render',       pattern: 'src/render/**/*' },   // PROMPT 4
+  { type: 'app',          pattern: 'src/app/**/*' },
+  { type: 'entry',        pattern: 'src/main.tsx' },
+];
+
+const rules = [
+  { from: 'domain',        allow: ['domain'] },
+  { from: 'geometry',      allow: ['geometry', 'domain'] },
+  { from: 'validation',    allow: ['validation', 'geometry', 'domain'] },
+  { from: 'persistence',   allow: ['persistence', 'domain'] },
+  { from: 'state',         allow: ['state', 'persistence', 'validation', 'geometry', 'domain'] },
+  { from: 'motion',        allow: ['motion'] },
+  { from: 'interaction',   allow: ['interaction', 'motion', 'state', 'domain'] },
+  { from: 'design-system', allow: ['design-system', 'motion'] },
+  // render — презентационный слой: видит уже посчитанную геометрию,
+  // но не state/interaction. Команды и хранилище остаются заботой app.
+  { from: 'render',        allow: ['render', 'domain', 'geometry', 'design-system'] },
+  { from: 'app',           allow: ['*'] },
+  { from: 'entry',         allow: ['*'] },
+];
 ```
 
-Плюс запрет на импорт `react`, `react-dom` и обращение к `window`/`document`
-в слоях `domain`, `geometry`, `validation`, `parts`
-(`no-restricted-imports` + `no-restricted-globals`).
+`'export'` и `'parts'` из более раннего черновика этого раздела в коде не
+появились: экспорт (PDF/XLSX/CSV) и отдельная спецификация деталей —
+этапы плана, ещё не начатые (`docs/IMPLEMENTATION_PLAN.md`); когда они
+появятся, лягут в схему по тому же принципу.
+
+Плюс запрет на импорт `react`, `react-dom`, `zustand` и обращение к
+`window`/`document`/хранилищу в слоях `domain`, `geometry`, `validation`
+(`no-restricted-imports` + `no-restricted-globals`) — и отдельно запрет
+UI-фреймворка в `persistence`/`motion`, которым он тоже не нужен.
 
 **Критерий приёмки этапа 01:** попытка импортировать React в `src/geometry`
 роняет сборку CI.
@@ -143,18 +159,20 @@ src/
     coordinates.ts           Vec3, Box3, операции над телами
     diagnostics.ts           Issue, Severity
     furniture/               типы изделия, дерево секций, раскладка, значения по умолчанию
+      sections.ts            фабрики: createSections, createUniformGrid
     materials/               материалы, кромка, политика размеров
     hardware/                типы фурнитуры
     part/                    модель детали, детерминированные идентификаторы
     project/                 проект, настройки, фабрика
   geometry/                  Furniture → Part[], чистые функции
-    types.ts                 GeometryInput, GeometryResult, CellBox
-    context.ts               аккумулятор прогона, инварианты, GeometryStage
+    types.ts                 GeometryInput, GeometryResult, CellBox (+ row/column/sectionId/fill)
+    context.ts               аккумулятор прогона, инварианты деталей и ячеек, GeometryStage
     bounding-box.ts          computeBoundingBox(parts) → BoundingBox
     parts.ts                 конструктор детали, размеры раскроя, кромка
     engine.ts                конвейер PIPELINE, аварийная остановка
     stages/normalize.ts      пригодность входа
     stages/carcass.ts        три схемы стыка, внутренний объём
+    stages/layout.ts         ячейки, перегородки, row/column/sectionId (объединяет layout+dividers)
   validation/                правила → Issue[]
     rules/{values,references,structure}.ts
   persistence/               схема Zod, сериализация, миграции, репозитории
@@ -162,15 +180,20 @@ src/
   motion/                    пружины, проекция момента, reduced motion
   interaction/               контроллер жестов, скорость, привязка, клавиатура
   design-system/             токены, Button, Field
+  render/                    Domain Geometry → Render Model → SVG (только технический debug-вид)
+    debug-view.ts            buildDebugView: GeometryResult → прямоугольники + размерные линии
+    DebugSchema.tsx           отрисовка, инверсия оси Y, showDebugInfo
   app/                       оболочка приложения
 tests/
-  unit/{domain,geometry,validation,persistence,state,interaction,motion,architecture}/
+  unit/{domain,geometry,validation,persistence,state,interaction,motion,architecture,render}/
   e2e/
 scripts/                     проверки реестра предположений и самостоятельности
 ```
 
-Появится на следующих этапах: `geometry/stages/{layout,fill,facades,back,drilling}`,
-`parts/` (спецификация и группировка), `export/`, `render/`, `planner/`.
+Появится на следующих этапах: `geometry/stages/{fill,facades,back,base,countertop,edges,drilling}`,
+`parts/` (спецификация и группировка), `export/`, `planner/`. Интерактивная
+(не debug) отрисовка схемы — расширение уже существующего `render/`, а не
+новый слой.
 
 ---
 
@@ -322,21 +345,24 @@ inner.z1 = carcassZ0 + Dcarcass                             // фронт кор
 столешница со свесом. Нужен рендереру (этап 07) и планировщику (этап 33).
 Формула и пример — `docs/GEOMETRY_RULES.md` §6.
 
-### 5.7 Раскладка дерева и наполнение
+### 5.7 Раскладка дерева секций (`layout`) — реализовано
 
-Рекурсия `layout(node, box)`:
+Рекурсия `walk(node, box, row, column, sectionId)` в
+`src/geometry/stages/layout.ts` строит ячейки (`CellBox[]`) и детали
+перегородок (`Part[]`) из дерева `SplitNode`/`LeafNode` за один проход,
+используя уже существующий и трижды проверенный `resolveSizes()`
+(`src/domain/furniture/layout.ts`, PROMPT 2). Полные формулы, единицы,
+ограничения, обоснование объединения `layout`+`dividers` в один этап
+конвейера и локальная (внутри одного дерева) версия аварийной остановки —
+`docs/GEOMETRY_RULES.md` §9. Здесь — только место в общей картине: этот
+этап следует сразу за `carcass` и потребляет его `innerVolume` как
+стартовый объём раскладки.
 
-```
-если node.kind === 'leaf':  вернуть CellBox(box, node.id)
-если node.kind === 'split':
-    L = длина box вдоль node.axis
-    размеры детей = resolveSizes(children, L, divider.thickness)   // DATA_MODEL §5.3
-    для каждого ребёнка:
-        childBox = вырезка box
-        если это не последний ребёнок и divider.material === 'panel':
-            создать Part(role: 'partition' | 'shelf-fixed') в промежутке
-        рекурсия
-```
+**Наполнение (`fill`) — ещё не реализовано.** Формулы ниже (полки, ящики,
+фасады) описывают следующий этап плана (этапы 11+), не текущий код.
+Оставлены как рабочий черновик формул на будущее — при реализации они
+переедут в `docs/GEOMETRY_RULES.md` в том же формате, что и раскладка
+секций.
 
 **Полка внутри ячейки** (`cell` — `CellBox`):
 
@@ -578,6 +604,43 @@ const migrations: Record<number, (doc: unknown) => unknown> = { 1: v1_to_v2, ...
 
 ## 10. РЕНДЕРИНГ
 
+### 10.1 Технический debug-рендерер (реализовано, PROMPT 4)
+
+```
+render/
+  debug-view.ts       Domain Geometry → Render Model (чистая функция, без React)
+  DebugSchema.tsx      Render Model → SVG (React, единственная нетривиальная задача — инверсия Y)
+```
+
+Контракт слоя (`docs/GEOMETRY_RULES.md` §12 в терминах PROMPT 4 §20 —
+«не заставляй renderer понимать мебельные формулы»):
+
+```ts
+buildDebugView(geometry: GeometryResult): DebugSchemaView   // мм, домен, Y вверх
+```
+
+`DebugSchemaView` — плоский список прямоугольников (`parts` и `cells`
+проецируются на плоскость XY, ось Z отбрасывается — вид спереди) и
+размерных линий, уже в миллиметрах; `DebugSchema.tsx` переводит их в SVG
+`viewBox`, инвертируя Y один раз на каждый элемент (не через `<g
+transform="scale(1,-1)">` — это отразило бы и подписи, потребовав
+контр-трансформации на каждой). Ни одной формулы мебели в `render/` нет —
+только проекция и форматирование уже посчитанных чисел.
+
+**Не финальный интерфейс.** Существует для проверки Geometry Engine
+(PROMPT 4 §17): показывает корпус, перегородки, ячейки, размеры,
+координаты и id — без текстур, фасадов, ручек и декора. Полностью
+исключён из production-сборки через `import.meta.env.DEV`
+(Vite подставляет константу на этапе сборки, Rollup выбрасывает мёртвую
+ветку целиком — проверено: строка «Схема (debug…» отсутствует в `dist/`).
+
+**Границы слоя.** `render → domain, geometry, design-system` — не видит
+`state`/`interaction`. Управление (кнопка «Применить сетку», переключатель
+подписей) живёт в `app/App.tsx`, который читает стор и передаёт `render/`
+только данные и колбэки — стандартное разделение presentational/container.
+
+### 10.2 Полноценная интерактивная схема — план
+
 ```
 render/
   scene/      сцена, viewport, зум/панорама
@@ -586,12 +649,19 @@ render/
   hit/        карта попаданий: ячейка / деталь / разделитель / ручка
 ```
 
-- Одна и та же `Part[]` питает и схему, и чертёж, и PDF — **одна модель, одна геометрия**
-  (требование §15 задания: UI и canvas представляют одну модель).
+Расширение уже существующего `render/`, не новый слой: `debug-view.ts`
+и его тесты (`tests/unit/render/debug-view.test.ts`) — рабочий образец
+того, как Render Model отделяется от Domain Geometry; `DebugSchema.tsx` —
+образец того, как выглядит презентационный компонент без доступа к state.
+
+- Одна и та же `GeometryResult.parts` питает и схему, и чертёж, и PDF — **одна
+  модель, одна геометрия** (требование §15 задания PROMPT 1: UI и canvas
+  представляют одну модель). Debug-рендерер уже следует этому принципу.
 - Viewport-трансформация — единственная матрица `{ scale, tx, ty }`, применяемая
   к корневому `<g transform>`. Зум и панорама не вызывают перерисовку React-дерева.
 - Размерные линии — не украшение, а интерактивный элемент: значение редактируется
-  прямо на схеме (см. `INTERACTION_MODEL.md` §6).
+  прямо на схеме (см. `INTERACTION_MODEL.md` §6). В debug-версии размерные
+  линии пока только читают геометрию, без прямого редактирования.
 
 ---
 
@@ -612,20 +682,26 @@ render/
 плюс толщины перегородок точно равна внутренней ширине (с точностью `MM_EPSILON`).
 Такой тест ловит ошибки формул, которые снапшот пропустит.
 
-**Подтверждено дважды.** На PROMPT 2 такой тест нашёл ненормализованный вход
-в `resolveSizes`. На PROMPT 3 — тот же класс дефекта в `carcass.ts`: толщина
-материала, не лежащая на сетке 0.1 мм, округлялась независимо в позиции
-и в размере детали и могла увести правую боковину на 0.1 мм за пределы
-заявленной ширины. Оба раза правился код, а не тест. Подробности —
+**Подтверждено дважды на PROMPT 3.** Сначала на PROMPT 2 такой тест нашёл
+ненормализованный вход в `resolveSizes`. Затем на PROMPT 3 — тот же класс
+дефекта в `carcass.ts`: толщина материала, не лежащая на сетке 0.1 мм,
+округлялась независимо в позиции и в размере детали и могла увести правую
+боковину на 0.1 мм за пределы заявленной ширины. На PROMPT 4 property-тест
+искал похожий дефект в новом `layout.ts` — не нашёл: раскладка сразу
+переиспользовала уже нормализованные значения через `resolveSizes`. Все
+случаи и то, что новый код прошёл проверку сразу, — подробности в
 `docs/TESTING_STRATEGY.md` §4 и `docs/GEOMETRY_RULES.md` §4.1.
 
-Для геометрии сейчас реализовано: 4 снапшот-конфигурации (типовая,
+Для геометрии сейчас реализовано: 4 снапшот-конфигурации каркаса (типовая,
 минимальная, крупная, с утолщённым материалом) с явными проверками
-ключевых размеров; 3 property-свойства (недопустимый вход → пустой
-результат с ошибкой; допустимый вход → конечная положительная геометрия
-с уникальными id в границах габарита; детерминизм); 24 явных граничных
-случая; круговой путь через сериализацию не меняет `GeometryResult`.
-92 теста в `tests/unit/geometry/` — см. `docs/TESTING_STRATEGY.md`.
+ключевых размеров; 8 property-свойств (3 для каркаса — недопустимый вход,
+допустимый вход, детерминизм; 3 для сетки — те же вопросы плюс сохранение
+границ номинального габарита; 2 для домена — раскладка деления, круговой
+путь сериализации); 24+28 явных граничных случаев и сценариев (каркас и
+раскладка секций); круговой путь через сериализацию не меняет
+`GeometryResult`, включая деревья с секциями и сеткой. 128 тестов в
+`tests/unit/geometry/` (было 92 после PROMPT 3) — см.
+`docs/TESTING_STRATEGY.md`.
 
 ---
 

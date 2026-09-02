@@ -21,6 +21,7 @@ export * from './part/id.js';
 export * from './furniture/types.js';
 export * from './furniture/defaults.js';
 export * from './furniture/tree.js';
+export * from './furniture/sections.js';
 export * from './furniture/layout.js';
 
 export * from './project/types.js';

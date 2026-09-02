@@ -120,6 +120,20 @@
   --duration-fade: 180ms;
   --easing-standard: cubic-bezier(0.2, 0, 0.2, 1);
 
+  /* Схема — не интерфейс, у неё своя палитра (см. DESIGN_SYSTEM.md §3.7).
+     Введена вместе с первым потребителем — техническим 2D-рендерером
+     (docs/GEOMETRY_RULES.md §12) — а не заранее: полный список токенов
+     схемы (--snap-guide, --select-outline, --issue-outline, маркировка
+     кромки) остаётся планом до появления интерактивной схемы.
+     Ссылаются на уже существующие ролевые токены, а не заводят частичный
+     параллельный набор значений для тёмной темы: --border и --text-*
+     уже переопределены под обе темы, схема просто их переиспользует. */
+  --part-fill: rgb(47 111 237 / 0.14);
+  --part-stroke: var(--border-strong);
+  --cell-outline: var(--border-default);
+  --dim-line: var(--text-tertiary);
+  --dim-text: var(--text-secondary);
+
   color-scheme: light dark;
 }
 

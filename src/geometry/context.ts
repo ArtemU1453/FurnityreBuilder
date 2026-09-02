@@ -1,7 +1,17 @@
-import type { Box3, Issue, Part, PartId, Severity } from '../domain/index.js';
+import type { Box3, Issue, NodeId, Part, PartId, Severity } from '../domain/index.js';
 import { hasErrors, isFiniteBox3, issue } from '../domain/index.js';
 import { computeBoundingBox } from './bounding-box.js';
 import type { CellBox, GeometryInput, GeometryResult } from './types.js';
+
+/** Причина отказа геометрического тела (детали или ячейки) финальной проверкой. */
+type SanityFailure = 'size' | 'position';
+
+/** Проверяет положительность размера и неотрицательность координаты. NaN/Infinity уже отсечены на входе. */
+function checkSanity(box: Box3): SanityFailure | undefined {
+  if (box.size.x <= 0 || box.size.y <= 0 || box.size.z <= 0) return 'size';
+  if (box.min.x < 0 || box.min.y < 0 || box.min.z < 0) return 'position';
+  return undefined;
+}
 
 /**
  * Изменяемый аккумулятор одного прогона движка.
@@ -49,7 +59,17 @@ export class GeometryContext {
     this.parts.push(part);
   }
 
+  /** Симметрично `addPart`: то же немедленное отсечение NaN/Infinity, тот же принцип. */
   addCell(cell: CellBox): void {
+    if (!isFiniteBox3(cell.box)) {
+      this.report(
+        'CELL_NOT_FINITE',
+        'error',
+        `Ячейка «${cell.nodeId}» получила нечисловые координаты или размер.`,
+        { nodeId: cell.nodeId },
+      );
+      return;
+    }
     this.cells.push(cell);
   }
 
@@ -64,6 +84,12 @@ export class GeometryContext {
    * становится истинным, дальнейшие этапы не запускаются. Геометрия не
    * пытается достроиться поверх данных, уже признанных непригодными — деталь
    * с координатой, посчитанной из отрицательной ширины, хуже, чем её отсутствие.
+   *
+   * Внутри ОДНОГО этапа (например, `layout`, при обходе дерева секций)
+   * это правило действует мягче: одна испорченная ветка дерева останавливает
+   * только себя, а не весь расчёт — см. `stages/layout.ts`. Между этапами
+   * компромиссов нет: `carcass` не запускается, если `normalize` сообщил
+   * об ошибке.
    */
   hasFatalError(): boolean {
     return hasErrors(this.diagnostics);
@@ -72,20 +98,20 @@ export class GeometryContext {
   /**
    * Финальная проверка инвариантов результата и сборка `GeometryResult`.
    *
-   * Деталь, нарушающая инвариант, из результата ИСКЛЮЧАЕТСЯ — тем же
-   * способом, каким `addPart` уже исключает нечисловые детали. Гарантия
-   * получается сильнее: «если деталь попала в `GeometryResult.parts`, она
-   * прошла все проверки», независимо от того, какой этап её произвёл. Это
-   * особенно важно на будущее: наполнение, фасады и фурнитура (этапы 09–24)
-   * добавляют детали через тот же `addPart` и получают эту защиту бесплатно,
-   * без необходимости дублировать проверки в каждом этапе.
+   * Деталь или ячейка, нарушающая инвариант, из результата ИСКЛЮЧАЕТСЯ — тем
+   * же способом, каким `addPart`/`addCell` уже исключают нечисловые значения.
+   * Гарантия получается сильнее: «если деталь или ячейка попала в результат,
+   * она прошла все проверки», независимо от того, какой этап её произвёл.
+   * Это важно на будущее: наполнение, фасады и фурнитура (этапы 11+) шлют
+   * детали через тот же `addPart` и получают эту защиту бесплатно, без
+   * необходимости дублировать проверки в каждом новом этапе.
    */
   finish(pendingStages: readonly string[]): GeometryResult {
-    const seenIds = new Set<PartId>();
+    const seenPartIds = new Set<PartId>();
     const validParts: Part[] = [];
 
     for (const part of this.parts) {
-      if (seenIds.has(part.id)) {
+      if (seenPartIds.has(part.id)) {
         this.report(
           'PART_ID_DUPLICATE',
           'error',
@@ -95,7 +121,8 @@ export class GeometryContext {
         continue;
       }
 
-      if (part.size.x <= 0 || part.size.y <= 0 || part.size.z <= 0) {
+      const failure = checkSanity({ min: part.position, size: part.size });
+      if (failure === 'size') {
         this.report(
           'PART_SIZE_NOT_POSITIVE',
           'error',
@@ -104,12 +131,11 @@ export class GeometryContext {
         );
         continue;
       }
-
-      // Начало координат — левый–нижний–задний угол габарита изделия целиком
-      // (docs/COORDINATE_SYSTEM.md §1). Отрицательная координата означает,
-      // что деталь вышла за пределы изделия — это всегда ошибка формулы,
-      // а не легитимное положение.
-      if (part.position.x < 0 || part.position.y < 0 || part.position.z < 0) {
+      if (failure === 'position') {
+        // Начало координат — левый–нижний–задний угол габарита изделия
+        // целиком (docs/COORDINATE_SYSTEM.md §1). Отрицательная координата
+        // означает, что деталь вышла за пределы изделия — это всегда ошибка
+        // формулы, а не легитимное положение.
         this.report(
           'PART_POSITION_NEGATIVE',
           'error',
@@ -119,13 +145,51 @@ export class GeometryContext {
         continue;
       }
 
-      seenIds.add(part.id);
+      seenPartIds.add(part.id);
       validParts.push(part);
+    }
+
+    const seenCellIds = new Set<NodeId>();
+    const validCells: CellBox[] = [];
+
+    for (const cell of this.cells) {
+      if (seenCellIds.has(cell.nodeId)) {
+        this.report(
+          'CELL_ID_DUPLICATE',
+          'error',
+          `Повторяющийся идентификатор ячейки: «${cell.nodeId}».`,
+          { nodeId: cell.nodeId },
+        );
+        continue;
+      }
+
+      const failure = checkSanity(cell.box);
+      if (failure === 'size') {
+        this.report(
+          'CELL_SIZE_NOT_POSITIVE',
+          'error',
+          `Ячейка «${cell.nodeId}» получила неположительный размер.`,
+          { nodeId: cell.nodeId },
+        );
+        continue;
+      }
+      if (failure === 'position') {
+        this.report(
+          'CELL_POSITION_NEGATIVE',
+          'error',
+          `Ячейка «${cell.nodeId}» получила отрицательную координату.`,
+          { nodeId: cell.nodeId },
+        );
+        continue;
+      }
+
+      seenCellIds.add(cell.nodeId);
+      validCells.push(cell);
     }
 
     return Object.freeze({
       parts: Object.freeze(validParts),
-      cells: Object.freeze([...this.cells]),
+      cells: Object.freeze(validCells),
       bounds: this.bounds,
       innerVolume: this.innerVolume,
       boundingBox: computeBoundingBox(validParts),

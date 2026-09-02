@@ -23,6 +23,7 @@ const LAYERS = [
   { type: 'motion', pattern: 'src/motion/**/*' },
   { type: 'interaction', pattern: 'src/interaction/**/*' },
   { type: 'design-system', pattern: 'src/design-system/**/*' },
+  { type: 'render', pattern: 'src/render/**/*' },
   { type: 'app', pattern: 'src/app/**/*' },
   { type: 'entry', pattern: 'src/main.tsx' },
 ];
@@ -101,6 +102,10 @@ export default tseslint.config(
             { from: 'motion', allow: ['motion'] },
             { from: 'interaction', allow: ['interaction', 'motion', 'state', 'domain'] },
             { from: 'design-system', allow: ['design-system', 'motion'] },
+            // render — презентационный слой: получает уже посчитанную
+            // геометрию и рисует её. Не видит state/interaction — команды
+            // и хранилище остаются заботой app, render только показывает.
+            { from: 'render', allow: ['render', 'domain', 'geometry', 'design-system'] },
             { from: 'app', allow: ['*'] },
             { from: 'entry', allow: ['*'] },
           ],

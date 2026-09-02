@@ -1,0 +1,69 @@
+.frame {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg-canvas);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-md);
+}
+
+.partRect {
+  fill: var(--part-fill);
+  stroke: var(--part-stroke);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.cellRect {
+  fill: none;
+  stroke: var(--cell-outline);
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.dimLine {
+  stroke: var(--dim-line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.dimTick {
+  stroke: var(--dim-line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/*
+ * Размер шрифта в SVG с числовым viewBox — это единицы координатной
+ * системы (здесь — миллиметры), а не экранные пиксели: подпись остаётся
+ * пропорциональной схеме при любом масштабе показа, а не «плывёт»
+ * относительно неё.
+ */
+.dimText {
+  fill: var(--dim-text);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.debugLabel {
+  fill: var(--text-tertiary);
+  font-family: var(--font-num);
+  font-size: 8px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.cellLabel {
+  fill: var(--text-tertiary);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
