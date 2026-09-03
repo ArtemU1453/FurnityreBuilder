@@ -232,3 +232,122 @@ describe('стор документа: транзакции', () => {
     expect(s.getState().canUndo()).toBe(false);
   });
 });
+
+/**
+ * Изменение размера отдельной секции или ряда (PROMPT 8 §18–19, §22).
+ * Команда одна на все три случая — секция, ряд, колонка: чем является
+ * ребёнок, определяет ось его родителя, а не тип команды.
+ */
+describe('стор документа: SetChildSize по идентификатору', () => {
+  const threeSections = (s: ReturnType<typeof store>): { ids: string[] } => {
+    s.getState().execute({
+      type: 'SetSectionCount',
+      furnitureIndex: 0,
+      count: 3,
+      splitId: asId<'Node'>('split'),
+      newSectionIds: [asId<'Node'>('s2'), asId<'Node'>('s3')],
+      dividerThickness: 16,
+    });
+    const root = s.getState().project.furniture[0]!.root;
+    return { ids: isSplit(root) ? root.children.map((c) => c.node.id) : [] };
+  };
+
+  const sizeOf = (s: ReturnType<typeof store>, childId: string) => {
+    const root = s.getState().project.furniture[0]!.root;
+    return isSplit(root) ? root.children.find((c) => c.node.id === childId)?.size : undefined;
+  };
+
+  it('меняет размер именно той секции, которая названа по id', () => {
+    const s = store();
+    const { ids } = threeSections(s);
+
+    s.getState().execute({
+      type: 'SetChildSize',
+      furnitureIndex: 0,
+      childId: asId<'Node'>(ids[1]!),
+      size: { mode: 'fixed', value: 500 },
+    });
+
+    expect(sizeOf(s, ids[1]!)).toEqual({ mode: 'fixed', value: 500 });
+    // Соседей команда не трогает: они остаются растягиваемыми.
+    expect(sizeOf(s, ids[0]!)).toEqual({ mode: 'flex', weight: 1 });
+    expect(sizeOf(s, ids[2]!)).toEqual({ mode: 'flex', weight: 1 });
+  });
+
+  it('идентификаторы секций не меняются от изменения размера', () => {
+    const s = store();
+    const { ids } = threeSections(s);
+
+    s.getState().execute({
+      type: 'SetChildSize',
+      furnitureIndex: 0,
+      childId: asId<'Node'>(ids[0]!),
+      size: { mode: 'fixed', value: 300 },
+    });
+
+    const after = s.getState().project.furniture[0]!.root;
+    expect(isSplit(after) ? after.children.map((c) => c.node.id) : []).toEqual(ids);
+  });
+
+  it('undo возвращает прежний размер, redo — новый', () => {
+    const s = store();
+    const { ids } = threeSections(s);
+    const target = asId<'Node'>(ids[0]!);
+
+    s.getState().execute({ type: 'SetChildSize', furnitureIndex: 0, childId: target, size: { mode: 'fixed', value: 300 } });
+    expect(sizeOf(s, ids[0]!)).toEqual({ mode: 'fixed', value: 300 });
+
+    s.getState().execute({ type: 'SetChildSize', furnitureIndex: 0, childId: target, size: { mode: 'fixed', value: 350 } });
+    expect(sizeOf(s, ids[0]!)).toEqual({ mode: 'fixed', value: 350 });
+
+    s.getState().undo();
+    expect(sizeOf(s, ids[0]!)).toEqual({ mode: 'fixed', value: 300 });
+
+    s.getState().redo();
+    expect(sizeOf(s, ids[0]!)).toEqual({ mode: 'fixed', value: 350 });
+  });
+
+  it('история хранит параметр, а не снимок геометрии: после undo пересчёт даёт прежние размеры', async () => {
+    const { buildGeometry } = await import('../../../src/geometry/engine.js');
+    const geometryOf = (st: ReturnType<typeof store>) => {
+      const p = st.getState().project;
+      return buildGeometry({
+        furniture: p.furniture[0]!,
+        scheme: p.settings.construction,
+        tolerances: p.settings.tolerances,
+        materials: p.materials,
+        edgeSizing: p.settings.edgeSizing,
+      });
+    };
+
+    const s = store();
+    const { ids } = threeSections(s);
+    const target = asId<'Node'>(ids[0]!);
+
+    s.getState().execute({ type: 'SetChildSize', furnitureIndex: 0, childId: target, size: { mode: 'fixed', value: 300 } });
+    const at300 = geometryOf(s).sections.map((sec) => sec.box.size.x);
+
+    s.getState().execute({ type: 'SetChildSize', furnitureIndex: 0, childId: target, size: { mode: 'fixed', value: 350 } });
+    expect(geometryOf(s).sections[0]!.box.size.x).toBe(350);
+
+    s.getState().undo();
+    // Геометрия не хранилась и не восстанавливалась — она пересчитана заново
+    // из вернувшегося параметра.
+    expect(geometryOf(s).sections.map((sec) => sec.box.size.x)).toEqual(at300);
+  });
+
+  it('команда с неизвестным id ничего не меняет', () => {
+    const s = store();
+    const { ids } = threeSections(s);
+    const before = ids.map((id) => sizeOf(s, id));
+
+    s.getState().execute({
+      type: 'SetChildSize',
+      furnitureIndex: 0,
+      childId: asId<'Node'>('нет-такого-узла'),
+      size: { mode: 'fixed', value: 999 },
+    });
+
+    expect(ids.map((id) => sizeOf(s, id))).toEqual(before);
+  });
+});

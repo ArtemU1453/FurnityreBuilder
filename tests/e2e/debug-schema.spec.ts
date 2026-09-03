@@ -85,7 +85,7 @@ test('изменение числа секций перестраивает пе
   await expect(schema.getByText('SECTION 1')).toBeVisible();
   await expect(schema.getByText('SECTION 2')).toHaveCount(0);
 
-  await page.getByLabel('Секций').fill('3');
+  await page.getByLabel('Секций', { exact: true }).fill('3');
   await page.getByRole('button', { name: /Применить секций/ }).click();
 
   // Счётчики читаем в панели результата: те же слова есть и в подписях полей.
@@ -97,10 +97,42 @@ test('изменение числа секций перестраивает пе
   await expect(stats.getByText('Секций').locator('..')).toContainText('3');
 
   // Обратное изменение убирает лишние перегородки и подписи.
-  await page.getByLabel('Секций').fill('1');
+  await page.getByLabel('Секций', { exact: true }).fill('1');
   await page.getByRole('button', { name: /Применить секций/ }).click();
   await expect(schema.getByText('SECTION 2')).toHaveCount(0);
   await expect(stats.getByText('Перегородок').locator('..')).toContainText('0');
+});
+
+test('индивидуальные ширины секций применяются и видны в схеме', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  const stats = page.getByRole('complementary', { name: 'Результат расчёта' });
+
+  // Габарит подбираем так, чтобы 300 + 500 + 400 сошлось с боковинами
+  // и двумя перегородками: 1200 + 32 + 32 = 1264.
+  await page.getByLabel('Ширина, мм').fill('1264');
+  await page.getByLabel('Секций', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Применить секций/ }).click();
+  await expect(stats.getByText('Секций').locator('..')).toContainText('3');
+
+  await page.getByLabel('Ширины секций, мм').fill('300, 500, 400');
+  await page.getByRole('button', { name: 'Применить ширины' }).click();
+
+  // Схема подписывает каждую секцию её собственной шириной.
+  await page.getByLabel('Показывать ID и координаты').check();
+  await expect(schema.getByText('Ш 300', { exact: false }).first()).toBeVisible();
+  await expect(schema.getByText('Ш 500', { exact: false }).first()).toBeVisible();
+  await expect(schema.getByText('Ш 400', { exact: false }).first()).toBeVisible();
+
+  // Несходящаяся сумма не строит геометрию молча, а объясняется текстом.
+  await page.getByLabel('Ширины секций, мм').fill('200, 200, 200');
+  await page.getByRole('button', { name: 'Применить ширины' }).click();
+  await expect(page.getByText(/не заполняют доступное пространство/)).toBeVisible();
+
+  // Одна отмена возвращает предыдущий набор ширин целиком.
+  await page.getByRole('button', { name: 'Отменить' }).click();
+  await expect(schema.getByText('Ш 500', { exact: false }).first()).toBeVisible();
 });
 
 test('изменение габарита в поле обновляет схему сразу, без перезагрузки', async ({ page }) => {

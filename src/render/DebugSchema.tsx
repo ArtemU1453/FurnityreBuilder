@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import type { DebugRect, DebugSchemaView } from './debug-view.js';
+import type { DebugSchemaView } from './debug-view.js';
 import styles from './DebugSchema.module.css';
 
 /**
@@ -30,23 +30,6 @@ const SECTION_DETAIL_OFFSET: number = 14;
  * физически является полкой»), поэтому обе роли получают одинаковый стиль. */
 function isShelf(role: string | undefined): boolean {
   return role === 'shelf-fixed' || role === 'shelf-adjustable';
-}
-
-/**
- * Подпись детали в режиме debug-инфо. Для полки — состав из PROMPT 6 §27
- * (ширина, глубина, толщина, Y, секция); для остальных деталей — прежняя
- * короткая форма «роль · (x, y)».
- *
- * Все значения берутся из `DebugRect`, то есть в конечном счёте из
- * `GeometryResult`: ни одна величина здесь не вычисляется заново
- * (PROMPT 6 §27 «не дублировать формулы»).
- */
-function debugLabelForPart(rect: DebugRect): string {
-  const at = `(${String(rect.x)}, ${String(rect.y)})`;
-  if (!isShelf(rect.role)) return `${rect.role ?? ''} · ${at}`;
-  const depth = rect.depth === undefined ? '' : ` × Г${String(rect.depth)}`;
-  const section = rect.sectionId === undefined ? '' : ` · секция ${rect.sectionId}`;
-  return `${rect.role ?? ''} · Ш${String(rect.width)}${depth} × Т${String(rect.height)} · Y ${String(rect.y)}${section}`;
 }
 
 export interface DebugSchemaProps {
@@ -121,7 +104,7 @@ export function DebugSchema({ view, showDebugInfo = false }: DebugSchemaProps): 
                 x={rect.x + rect.width / 2}
                 y={flipY(rect.y, rect.height) + rect.height / 2 + (rect.kind === 'cell' ? 14 : 0)}
               >
-                {rect.kind === 'part' ? debugLabelForPart(rect) : rect.id}
+                {rect.detail}
               </text>
             ) : null}
           </Fragment>

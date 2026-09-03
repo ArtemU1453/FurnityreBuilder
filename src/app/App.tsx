@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { createEmptyLeaf, createShelvesLeaf } from '../domain/furniture/defaults.js';
-import { createRandomIdFactory, formatMm } from '../domain/index.js';
+import { createRandomIdFactory, formatMm, isSplit } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
 import { buildDebugView, DebugSchema } from '../render/index.js';
@@ -30,6 +30,8 @@ export function App(): React.JSX.Element {
   const project = useDocumentStore((s) => s.project);
   const execute = useDocumentStore((s) => s.execute);
   const undo = useDocumentStore((s) => s.undo);
+  const beginTransaction = useDocumentStore((s) => s.beginTransaction);
+  const endTransaction = useDocumentStore((s) => s.endTransaction);
   const redo = useDocumentStore((s) => s.redo);
   const history = useDocumentStore((s) => s.history);
 
@@ -42,6 +44,7 @@ export function App(): React.JSX.Element {
   const [columnsDraft, setColumnsDraft] = useState(1);
   const [shelvesDraft, setShelvesDraft] = useState(0);
   const [sectionsDraft, setSectionsDraft] = useState(1);
+  const [sectionWidthsDraft, setSectionWidthsDraft] = useState('');
   const [showDebugInfo, setShowDebugInfo] = useState(false);
 
   const furniture = project.furniture[0];
@@ -61,6 +64,17 @@ export function App(): React.JSX.Element {
   }, [furniture, project.settings, project.materials]);
 
   const report = useMemo(() => validateProject(project), [project]);
+
+  // Диагностика движка и диагностика валидации — один и тот же тип `Issue`,
+  // и пользователю они одинаково важны: до PROMPT 8 показывалась только
+  // вторая, поэтому ошибка расчёта (например, «размеры не заполняют
+  // доступное пространство») оставляла схему пустой БЕЗ объяснения. Это
+  // прямо противоречит принципу «ошибка объясняется текстом», ради которого
+  // существует эта панель.
+  const problems = useMemo(
+    () => (geometry === undefined ? report.issues : [...geometry.diagnostics, ...report.issues]),
+    [geometry, report],
+  );
   // `import.meta.env.DEV` внутри useMemo, а не только вокруг <DebugSchema/>:
   // сама сборка view-модели тоже относится к debug-слою. Пока условие стояло
   // лишь у компонента, `buildDebugView` попадала в production-бандл и честно
@@ -121,6 +135,32 @@ export function App(): React.JSX.Element {
       },
       `Секций: ${String(sectionsDraft)}`,
     );
+  };
+
+  // Индивидуальные ширины секций (PROMPT 8). Применяются командой
+  // SetChildSize по id каждой секции — не пересборкой дерева, поэтому
+  // id секций, ячеек и полок остаются прежними. Пустое поле возвращает
+  // режим равных секций: все дети снова становятся растягиваемыми.
+  const applySectionWidths = (): void => {
+    const root = furniture.root;
+    if (!isSplit(root) || root.axis !== 'x') return;
+    const values = sectionWidthsDraft
+      .split(',')
+      .map((raw) => Number(raw.trim()))
+      .filter((value) => Number.isFinite(value) && value > 0);
+
+    // Одна транзакция — один шаг истории на всё изменение, как и для жеста.
+    beginTransaction(`Ширины секций: ${sectionWidthsDraft || 'равные'}`);
+    root.children.forEach((child, index) => {
+      const value = values[index];
+      execute({
+        type: 'SetChildSize',
+        furnitureIndex: 0,
+        childId: child.node.id,
+        size: value === undefined ? { mode: 'flex', weight: 1 } : { mode: 'fixed', value },
+      });
+    });
+    endTransaction();
   };
 
   return (
@@ -254,6 +294,30 @@ export function App(): React.JSX.Element {
           <Button onClick={applySectionCount} style={{ marginTop: 'var(--sp-3)' }}>
             Применить секций: {sectionsDraft}
           </Button>
+          <div style={{ marginTop: 'var(--sp-3)' }}>
+            <Field
+              label="Ширины секций, мм"
+              message="Через запятую: 300, 500, 400. Пусто — равные секции."
+            >
+              {({ id, describedBy }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="text"
+                  inputMode="numeric"
+                  value={sectionWidthsDraft}
+                  placeholder="равные"
+                  {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
+                  onChange={(event) => {
+                    setSectionWidthsDraft(event.target.value);
+                  }}
+                />
+              )}
+            </Field>
+          </div>
+          <Button onClick={applySectionWidths} style={{ marginTop: 'var(--sp-2)' }}>
+            Применить ширины
+          </Button>
           <Button onClick={applyGrid} style={{ marginTop: 'var(--sp-2)' }}>
             Применить сетку {rowsDraft}×{columnsDraft}
           </Button>
@@ -309,13 +373,13 @@ export function App(): React.JSX.Element {
             </li>
           </ul>
 
-          {report.issues.length > 0 ? (
+          {problems.length > 0 ? (
             <>
               <h3 className={styles.panelTitle} style={{ marginTop: 'var(--sp-4)' }}>
                 Проверка
               </h3>
               <ul className={styles.issues} aria-live="polite">
-                {report.issues.map((item, index) => (
+                {problems.map((item, index) => (
                   <li key={`${item.code}-${String(index)}`} className={styles.issue}>
                     <span className={styles[item.severity]} aria-hidden="true">
                       {item.severity === 'error' ? '✕' : item.severity === 'warning' ? '!' : 'i'}
@@ -363,8 +427,8 @@ export function App(): React.JSX.Element {
 
       <footer className={styles.status}>
         <span>Схема сборки: {project.settings.construction.verticalPriority}</span>
-        <span>Ошибок: {report.errors}</span>
-        <span>Предупреждений: {report.warnings}</span>
+        <span>Ошибок: {problems.filter((i) => i.severity === 'error').length}</span>
+        <span>Предупреждений: {problems.filter((i) => i.severity === 'warning').length}</span>
         <span>Шагов истории: {history.past.length}</span>
       </footer>
     </div>

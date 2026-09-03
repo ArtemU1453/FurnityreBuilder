@@ -143,6 +143,20 @@ export const layoutStage: GeometryStage = {
         );
         return;
       }
+      if (result.underconstrained) {
+        // Симметрично `overconstrained`: размеры заданы, но не сходятся
+        // с доступным местом — только в другую сторону. Строить геометрию
+        // с невидимым зазором у дальнего края нельзя, поэтому поддерево
+        // не строится, а пользователь получает внятную диагностику
+        // (PROMPT 8 §4, docs/GEOMETRY_RULES.md §16.4).
+        ctx.report(
+          'SPLIT_UNDERCONSTRAINED',
+          'error',
+          'Заданные размеры не заполняют доступное пространство: сделайте один из размеров растягиваемым или увеличьте размеры так, чтобы их сумма сошлась.',
+          { nodeId: node.id },
+        );
+        return;
+      }
       if (result.spans.some((span) => span.length <= 0)) {
         ctx.report(
           'CELL_SPAN_NOT_POSITIVE',

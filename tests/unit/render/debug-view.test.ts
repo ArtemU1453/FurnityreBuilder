@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDebugView } from '../../../src/render/debug-view.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
-import { createSections, createUniformGrid } from '../../../src/domain/furniture/sections.js';
+import { createSections, createSizedSplit, createUniformGrid, fixedSizes } from '../../../src/domain/furniture/sections.js';
 import { createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
 import { makeGeometryInput, makeGeometryInputWithRoot } from '../geometry/helpers.js';
 
@@ -136,6 +136,105 @@ describe('buildDebugView: подписи секций (PROMPT 7 §22)', () => {
       expect(dim.to).toBe(section.box.min.x + section.box.size.x);
     });
   });
+});
+
+describe('buildDebugView: подписи объектов в debug-инфо (PROMPT 8 §24)', () => {
+  const widths = [300, 500, 400];
+  const width = widths.reduce((a, b) => a + b, 0) + 2 * 16 + 2 * 16;
+  const geometry = buildGeometry(
+    makeGeometryInputWithRoot(
+      (ids) => createSizedSplit(ids, 'x', fixedSizes(widths), 16, (leafIds) => createShelvesLeaf(leafIds, 1, 'adjustable')),
+      { width, height: 2000, depth: 500, panelThickness: 16 },
+    ),
+  );
+  const view = buildDebugView(geometry);
+  const detailOf = (role: string) => view.rects.find((r) => r.role === role)?.detail ?? '';
+
+  it('перегородка: id, X, толщина, высота', () => {
+    const partition = geometry.parts.find((p) => p.role === 'partition')!;
+    const detail = detailOf('partition');
+    expect(detail).toContain(partition.id);
+    expect(detail).toContain(`X ${String(partition.position.x)}`);
+    expect(detail).toContain(`Т ${String(partition.size.x)}`);
+    expect(detail).toContain(`В ${String(partition.size.y)}`);
+  });
+
+  it('полка: id, X, Y, ширина, глубина', () => {
+    const shelf = geometry.parts.find((p) => p.role === 'shelf-adjustable')!;
+    const detail = detailOf('shelf-adjustable');
+    expect(detail).toContain(shelf.id);
+    expect(detail).toContain(`X ${String(shelf.position.x)}`);
+    expect(detail).toContain(`Y ${String(shelf.position.y)}`);
+    expect(detail).toContain(`Ш ${String(shelf.size.x)}`);
+    expect(detail).toContain(`Г ${String(shelf.size.z)}`);
+  });
+
+  it('ячейка: id, X, Y, ширина, высота', () => {
+    const cell = geometry.cells[0]!;
+    const rect = view.rects.find((r) => r.kind === 'cell' && r.id === cell.nodeId)!;
+    expect(rect.detail).toContain(cell.nodeId);
+    expect(rect.detail).toContain(`X ${String(cell.box.min.x)}`);
+    expect(rect.detail).toContain(`Y ${String(cell.box.min.y)}`);
+    expect(rect.detail).toContain(`Ш ${String(cell.box.size.x)}`);
+    expect(rect.detail).toContain(`В ${String(cell.box.size.y)}`);
+  });
+
+  it('секции с разными ширинами подписаны своими, а не усреднёнными размерами', () => {
+    expect(view.sectionLabels.map((l) => l.title)).toEqual(['SECTION 1', 'SECTION 2', 'SECTION 3']);
+    widths.forEach((w, i) => {
+      expect(view.sectionLabels[i]!.detail).toContain(`Ш ${String(w)}`);
+    });
+  });
+});
+
+/**
+ * Сценарии §25: то, что задание требует проверить глазами в debug-схеме,
+ * проверяется здесь на данных — размеры в подписях обязаны совпадать
+ * с расчётом, иначе визуальная сверка ничего не доказывает.
+ */
+describe('buildDebugView: сценарии визуальной проверки (PROMPT 8 §25)', () => {
+  const T = 16;
+
+  it.each([[[400, 400, 400]], [[300, 500, 400]], [[200, 300, 700]]])(
+    'ширины %j: подписи секций и прямоугольники ячеек совпадают с расчётом',
+    (widths) => {
+      const width = widths.reduce((a, b) => a + b, 0) + (widths.length - 1) * T + 2 * T;
+      const geometry = buildGeometry(
+        makeGeometryInputWithRoot((ids) => createSizedSplit(ids, 'x', fixedSizes(widths), T), {
+          width,
+          height: 2000,
+          depth: 500,
+          panelThickness: T,
+        }),
+      );
+      const view = buildDebugView(geometry);
+
+      expect(geometry.sections.map((s) => s.box.size.x)).toEqual(widths);
+      const cellRects = view.rects.filter((r) => r.kind === 'cell').sort((a, b) => a.x - b.x);
+      expect(cellRects.map((r) => r.width)).toEqual(widths);
+      widths.forEach((w, i) => {
+        expect(view.sectionLabels[i]!.detail).toContain(`Ш ${String(w)}`);
+      });
+    },
+  );
+
+  it.each([[[500, 500, 500, 500]], [[300, 700, 500, 500]]])(
+    'высоты %j: прямоугольники ячеек совпадают с расчётом',
+    (heights) => {
+      const height = heights.reduce((a, b) => a + b, 0) + (heights.length - 1) * T + 2 * T;
+      const geometry = buildGeometry(
+        makeGeometryInputWithRoot((ids) => createSizedSplit(ids, 'y', fixedSizes(heights), T), {
+          width: 1000,
+          height,
+          depth: 500,
+          panelThickness: T,
+        }),
+      );
+      const view = buildDebugView(geometry);
+      const cellRects = view.rects.filter((r) => r.kind === 'cell').sort((a, b) => a.y - b.y);
+      expect(cellRects.map((r) => r.height)).toEqual(heights);
+    },
+  );
 });
 
 describe('buildDebugView: пустой результат (фатальная ошибка входа)', () => {

@@ -33,6 +33,14 @@ export interface DebugRect {
   readonly depth?: Mm;
   /** Секция, к которой относится деталь — только если она принадлежит ровно одной ячейке. */
   readonly sectionId?: string;
+  /**
+   * Готовая строка для режима debug-инфо (PROMPT 8 §24): id, координаты и
+   * размеры объекта. Собирается здесь, а не в компоненте, по той же причине,
+   * по которой здесь же живут размерные линии: строка состоит из чисел
+   * `GeometryResult`, и её состав нужно уметь проверить тестом, а не глазами
+   * на экране.
+   */
+  readonly detail: string;
 }
 
 export interface DebugDimensionLine {
@@ -67,6 +75,24 @@ export interface DebugSchemaView {
   readonly sectionLabels: readonly DebugSectionLabel[];
 }
 
+/**
+ * Состав подписи детали в режиме debug-инфо (PROMPT 8 §24). У каждого вида
+ * детали свой набор: у перегородки важна толщина, у полки — глубина, у
+ * остальных достаточно координаты. Роль стоит первой, чтобы подпись
+ * оставалась узнаваемой с одного взгляда.
+ */
+function partDetail(part: GeometryResult['parts'][number]): string {
+  const role = part.role;
+  const at = `X ${formatMm(part.position.x)} Y ${formatMm(part.position.y)}`;
+  if (role === 'partition') {
+    return `${role} · ${part.id} · ${at} · Т ${formatMm(part.size.x)} × В ${formatMm(part.size.y)}`;
+  }
+  if (role === 'shelf-fixed' || role === 'shelf-adjustable') {
+    return `${role} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × Г ${formatMm(part.size.z)} × Т ${formatMm(part.size.y)}`;
+  }
+  return `${role} · ${part.id} · ${at}`;
+}
+
 export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
   const { totalWidth, totalHeight } = geometry.boundingBox;
 
@@ -84,6 +110,7 @@ export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
       width: part.size.x,
       height: part.size.y,
       depth: part.size.z,
+      detail: partDetail(part),
       ...(sectionId === undefined ? {} : { sectionId }),
     };
   });
@@ -96,6 +123,8 @@ export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
     y: cell.box.min.y,
     width: cell.box.size.x,
     height: cell.box.size.y,
+    // Ячейка: id, X, Y, ширина, высота (PROMPT 8 §24).
+    detail: `${cell.nodeId} · X ${formatMm(cell.box.min.x)} Y ${formatMm(cell.box.min.y)} · Ш ${formatMm(cell.box.size.x)} × В ${formatMm(cell.box.size.y)}`,
   }));
 
   const dimensions: DebugDimensionLine[] = [];

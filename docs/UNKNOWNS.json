@@ -9,7 +9,11 @@
       "status": "unknown",
       "defaultAssumption": "мягкие пороги: W 100-6000, H 100-3000, D 80-1200; предупреждение, не запрет",
       "test": "Ввести 1 и 99999 в каждое поле, зафиксировать значение, к которому приводится ввод",
-      "blocks": ["src/domain/furniture/defaults.ts", "src/geometry/stages/normalize.ts", "src/validation/rules/values.ts"]
+      "blocks": [
+        "src/domain/furniture/defaults.ts",
+        "src/geometry/stages/normalize.ts",
+        "src/validation/rules/values.ts"
+      ]
     },
     {
       "id": "T-DIM-03",
@@ -18,7 +22,9 @@
       "status": "unknown",
       "defaultAssumption": "1 мм",
       "test": "Ввести 1001 при W=1000 и проверить, принимается ли некратное 10 значение",
-      "blocks": ["src/interaction/snapping.ts"]
+      "blocks": [
+        "src/interaction/snapping.ts"
+      ]
     },
     {
       "id": "T-DIM-04",
@@ -27,7 +33,21 @@
       "status": "resolved-by-design",
       "defaultAssumption": "решено параметром SizeSpec: пользователь сам выбирает fixed или flex",
       "test": "Построить 3 полки, увеличить H на 300 мм, зафиксировать поведение",
-      "blocks": ["src/domain/furniture/layout.ts"]
+      "blocks": [
+        "src/domain/furniture/layout.ts"
+      ]
+    },
+    {
+      "id": "T-DIM-05",
+      "area": "dimensions",
+      "question": "Что происходит с габаритом изделия при изменении размера одной секции: держится (FIXED_TOTAL) или растёт вслед за суммой (FREE_TOTAL)",
+      "status": "unknown",
+      "defaultAssumption": "FIXED_TOTAL: габарит — независимый параметр пользователя, команда изменения секции его не трогает; разницу поглощают растягиваемые соседи, а если их нет — сумма не сходится и движок сообщает об этом ошибкой",
+      "test": "Задать 3 секции по 400 при W=1264, изменить первую на 500 и посмотреть, изменится ли поле общей ширины: если да — FREE_TOTAL, если соседи ужались — FIXED_TOTAL",
+      "blocks": [
+        "src/state/commands.ts",
+        "docs/GEOMETRY_RULES.md"
+      ]
     },
     {
       "id": "T-CAR-01",
@@ -36,7 +56,10 @@
       "status": "unknown",
       "defaultAssumption": "sides-through",
       "test": "W=1000 H=2000 D=500 T=16: боковина 2000x500 и верх 968x500 → sides-through; боковина 1968x500 и верх 1000x500 → horizontals-through",
-      "blocks": ["src/geometry/stages/carcass.ts", "src/domain/furniture/defaults.ts"]
+      "blocks": [
+        "src/geometry/stages/carcass.ts",
+        "src/domain/furniture/defaults.ts"
+      ]
     },
     {
       "id": "T-CAR-02",
@@ -45,7 +68,9 @@
       "status": "unknown",
       "defaultAssumption": "на всю высоту секции, в которой находится",
       "test": "Добавить перегородку, сверить высоту детали в деталировке",
-      "blocks": ["src/geometry/stages/carcass.ts"]
+      "blocks": [
+        "src/geometry/stages/carcass.ts"
+      ]
     },
     {
       "id": "T-CAR-04",
@@ -54,7 +79,10 @@
       "status": "unknown",
       "defaultAssumption": "накладная 3 мм, входит в габаритную глубину",
       "test": "Сравнить габаритную глубину и глубину боковины в деталировке; разница равна толщине задней стенки",
-      "blocks": ["src/geometry/stages/carcass.ts", "src/domain/furniture/types.ts"]
+      "blocks": [
+        "src/geometry/stages/carcass.ts",
+        "src/domain/furniture/types.ts"
+      ]
     },
     {
       "id": "T-CAR-05",
@@ -63,7 +91,9 @@
       "status": "unknown",
       "defaultAssumption": "цоколя нет; если добавлен — входит в габаритную высоту",
       "test": "Проверить наличие опции цоколя и сверить высоту боковины с габаритом",
-      "blocks": ["src/domain/furniture/types.ts"]
+      "blocks": [
+        "src/domain/furniture/types.ts"
+      ]
     },
     {
       "id": "T-CAR-06",
@@ -72,7 +102,9 @@
       "status": "unknown",
       "defaultAssumption": "не заданы, столешница по умолчанию отсутствует",
       "test": "Сравнить ширину и глубину столешницы с габаритом корпуса",
-      "blocks": ["src/domain/furniture/types.ts"]
+      "blocks": [
+        "src/domain/furniture/types.ts"
+      ]
     },
     {
       "id": "T-GRID-01",
@@ -81,7 +113,9 @@
       "status": "resolved-by-design",
       "defaultAssumption": "дерево: оно является надмножеством плоской сетки и покрывает оба случая",
       "test": "Добавить 2 перегородки и 2 горизонтали, проверить, делят ли горизонтали всю ширину изделия",
-      "blocks": ["src/domain/furniture/types.ts"]
+      "blocks": [
+        "src/domain/furniture/types.ts"
+      ]
     },
     {
       "id": "T-SHF-01",
@@ -90,7 +124,9 @@
       "status": "unknown",
       "defaultAssumption": "полка встаёт впритык к стенкам проёма, отступ от фасада 0",
       "test": "Проём 568x500, одна полка: ширина 568 (впритык) или 567 (зазор 0.5+0.5); глубина 500, 490 или 480",
-      "blocks": ["src/domain/furniture/types.ts"]
+      "blocks": [
+        "src/domain/furniture/types.ts"
+      ]
     },
     {
       "id": "T-DOOR-02",
@@ -99,7 +135,9 @@
       "status": "unknown",
       "defaultAssumption": "накладные, зазор между створками 3 мм, по периметру 2 мм",
       "test": "W=1000 T=16, две створки: 498.5 → накладные с зазором 3; 479.5 → вкладные в проём 968",
-      "blocks": ["src/domain/furniture/defaults.ts"]
+      "blocks": [
+        "src/domain/furniture/defaults.ts"
+      ]
     },
     {
       "id": "T-DOOR-05",
@@ -117,7 +155,9 @@
       "status": "unknown",
       "defaultAssumption": "шариковые полного выдвижения, зазор 13 мм с каждой стороны",
       "test": "Проём 568 мм: ширина короба 542 → зазор 13; 543 → зазор 12.5",
-      "blocks": ["src/domain/furniture/defaults.ts"]
+      "blocks": [
+        "src/domain/furniture/defaults.ts"
+      ]
     },
     {
       "id": "T-DRW-03",
@@ -126,7 +166,9 @@
       "status": "unknown",
       "defaultAssumption": "250-600 с шагом 50, округление вниз по ряду",
       "test": "Задать глубину 500 и 520, зафиксировать выбранную длину направляющей",
-      "blocks": ["src/domain/furniture/types.ts"]
+      "blocks": [
+        "src/domain/furniture/types.ts"
+      ]
     },
     {
       "id": "T-EDG-02",
@@ -135,7 +177,9 @@
       "status": "unknown",
       "defaultAssumption": "видимые фронтальные торцы 2 мм, внутренние 0.4 мм, задние без кромки",
       "test": "Сверить схему оклейки в PDF: какие стороны каждой детали оклеены",
-      "blocks": ["src/domain/materials/defaults.ts"]
+      "blocks": [
+        "src/domain/materials/defaults.ts"
+      ]
     },
     {
       "id": "T-EDG-03",
@@ -144,7 +188,10 @@
       "status": "unknown",
       "defaultAssumption": "не вычитается; обе ветки реализованы и покрыты тестами",
       "test": "Полка в проёме 568 с кромкой 2 мм по бокам: размер в карте раскроя 564 → вычитается, 568 → нет",
-      "blocks": ["src/geometry/parts.ts", "src/domain/materials/defaults.ts"]
+      "blocks": [
+        "src/geometry/parts.ts",
+        "src/domain/materials/defaults.ts"
+      ]
     },
     {
       "id": "T-HW-03",
@@ -162,7 +209,9 @@
       "status": "unknown",
       "defaultAssumption": "60 мм от верха, 100 мм от фасада",
       "test": "Построить секцию со штангой и снять координаты из чертежа",
-      "blocks": ["src/domain/furniture/types.ts"]
+      "blocks": [
+        "src/domain/furniture/types.ts"
+      ]
     },
     {
       "id": "T-OFF-01",
@@ -171,7 +220,9 @@
       "status": "unknown",
       "defaultAssumption": "не задан",
       "test": "Перечислить поля отступов в интерфейсе и по одному изменять, фиксируя затронутые детали",
-      "blocks": ["src/domain/furniture/types.ts"]
+      "blocks": [
+        "src/domain/furniture/types.ts"
+      ]
     },
     {
       "id": "T-PART-01",

@@ -1,5 +1,5 @@
 import type { Mm } from '../units.js';
-import { roundMm, sumMm } from '../units.js';
+import { gtMm, roundMm, sumMm } from '../units.js';
 import type { SizeSpec } from './types.js';
 
 /**
@@ -23,6 +23,22 @@ export interface LayoutResult {
   /** Свободное место после раскладки. Отрицательное — деление переопределено. */
   readonly rest: Mm;
   readonly overconstrained: boolean;
+  /**
+   * Место осталось, но забрать его некому: все дети `fixed` (или их
+   * `flex`-веса нулевые), и в сумме они не заполняют доступную длину.
+   *
+   * Это НЕ то же самое, что `overconstrained`, и не безобидный остаток:
+   * геометрия в таком случае построилась бы с невидимым зазором у дальнего
+   * края, а инвариант «сумма ячеек и разделителей равна доступной длине»
+   * молча перестал бы выполняться. До PROMPT 8 такой вход проходил без
+   * единой диагностики — `rest` возвращался положительным, и никто его
+   * не проверял.
+   *
+   * Пользователь разрешает противоречие одним из двух способов: привести
+   * сумму размеров к доступной длине или сделать один из детей `flex`,
+   * чтобы остаток кому-то достался.
+   */
+  readonly underconstrained: boolean;
 }
 
 export function resolveSizes(
@@ -42,7 +58,7 @@ export function resolveSizes(
 
   const n = sizes.length;
   if (n === 0) {
-    return { spans: [], rest: available, overconstrained: false };
+    return { spans: [], rest: available, overconstrained: false, underconstrained: false };
   }
 
   const usable = roundMm(available - dividerThickness * (n - 1));
@@ -52,6 +68,10 @@ export function resolveSizes(
 
   const rest = roundMm(usable - fixedSum);
   const overconstrained = rest < 0;
+  // Остаток есть, а забрать его некому — ни одного flex-ребёнка с
+  // положительным весом. Сравнение через `gtMm`, а не `> 0`: остаток
+  // толщиной меньше половины шага сетки — след округления, а не зазор.
+  const underconstrained = flexWeight <= 0 && gtMm(rest, 0);
 
   // Распределяем остаток между flex-детьми. Последнему отдаём то, что реально
   // осталось, а не расчётную долю: иначе накопленное округление уводит сумму
@@ -87,7 +107,7 @@ export function resolveSizes(
     cursor = roundMm(cursor + length + (i < n - 1 ? dividerThickness : 0));
   }
 
-  return { spans, rest, overconstrained };
+  return { spans, rest, overconstrained, underconstrained };
 }
 
 /** Смещение i-го разделителя от начала родителя. */

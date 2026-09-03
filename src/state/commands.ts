@@ -84,10 +84,23 @@ export type Command =
       readonly dividerThickness: number;
     }
   | {
+      /**
+       * Размер ОДНОЙ секции, строки или колонки — это `SizeSpec` ребёнка
+       * деления, и адресуется он по id самого ребёнка (PROMPT 8 §18, §22).
+       *
+       * Раньше команда принимала `childIndex` — позицию в массиве. Позиция
+       * идентичностью не является (`docs/DATA_MODEL.md` §5.7): добавление
+       * соседней секции сдвигает индексы, и команда «сделай вторую секцию
+       * шириной 500» после этого попадает не в ту секцию. По id она
+       * попадает туда, куда назначена, всегда.
+       *
+       * Одна команда закрывает и `setSectionWidth`, и `setRowHeight`, и
+       * размер колонки: чем является ребёнок — секцией, рядом или колонкой —
+       * определяет ось его родителя, а не отдельный тип команды.
+       */
       readonly type: 'SetChildSize';
       readonly furnitureIndex: number;
-      readonly nodeId: NodeId;
-      readonly childIndex: number;
+      readonly childId: NodeId;
       readonly size: SizeSpec;
     }
   | { readonly type: 'SetFill'; readonly furnitureIndex: number; readonly nodeId: NodeId; readonly fill: LeafFill }
@@ -126,6 +139,20 @@ function findNodeDraft(root: Draft<Project>['furniture'][number]['root'], id: No
   if (root.kind !== 'split') return undefined;
   for (const child of root.children) {
     const found = findNodeDraft(child.node, id);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+/** Запись `SectionChild`, чей узел имеет данный id: она несёт размер ребёнка. */
+function findChildDraft(
+  root: Draft<Project>['furniture'][number]['root'],
+  childId: NodeId,
+): { size: SizeSpec } | undefined {
+  if (root.kind !== 'split') return undefined;
+  for (const child of root.children) {
+    if (child.node.id === childId) return child;
+    const found = findChildDraft(child.node, childId);
     if (found !== undefined) return found;
   }
   return undefined;
@@ -296,9 +323,7 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
     case 'SetChildSize': {
       const furniture = draft.furniture[command.furnitureIndex];
       if (furniture === undefined) return;
-      const node = findNodeDraft(furniture.root, command.nodeId);
-      if (node === undefined || node.kind !== 'split') return;
-      const child = node.children[command.childIndex];
+      const child = findChildDraft(furniture.root, command.childId);
       if (child === undefined) return;
       child.size = command.size;
       return;

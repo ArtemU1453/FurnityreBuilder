@@ -1,6 +1,7 @@
 import type { IdFactory } from '../ids.js';
+import type { SplitAxis } from '../coordinates.js';
 import { createDividerSpec, createEmptyLeaf } from './defaults.js';
-import type { SectionChild, SectionNode, SplitNode } from './types.js';
+import type { SectionChild, SectionNode, SizeSpec, SplitNode } from './types.js';
 
 /**
  * Фабрики, строящие дерево секций программно, а не только последовательными
@@ -50,6 +51,48 @@ export function createSections(
     divider: createDividerSpec(dividerThickness),
     children: equalChildren(ids, count, createLeaf),
   };
+}
+
+/**
+ * Деление с ЯВНО заданными размерами детей (PROMPT 8 §3, §10).
+ *
+ * Обобщение `createSections`: там все дети равны и растягиваемы, здесь
+ * размер каждого задаётся отдельно — `{mode:'fixed', value}` держит
+ * абсолютный размер, `{mode:'flex', weight}` забирает остаток. Никакого
+ * второго механизма размеров при этом не заводится: это тот же `SizeSpec`,
+ * который лежит на `SectionChild` с PROMPT 1 и который уже умеет
+ * раскладывать `resolveSizes`.
+ *
+ * Ось выбирает вызывающая сторона: `'x'` — секции и колонки по ширине,
+ * `'y'` — ряды по высоте. Одна функция на обе оси не экономия строк, а
+ * следствие модели: ряд и секция отличаются только осью деления
+ * (docs/DATA_MODEL.md §5.2).
+ *
+ * Сумма `fixed`-размеров должна сходиться с доступным местом за вычетом
+ * разделителей; если не сходится, движок сообщит об этом диагностикой
+ * (`SPLIT_OVERCONSTRAINED` / `SPLIT_UNDERCONSTRAINED`), а не построит
+ * геометрию с зазором. Проверять это здесь фабрика не может и не должна:
+ * доступное место зависит от габаритов изделия, которых она не знает.
+ */
+export function createSizedSplit(
+  ids: IdFactory,
+  axis: SplitAxis,
+  sizes: readonly SizeSpec[],
+  dividerThickness: number,
+  createLeaf: SectionContentFactory = createEmptyLeaf,
+): SplitNode {
+  return {
+    id: ids.next<'Node'>(),
+    kind: 'split',
+    axis,
+    divider: createDividerSpec(dividerThickness),
+    children: sizes.map((size) => ({ size, node: createLeaf(ids) })),
+  };
+}
+
+/** Ширины секций в миллиметрах → `SizeSpec[]` с режимом `fixed`. */
+export function fixedSizes(values: readonly number[]): SizeSpec[] {
+  return values.map((value) => ({ mode: 'fixed', value }));
 }
 
 /**
