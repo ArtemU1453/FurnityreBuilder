@@ -14,7 +14,7 @@
  * про экран ничего не знает.
  */
 import type { Mm } from './units.js';
-import { eqMm, roundMm } from './units.js';
+import { eqMm, gtMm, roundMm } from './units.js';
 
 export type Axis = 'x' | 'y' | 'z';
 
@@ -73,6 +73,24 @@ export function intersectionVolume(a: Box3, b: Box3): number {
   const dz = Math.min(aMax.z, bMax.z) - Math.max(a.min.z, b.min.z);
   if (dx <= 0 || dy <= 0 || dz <= 0) return 0;
   return dx * dy * dz;
+}
+
+/**
+ * Пересекаются ли тела ПО СУЩЕСТВУ, а не касаются гранями.
+ *
+ * Отличие от `intersectionVolume(a, b) > 0`: сравнение идёт по каждой оси
+ * с допуском `MM_EPSILON`, поэтому перекрытие тоньше половины шага сетки
+ * (то есть след округления, а не конструкция) пересечением не считается.
+ * Это важно именно для мебели: полка, стоящая вплотную к перегородке,
+ * и боковина, к которой примыкает дно, — законные конструктивные контакты,
+ * а не дефект (PROMPT 7 §19).
+ */
+export function overlaps(a: Box3, b: Box3): boolean {
+  const aMax = boxMax(a);
+  const bMax = boxMax(b);
+  const depth = (axis: Axis): Mm =>
+    Math.min(aMax[axis], bMax[axis]) - Math.max(a.min[axis], b.min[axis]);
+  return gtMm(depth('x'), 0) && gtMm(depth('y'), 0) && gtMm(depth('z'), 0);
 }
 
 /** Лежит ли `inner` целиком внутри `outer` с учётом допуска на размер. */

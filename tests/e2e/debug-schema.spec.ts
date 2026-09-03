@@ -78,6 +78,31 @@ test('полки появляются в схеме как отдельные д
   await expect(schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first()).toBeVisible();
 });
 
+test('изменение числа секций перестраивает перегородки и подписывает секции', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await expect(schema.getByText('SECTION 1')).toBeVisible();
+  await expect(schema.getByText('SECTION 2')).toHaveCount(0);
+
+  await page.getByLabel('Секций').fill('3');
+  await page.getByRole('button', { name: /Применить секций/ }).click();
+
+  // Счётчики читаем в панели результата: те же слова есть и в подписях полей.
+  const stats = page.getByRole('complementary', { name: 'Результат расчёта' });
+
+  // 3 секции → 2 перегородки, и по подписи на каждую секцию.
+  await expect(schema.getByText('SECTION 3')).toBeVisible();
+  await expect(stats.getByText('Перегородок').locator('..')).toContainText('2');
+  await expect(stats.getByText('Секций').locator('..')).toContainText('3');
+
+  // Обратное изменение убирает лишние перегородки и подписи.
+  await page.getByLabel('Секций').fill('1');
+  await page.getByRole('button', { name: /Применить секций/ }).click();
+  await expect(schema.getByText('SECTION 2')).toHaveCount(0);
+  await expect(stats.getByText('Перегородок').locator('..')).toContainText('0');
+});
+
 test('изменение габарита в поле обновляет схему сразу, без перезагрузки', async ({ page }) => {
   await page.goto('/');
 

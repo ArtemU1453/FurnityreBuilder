@@ -82,6 +82,18 @@ function sectionIdFor(
   return parentAxis === 'x' ? childId : parentNodeId;
 }
 
+/**
+ * Секция становится геометрической областью ровно там, где решается её
+ * идентичность (`sectionIdFor`), и ровно тогда, когда впервые становится
+ * известен её объём — то есть на верхнем делении по X, а для дерева без
+ * такого деления один раз на весь внутренний объём. Второго места, знающего
+ * «где проходит граница секции», в проекте нет: рендерер и тесты читают
+ * `GeometryResult.sections` (PROMPT 7 §9–10).
+ */
+function isNewSection(parentSectionId: NodeId | undefined, parentAxis: SplitAxis): boolean {
+  return parentSectionId === undefined && parentAxis === 'x';
+}
+
 export const layoutStage: GeometryStage = {
   name: 'layout',
   run(ctx: GeometryContext): void {
@@ -149,6 +161,10 @@ export const layoutStage: GeometryStage = {
         const childColumn = node.axis === 'x' ? i : column;
         const childSectionId = sectionIdFor(sectionId, node.axis, node.id, child.node.id);
 
+        if (isNewSection(sectionId, node.axis)) {
+          ctx.addSection({ nodeId: childSectionId, index: i, box: childBox });
+        }
+
         walk(child.node, childBox, childRow, childColumn, childSectionId);
 
         if (childBox.size.x < MIN_CELL_SIZE || childBox.size.y < MIN_CELL_SIZE) {
@@ -198,6 +214,15 @@ export const layoutStage: GeometryStage = {
       }
     };
 
-    walk(furniture.root, ctx.innerVolume, 0, 0, undefined);
+    // Дерево без верхнего деления по X — одна секция на весь внутренний
+    // объём, и её id — id корня: ровно то, что вернёт `sectionIdFor` ячейкам
+    // такого дерева (лист → `node.id`, деление по Y → `node.id` корня).
+    // Секции для деления по X выпускает сам обход, по одной на ребёнка.
+    const root = furniture.root;
+    if (isLeaf(root) || root.axis !== 'x') {
+      ctx.addSection({ nodeId: root.id, index: 0, box: ctx.innerVolume });
+    }
+
+    walk(root, ctx.innerVolume, 0, 0, undefined);
   },
 };

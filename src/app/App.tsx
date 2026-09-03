@@ -41,6 +41,7 @@ export function App(): React.JSX.Element {
   const [rowsDraft, setRowsDraft] = useState(1);
   const [columnsDraft, setColumnsDraft] = useState(1);
   const [shelvesDraft, setShelvesDraft] = useState(0);
+  const [sectionsDraft, setSectionsDraft] = useState(1);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
 
   const furniture = project.furniture[0];
@@ -60,9 +61,19 @@ export function App(): React.JSX.Element {
   }, [furniture, project.settings, project.materials]);
 
   const report = useMemo(() => validateProject(project), [project]);
-  const debugView = useMemo(() => (geometry === undefined ? undefined : buildDebugView(geometry)), [geometry]);
+  // `import.meta.env.DEV` внутри useMemo, а не только вокруг <DebugSchema/>:
+  // сама сборка view-модели тоже относится к debug-слою. Пока условие стояло
+  // лишь у компонента, `buildDebugView` попадала в production-бандл и честно
+  // считалась на каждый пересчёт геометрии — результат никто не отрисовывал.
+  // Найдено на PROMPT 7 по строке «SECTION » в собранном файле: прежняя
+  // проверка искала имена (`DebugSchema`, `buildDebugView`), которые
+  // минификация стирает, и потому давала ложное «чисто».
+  const debugView = useMemo(
+    () => (!import.meta.env.DEV || geometry === undefined ? undefined : buildDebugView(geometry)),
+    [geometry],
+  );
 
-  if (furniture === undefined || geometry === undefined || debugView === undefined) {
+  if (furniture === undefined || geometry === undefined) {
     return <p>Проект не содержит изделий.</p>;
   }
 
@@ -73,7 +84,7 @@ export function App(): React.JSX.Element {
   const applyGrid = (): void => {
     const ids = createRandomIdFactory();
     // Наполнение ячейки (полки, PROMPT 6) задаётся фабрикой листа: структура
-    // сетки и содержимое ячейки — разные решения, см. `LeafFactory`.
+    // сетки и содержимое ячейки — разные решения, см. `SectionContentFactory`.
     const createLeaf = (factoryIds: typeof ids) =>
       shelvesDraft <= 0 ? createEmptyLeaf(factoryIds) : createShelvesLeaf(factoryIds, shelvesDraft, 'adjustable');
     const root =
@@ -90,6 +101,25 @@ export function App(): React.JSX.Element {
     execute(
       { type: 'SetRoot', furnitureIndex: 0, root },
       `Сетка ${String(rowsDraft)}×${String(columnsDraft)}, полок в ячейке: ${String(shelvesDraft)}`,
+    );
+  };
+
+  // Изменение числа секций идёт ОТДЕЛЬНОЙ командой, а не пересборкой дерева
+  // через SetRoot: `SetSectionCount` правит только хвост списка секций,
+  // поэтому у секций, которых пользователь не трогал, сохраняются id — а с
+  // ними выделение, история и всё, что на них ссылается (PROMPT 7 §14–15).
+  const applySectionCount = (): void => {
+    const ids = createRandomIdFactory();
+    execute(
+      {
+        type: 'SetSectionCount',
+        furnitureIndex: 0,
+        count: sectionsDraft,
+        splitId: ids.next<'Node'>(),
+        newSectionIds: Array.from({ length: sectionsDraft }, () => ids.next<'Node'>()),
+        dividerThickness: furniture.dimensions.panelThickness,
+      },
+      `Секций: ${String(sectionsDraft)}`,
     );
   };
 
@@ -156,6 +186,22 @@ export function App(): React.JSX.Element {
             Сетка
           </h2>
           <div className={styles.grid}>
+            <Field label="Секций">
+              {({ id }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={sectionsDraft}
+                  onChange={(event) => {
+                    const next = event.target.valueAsNumber;
+                    if (Number.isFinite(next) && next >= 1) setSectionsDraft(Math.round(next));
+                  }}
+                />
+              )}
+            </Field>
             <Field label="Строк">
               {({ id }) => (
                 <input
@@ -205,7 +251,10 @@ export function App(): React.JSX.Element {
               )}
             </Field>
           </div>
-          <Button onClick={applyGrid} style={{ marginTop: 'var(--sp-3)' }}>
+          <Button onClick={applySectionCount} style={{ marginTop: 'var(--sp-3)' }}>
+            Применить секций: {sectionsDraft}
+          </Button>
+          <Button onClick={applyGrid} style={{ marginTop: 'var(--sp-2)' }}>
             Применить сетку {rowsDraft}×{columnsDraft}
           </Button>
         </section>
@@ -218,6 +267,16 @@ export function App(): React.JSX.Element {
             <li className={styles.stat}>
               <span className={styles.statLabel}>Деталей</span>
               <span className={styles.statValue}>{geometry.parts.length}</span>
+            </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Секций</span>
+              <span className={styles.statValue}>{geometry.sections.length}</span>
+            </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Перегородок</span>
+              <span className={styles.statValue}>
+                {geometry.parts.filter((p) => p.role === 'partition').length}
+              </span>
             </li>
             <li className={styles.stat}>
               <span className={styles.statLabel}>Ячеек</span>
@@ -297,7 +356,7 @@ export function App(): React.JSX.Element {
                 Показывать ID и координаты
               </label>
             </div>
-            <DebugSchema view={debugView} showDebugInfo={showDebugInfo} />
+            {debugView === undefined ? null : <DebugSchema view={debugView} showDebugInfo={showDebugInfo} />}
           </section>
         ) : null}
       </main>

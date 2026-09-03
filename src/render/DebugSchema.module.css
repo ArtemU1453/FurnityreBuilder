@@ -77,3 +77,25 @@
   dominant-baseline: middle;
   pointer-events: none;
 }
+
+/* Секция — область, а не деталь: подпись набирается тем же приглушённым
+   цветом, что и подписи ячеек, и не спорит за внимание с геометрией. */
+.sectionTitle {
+  fill: var(--text-tertiary);
+  font-family: var(--font-num);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.sectionDetail {
+  fill: var(--text-tertiary);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 9px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}

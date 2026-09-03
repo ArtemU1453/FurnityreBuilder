@@ -20,6 +20,10 @@ import styles from './DebugSchema.module.css';
 const MARGIN: number = 60;
 const DIM_LINE_OFFSET: number = 24;
 const TICK_SIZE: number = 6;
+/** Насколько подпись секции поднята над её низом, чтобы не сливаться с дном. */
+const SECTION_LABEL_OFFSET: number = 18;
+/** Вторая строка подписи (ширина, X, id) — под первой. */
+const SECTION_DETAIL_OFFSET: number = 14;
 
 /** Горизонтальный разделитель (§9.5) и полка наполнения (PROMPT 6) — физически один
  * и тот же тип детали (`docs/GEOMETRY_RULES.md` §9.5: «горизонтальный разделитель
@@ -52,7 +56,7 @@ export interface DebugSchemaProps {
 }
 
 export function DebugSchema({ view, showDebugInfo = false }: DebugSchemaProps): React.JSX.Element {
-  const { totalWidth, totalHeight, rects, dimensions } = view;
+  const { totalWidth, totalHeight, rects, dimensions, sectionLabels } = view;
 
   // Экранная Y растёт вниз; доменная — вверх. Переворот — единственное
   // место во всём компоненте, где это учитывается.
@@ -72,6 +76,25 @@ export function DebugSchema({ view, showDebugInfo = false }: DebugSchemaProps): 
 
   return (
     <svg className={styles.frame} viewBox={viewBox} role="img" aria-label="Техническая схема изделия">
+      {/* Подписи секций идут ПЕРВЫМИ, под прямоугольниками: секция —
+          область, а не деталь, и не должна перекрывать то, что в ней стоит. */}
+      {sectionLabels.map((section) => (
+        <Fragment key={`section-${section.id}`}>
+          <text className={styles.sectionTitle} x={section.centerX} y={flipY(section.bottomY) - SECTION_LABEL_OFFSET}>
+            {section.title}
+          </text>
+          {showDebugInfo ? (
+            <text
+              className={styles.sectionDetail}
+              x={section.centerX}
+              y={flipY(section.bottomY) - SECTION_LABEL_OFFSET + SECTION_DETAIL_OFFSET}
+            >
+              {section.detail}
+            </text>
+          ) : null}
+        </Fragment>
+      ))}
+
       {rects.map((rect) => {
         const partClass = isShelf(rect.role) ? styles.shelfRect : styles.partRect;
         return (

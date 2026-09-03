@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDebugView } from '../../../src/render/debug-view.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
-import { createUniformGrid } from '../../../src/domain/furniture/sections.js';
+import { createSections, createUniformGrid } from '../../../src/domain/furniture/sections.js';
 import { createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
 import { makeGeometryInput, makeGeometryInputWithRoot } from '../geometry/helpers.js';
 
@@ -102,12 +102,49 @@ describe('buildDebugView: полки (PROMPT 6 §26–27)', () => {
   });
 });
 
+describe('buildDebugView: подписи секций (PROMPT 7 §22)', () => {
+  const geometry = buildGeometry(
+    makeGeometryInputWithRoot((ids) => createSections(ids, 3, 16), {
+      width: 1200,
+      height: 2000,
+      depth: 500,
+      panelThickness: 16,
+    }),
+  );
+  const view = buildDebugView(geometry);
+
+  it('по одной подписи SECTION N на секцию, нумерация с единицы', () => {
+    expect(view.sectionLabels.map((s) => s.title)).toEqual(['SECTION 1', 'SECTION 2', 'SECTION 3']);
+  });
+
+  it('ширина, X и id в подписи взяты из GeometryResult.sections, а не пересчитаны', () => {
+    view.sectionLabels.forEach((label, i) => {
+      const section = geometry.sections[i]!;
+      expect(label.id).toBe(section.nodeId);
+      expect(label.detail).toContain(String(section.box.size.x));
+      expect(label.detail).toContain(section.nodeId);
+      expect(label.centerX).toBe(section.box.min.x + section.box.size.x / 2);
+    });
+  });
+
+  it('размерные линии секций тоже берутся из секций движка', () => {
+    const sectionDims = view.dimensions.filter((d) => d.id.startsWith('dim-section-'));
+    expect(sectionDims).toHaveLength(3);
+    sectionDims.forEach((dim, i) => {
+      const section = geometry.sections[i]!;
+      expect(dim.from).toBe(section.box.min.x);
+      expect(dim.to).toBe(section.box.min.x + section.box.size.x);
+    });
+  });
+});
+
 describe('buildDebugView: пустой результат (фатальная ошибка входа)', () => {
   it('не падает, отдаёт вырожденный вид без прямоугольников и линий', () => {
     const geometry = buildGeometry(makeGeometryInput({ width: -100 }));
     const view = buildDebugView(geometry);
     expect(view.rects).toHaveLength(0);
     expect(view.dimensions).toHaveLength(0);
+    expect(view.sectionLabels).toHaveLength(0);
     expect(view.totalWidth).toBe(0);
     expect(view.totalHeight).toBe(0);
   });

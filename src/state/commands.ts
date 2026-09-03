@@ -60,6 +60,30 @@ export type Command =
       readonly root: SectionNode;
     }
   | {
+      /**
+       * Меняет ЧИСЛО секций верхнего уровня, сохраняя идентичность уже
+       * существующих (PROMPT 7 §14–15).
+       *
+       * Отличие от `SetRoot`, которым сетку строили до этого: `SetRoot`
+       * подменяет дерево целиком, поэтому 3 → 4 секции меняли id у ВСЕХ
+       * секций, ячеек и полок разом — выделение, история и будущий drag
+       * теряли объект, который пользователь не трогал. Эта команда правит
+       * только хвост списка детей: первые N секций остаются теми же узлами
+       * со своим наполнением.
+       *
+       * `splitId` нужен только когда корень ещё не делится по X (изделие
+       * из одной секции); `newSectionIds` расходуются по мере надобности,
+       * лишние игнорируются. Как и остальные команды, работающие со
+       * структурой дерева, id не генерирует — их даёт вызывающая сторона.
+       */
+      readonly type: 'SetSectionCount';
+      readonly furnitureIndex: number;
+      readonly count: number;
+      readonly splitId: NodeId;
+      readonly newSectionIds: readonly NodeId[];
+      readonly dividerThickness: number;
+    }
+  | {
       readonly type: 'SetChildSize';
       readonly furnitureIndex: number;
       readonly nodeId: NodeId;
@@ -203,6 +227,69 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
       // «колонок» (docs/DATA_MODEL.md §5). Draft снимает readonly с уже
       // неизменяемого значения, копия не нужна — как и в SetFill.
       furniture.root = command.root as Draft<SectionNode>;
+      return;
+    }
+
+    case 'SetSectionCount': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined || command.count < 1) return;
+
+      const root = furniture.root;
+      const isXSplit = root.kind === 'split' && root.axis === 'x';
+
+      if (!isXSplit) {
+        // Изделие пока из одной секции. Одна секция и требуется — работы нет.
+        if (command.count === 1) return;
+        // Существующий корень становится ПЕРВОЙ секцией, а не выбрасывается:
+        // его наполнение (полки, вложенные деления) переживает добавление
+        // соседей, как и его id.
+        const extra = command.newSectionIds.slice(0, command.count - 1);
+        if (extra.length < command.count - 1) return;
+        furniture.root = {
+          id: command.splitId,
+          kind: 'split',
+          axis: 'x',
+          divider: createDividerSpec(command.dividerThickness),
+          children: [
+            { size: { mode: 'flex', weight: 1 }, node: root },
+            ...extra.map((id) => ({
+              size: { mode: 'flex' as const, weight: 1 },
+              node: { id, kind: 'leaf' as const, fill: { kind: 'empty' as const } },
+            })),
+          ],
+        };
+        return;
+      }
+
+      if (command.count === 1) {
+        // Схлопывание до одной секции: остаётся ПЕРВАЯ секция целиком —
+        // её узел, её id, её наполнение. Остальные исчезают вместе со всем,
+        // что принадлежало только им (PROMPT 7 §13, §15).
+        const first = root.children[0];
+        if (first === undefined) return;
+        furniture.root = first.node;
+        return;
+      }
+
+      const existing = root.children.length;
+      if (command.count < existing) {
+        // Удаляются ПОСЛЕДНИЕ секции: у оставшихся не меняется ни порядок,
+        // ни id. Дерево — единственный источник истины, поэтому вместе с
+        // удалённым поддеревом исчезают и его ячейки, и его полки:
+        // осиротевших объектов не остаётся по построению.
+        root.children.splice(command.count);
+        return;
+      }
+      if (command.count > existing) {
+        const extra = command.newSectionIds.slice(0, command.count - existing);
+        if (extra.length < command.count - existing) return;
+        for (const id of extra) {
+          root.children.push({
+            size: { mode: 'flex', weight: 1 },
+            node: { id, kind: 'leaf', fill: { kind: 'empty' } },
+          });
+        }
+      }
       return;
     }
 

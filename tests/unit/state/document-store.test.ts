@@ -61,6 +61,99 @@ describe('стор документа: команды', () => {
   });
 });
 
+/**
+ * Политика идентичности при изменении числа секций (PROMPT 7 §14–15).
+ * До этой команды сетку меняли через `SetRoot`, который подменял дерево
+ * целиком — и потому менял id даже у секций, которых пользователь не
+ * касался. Здесь проверяется именно сохранение идентичности, а не сам
+ * факт изменения количества.
+ */
+describe('стор документа: SetSectionCount и идентичность секций', () => {
+  const sectionIds = (s: ReturnType<typeof store>): string[] => {
+    const root = s.getState().project.furniture[0]!.root;
+    return isSplit(root) ? root.children.map((c) => c.node.id) : [root.id];
+  };
+
+  const setCount = (s: ReturnType<typeof store>, count: number, prefix: string): void => {
+    s.getState().execute({
+      type: 'SetSectionCount',
+      furnitureIndex: 0,
+      count,
+      splitId: asId<'Node'>(`${prefix}-split`),
+      newSectionIds: [0, 1, 2, 3, 4].map((i) => asId<'Node'>(`${prefix}-${String(i)}`)),
+      dividerThickness: 16,
+    });
+  };
+
+  it('1 → 3: исходная секция остаётся первой и сохраняет свой id', () => {
+    const s = store();
+    const originalRootId = s.getState().project.furniture[0]!.root.id;
+
+    setCount(s, 3, 'a');
+
+    const ids = sectionIds(s);
+    expect(ids).toHaveLength(3);
+    expect(ids[0]).toBe(originalRootId);
+  });
+
+  it('3 → 4: id существующих трёх секций не меняются, добавляется одна новая', () => {
+    const s = store();
+    setCount(s, 3, 'a');
+    const before = sectionIds(s);
+
+    setCount(s, 4, 'b');
+    const after = sectionIds(s);
+
+    expect(after).toHaveLength(4);
+    expect(after.slice(0, 3)).toEqual(before);
+    expect(before).not.toContain(after[3]);
+  });
+
+  it('4 → 3: исчезает последняя секция, оставшиеся сохраняют id и порядок', () => {
+    const s = store();
+    setCount(s, 4, 'a');
+    const before = sectionIds(s);
+
+    setCount(s, 3, 'b');
+    const after = sectionIds(s);
+
+    expect(after).toEqual(before.slice(0, 3));
+  });
+
+  it('3 → 1: остаётся первая секция целиком, вместе со своим наполнением', () => {
+    const s = store();
+    setCount(s, 3, 'a');
+    const firstId = sectionIds(s)[0];
+
+    // Наполним первую секцию, чтобы проверить, что схлопывание сохраняет
+    // не только id, но и содержимое секции.
+    s.getState().execute({
+      type: 'SetFill',
+      furnitureIndex: 0,
+      nodeId: asId<'Node'>(firstId!),
+      fill: { kind: 'shelves', shelves: [{ id: asId<'Node'>('sh-1'), placement: { mode: 'manual', offsetFromBottom: 500 }, mounting: 'adjustable' }] },
+    });
+
+    setCount(s, 1, 'b');
+
+    const root = s.getState().project.furniture[0]!.root;
+    expect(root.id).toBe(firstId);
+    expect(isLeaf(root) ? root.fill.kind : 'split').toBe('shelves');
+  });
+
+  it('изменение числа секций — один шаг истории, и undo возвращает прежнюю структуру', () => {
+    const s = store();
+    setCount(s, 3, 'a');
+    const before = sectionIds(s);
+
+    setCount(s, 4, 'b');
+    expect(sectionIds(s)).toHaveLength(4);
+
+    s.getState().undo();
+    expect(sectionIds(s)).toEqual(before);
+  });
+});
+
 describe('стор документа: история', () => {
   it('отменяет и возвращает изменение', () => {
     const s = store();

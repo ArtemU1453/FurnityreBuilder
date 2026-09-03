@@ -1,6 +1,6 @@
 import type { IdFactory } from '../ids.js';
 import { createDividerSpec, createEmptyLeaf } from './defaults.js';
-import type { LeafNode, SectionChild, SectionNode, SplitNode } from './types.js';
+import type { SectionChild, SectionNode, SplitNode } from './types.js';
 
 /**
  * Фабрики, строящие дерево секций программно, а не только последовательными
@@ -12,15 +12,20 @@ import type { LeafNode, SectionChild, SectionNode, SplitNode } from './types.js'
  */
 
 /**
- * Как построить лист (ячейку). По умолчанию — пустая ячейка; наполнение
- * (полки, PROMPT 6) передаётся вызывающей стороной, чтобы фабрики структуры
- * не начали ЗНАТЬ про виды наполнения: строение дерева и содержимое ячейки —
- * разные решения, и смешивать их в одной функции значило бы заводить по
- * фабрике на каждое сочетание «сетка × вид наполнения».
+ * Как построить содержимое одной секции. По умолчанию — пустая ячейка;
+ * наполнение (полки, PROMPT 6) или собственное деление секции на ряды
+ * (PROMPT 7) передаётся вызывающей стороной, чтобы фабрики структуры не
+ * начали ЗНАТЬ про виды наполнения: строение верхнего уровня и содержимое
+ * секции — разные решения, и смешивать их в одной функции значило бы
+ * заводить по фабрике на каждое сочетание «сетка × вид наполнения».
+ *
+ * Возвращает `SectionNode`, а не `LeafNode`: секция вправе быть не только
+ * одним проёмом, но и собственным поддеревом — именно так выглядит цепочка
+ * «секция → ряды → ячейки» из PROMPT 7.
  */
-export type LeafFactory = (ids: IdFactory) => LeafNode;
+export type SectionContentFactory = (ids: IdFactory) => SectionNode;
 
-function equalChildren(ids: IdFactory, count: number, createLeaf: LeafFactory): SectionChild[] {
+function equalChildren(ids: IdFactory, count: number, createLeaf: SectionContentFactory): SectionChild[] {
   return Array.from({ length: count }, () => ({
     size: { mode: 'flex' as const, weight: 1 },
     node: createLeaf(ids),
@@ -36,7 +41,7 @@ export function createSections(
   ids: IdFactory,
   count: number,
   dividerThickness: number,
-  createLeaf: LeafFactory = createEmptyLeaf,
+  createLeaf: SectionContentFactory = createEmptyLeaf,
 ): SplitNode {
   return {
     id: ids.next<'Node'>(),
@@ -66,7 +71,7 @@ export function createUniformGrid(
   columns: number,
   rowDividerThickness: number,
   columnDividerThickness: number,
-  createLeaf: LeafFactory = createEmptyLeaf,
+  createLeaf: SectionContentFactory = createEmptyLeaf,
 ): SectionNode {
   const buildRow = (): SectionNode =>
     columns <= 1

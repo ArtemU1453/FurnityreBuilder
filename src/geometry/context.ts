@@ -1,7 +1,7 @@
 import type { Box3, Issue, NodeId, Part, PartId, Severity } from '../domain/index.js';
 import { hasErrors, isFiniteBox3, issue } from '../domain/index.js';
 import { computeBoundingBox } from './bounding-box.js';
-import type { CellBox, GeometryInput, GeometryResult } from './types.js';
+import type { CellBox, GeometryInput, GeometryResult, SectionBox } from './types.js';
 
 /** Причина отказа геометрического тела (детали или ячейки) финальной проверкой. */
 type SanityFailure = 'size' | 'position';
@@ -25,6 +25,7 @@ export class GeometryContext {
 
   private readonly parts: Part[] = [];
   private readonly cells: CellBox[] = [];
+  private readonly sections: SectionBox[] = [];
   private readonly diagnostics: Issue[] = [];
 
   bounds: Box3;
@@ -57,6 +58,20 @@ export class GeometryContext {
       return;
     }
     this.parts.push(part);
+  }
+
+  /** Симметрично `addPart`: то же немедленное отсечение NaN/Infinity, тот же принцип. */
+  addSection(section: SectionBox): void {
+    if (!isFiniteBox3(section.box)) {
+      this.report(
+        'SECTION_NOT_FINITE',
+        'error',
+        `Секция «${section.nodeId}» получила нечисловые координаты или размер.`,
+        { nodeId: section.nodeId },
+      );
+      return;
+    }
+    this.sections.push(section);
   }
 
   /** Симметрично `addPart`: то же немедленное отсечение NaN/Infinity, тот же принцип. */
@@ -202,9 +217,53 @@ export class GeometryContext {
       validCells.push(cell);
     }
 
+    // Секции проходят те же три проверки, что детали и ячейки: уникальность
+    // идентификатора, положительность размера, неотрицательность координаты.
+    // Симметрия здесь не украшение — она означает, что потребитель результата
+    // может рассчитывать на одну и ту же гарантию для любого объекта из
+    // `GeometryResult`, не заглядывая, каким этапом тот произведён.
+    const seenSectionIds = new Set<NodeId>();
+    const validSections: SectionBox[] = [];
+
+    for (const section of this.sections) {
+      if (seenSectionIds.has(section.nodeId)) {
+        this.report(
+          'SECTION_ID_DUPLICATE',
+          'error',
+          `Повторяющийся идентификатор секции: «${section.nodeId}».`,
+          { nodeId: section.nodeId },
+        );
+        continue;
+      }
+
+      const failure = checkSanity(section.box);
+      if (failure === 'size') {
+        this.report(
+          'SECTION_SIZE_NOT_POSITIVE',
+          'error',
+          `Секция «${section.nodeId}» получила неположительный размер.`,
+          { nodeId: section.nodeId },
+        );
+        continue;
+      }
+      if (failure === 'position') {
+        this.report(
+          'SECTION_POSITION_NEGATIVE',
+          'error',
+          `Секция «${section.nodeId}» получила отрицательную координату.`,
+          { nodeId: section.nodeId },
+        );
+        continue;
+      }
+
+      seenSectionIds.add(section.nodeId);
+      validSections.push(section);
+    }
+
     return Object.freeze({
       parts: Object.freeze(validParts),
       cells: Object.freeze(validCells),
+      sections: Object.freeze(validSections),
       bounds: this.bounds,
       innerVolume: this.innerVolume,
       boundingBox: computeBoundingBox(validParts),

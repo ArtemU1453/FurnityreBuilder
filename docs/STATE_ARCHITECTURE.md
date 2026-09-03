@@ -60,8 +60,9 @@ execute({ type: 'SetDimension', furnitureIndex: 0, axis: 'width', value: 1200 })
 
 Реализованные команды: `SetProjectName`, `SetFurnitureName`, `SetDimension`,
 `SetCarcassFlags`, `SplitNode`, `CollapseNode`, `SetChildSize`, `SetFill`,
-`SetRoot`, `SetConstructionScheme`, `SetTolerances`, `SetEdgeSizingPolicy`,
-`SetMaterialAssignment`, `UpsertMaterial`, `RemoveMaterial`.
+`SetRoot`, `SetSectionCount`, `SetConstructionScheme`, `SetTolerances`,
+`SetEdgeSizingPolicy`, `SetMaterialAssignment`, `UpsertMaterial`,
+`RemoveMaterial`.
 
 `SetRoot` (PROMPT 4) заменяет дерево секций изделия целиком заранее
 построенным деревом — атомарная альтернатива серии `SplitNode` для
@@ -71,6 +72,15 @@ execute({ type: 'SetDimension', furnitureIndex: 0, axis: 'width', value: 1200 })
 (`createSections`/`createUniformGrid`, `src/domain/furniture/sections.ts`)
 с id из `IdFactory`, переданной вызывающей стороной — сама команда не
 генерирует id, как и остальные команды, работающие со структурой дерева.
+
+`SetSectionCount` (PROMPT 7) меняет число секций верхнего уровня, правя
+только хвост списка детей: первые N секций остаются теми же узлами со
+своими id, ячейками и полками. Это не оптимизация, а требование к
+идентичности (`docs/DATA_MODEL.md` §5.7): до неё число секций меняли через
+`SetRoot`, и переход 3 → 4 менял id у всех секций разом, включая те, к
+которым пользователь не прикасался — а на id ссылаются выделение,
+история, будущий drag и экспорт. Обе команды остались: `SetRoot` — когда
+структура строится заново, `SetSectionCount` — когда меняется количество.
 
 Запланированные перечислены в константе `PLANNED_COMMANDS` — список
 существует в коде, чтобы «пока не реализовано» было видно, а не

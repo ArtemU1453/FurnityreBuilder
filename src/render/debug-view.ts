@@ -45,41 +45,26 @@ export interface DebugDimensionLine {
   readonly text: string;
 }
 
+/**
+ * Подпись секции для проверки движка (PROMPT 7 §22): «SECTION 1» с её
+ * шириной, X и id. Ни одно из этих чисел здесь не вычисляется — все
+ * приходят из `GeometryResult.sections`.
+ */
+export interface DebugSectionLabel {
+  readonly id: string;
+  readonly title: string;
+  readonly detail: string;
+  /** Центр секции по X и её низ по Y — куда ставить подпись. */
+  readonly centerX: Mm;
+  readonly bottomY: Mm;
+}
+
 export interface DebugSchemaView {
   readonly totalWidth: Mm;
   readonly totalHeight: Mm;
   readonly rects: readonly DebugRect[];
   readonly dimensions: readonly DebugDimensionLine[];
-}
-
-/** Секция для целей отрисовки: только то, что нужно, чтобы подписать её ширину. */
-interface SectionSpan {
-  readonly id: string;
-  readonly minX: Mm;
-  readonly maxX: Mm;
-}
-
-/**
- * Секции для подписи — тот же вывод, что `deriveSections` дал бы
- * агрегированием по `cell.sectionId`, но без отдельного публичного API:
- * здесь нужна только ширина для одной размерной линии на секцию.
- */
-function collectSectionSpans(geometry: GeometryResult): SectionSpan[] {
-  const bySection = new Map<string, { minX: number; maxX: number }>();
-  for (const cell of geometry.cells) {
-    const span = bySection.get(cell.sectionId);
-    const minX = cell.box.min.x;
-    const maxX = cell.box.min.x + cell.box.size.x;
-    if (span === undefined) {
-      bySection.set(cell.sectionId, { minX, maxX });
-    } else {
-      span.minX = Math.min(span.minX, minX);
-      span.maxX = Math.max(span.maxX, maxX);
-    }
-  }
-  return [...bySection.entries()]
-    .map(([id, span]) => ({ id, minX: span.minX, maxX: span.maxX }))
-    .sort((a, b) => a.minX - b.minX);
+  readonly sectionLabels: readonly DebugSectionLabel[];
 }
 
 export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
@@ -136,25 +121,40 @@ export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
     });
   }
 
-  const sections = collectSectionSpans(geometry);
+  // Секции приходят из движка готовыми областями (`GeometryResult.sections`).
+  // Раньше рендерер восстанавливал их сам, агрегируя ячейки по `sectionId` —
+  // то есть держал у себя знание о том, где проходит граница секции. Это
+  // ровно то, что в проекте рендереру запрещено (docs/ARCHITECTURE.md §1);
+  // теперь такого знания здесь нет, а формула живёт в одном месте — в
+  // `stages/layout.ts` (docs/GEOMETRY_RULES.md §15.4).
+  const { sections } = geometry;
   if (sections.length > 1) {
-    sections.forEach((section, i) => {
+    for (const section of sections) {
       dimensions.push({
-        id: `dim-section-${String(i)}`,
+        id: `dim-section-${String(section.index)}`,
         axis: 'x',
         at: totalHeight + SECTION_DIMENSION_OFFSET,
-        from: section.minX,
-        to: section.maxX,
-        text: `${formatMm(section.maxX - section.minX)} мм`,
+        from: section.box.min.x,
+        to: section.box.min.x + section.box.size.x,
+        text: `${formatMm(section.box.size.x)} мм`,
       });
-    });
+    }
   }
+
+  const sectionLabels: DebugSectionLabel[] = sections.map((section) => ({
+    id: section.nodeId,
+    title: `SECTION ${String(section.index + 1)}`,
+    detail: `Ш ${formatMm(section.box.size.x)} · X ${formatMm(section.box.min.x)} · ${section.nodeId}`,
+    centerX: section.box.min.x + section.box.size.x / 2,
+    bottomY: section.box.min.y,
+  }));
 
   return {
     totalWidth,
     totalHeight,
     rects: [...partRects, ...cellRects],
     dimensions,
+    sectionLabels,
   };
 }
 
