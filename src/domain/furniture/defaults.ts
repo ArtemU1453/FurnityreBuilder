@@ -1,4 +1,4 @@
-import type { IdFactory, MaterialId } from '../ids.js';
+import type { IdFactory, MaterialId, NodeId } from '../ids.js';
 import { DEFAULT_EDGE } from '../materials/defaults.js';
 import type {
   BackPanelMount,
@@ -6,7 +6,10 @@ import type {
   ConstructionScheme,
   Dimensions,
   DividerSpec,
+  FacadeGroup,
+  FacadeLeaf,
   Furniture,
+  HingeSide,
   LeafNode,
   OverlaySpec,
   Shelf,
@@ -110,6 +113,32 @@ export function createShelvesLeaf(
     frontSetback: 0,
   }));
   return { id: ids.next<'Node'>(), kind: 'leaf', fill: { kind: 'shelves', shelves } };
+}
+
+/**
+ * Распашной фасад на одну ячейку — базовый случай PROMPT 10 §4/§6: одна
+ * створка на всю ячейку либо (`doorCount: 2`) архитектура, подготовленная
+ * §7-ом — две равные (`flex`-вес 1 у каждой) створки с петлями по краям.
+ * Ширина каждой не хранится — её на каждом пересчёте вычисляет
+ * `resolveDoorGeometry` из `cell.box`, той же логикой, что и остальное
+ * наполнение (`docs/GEOMETRY_RULES.md` §18).
+ */
+export function createHingedFacade(
+  ids: IdFactory,
+  cellNodeId: NodeId,
+  doorCount: 1 | 2 = 1,
+): FacadeGroup {
+  const leaves: FacadeLeaf[] = Array.from({ length: doorCount }, (_, index): FacadeLeaf => {
+    const hingeSide: HingeSide = doorCount === 2 ? (index === 0 ? 'left' : 'right') : 'left';
+    return { id: ids.next<'Node'>(), size: { mode: 'flex', weight: 1 }, hingeSide };
+  });
+  return {
+    id: ids.next<'Node'>(),
+    covers: { kind: 'node', nodeId: cellNodeId },
+    type: 'hinged',
+    leaves,
+    overlay: DEFAULT_OVERLAY,
+  };
 }
 
 export function createDefaultCarcass(backMaterialId: MaterialId): CarcassSpec {

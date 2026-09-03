@@ -83,3 +83,25 @@ test('кнопки отмены и возврата отключены, пока
   await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Вернуть' })).toBeDisabled();
 });
+
+test('дверь можно добавить на выбранную ячейку и убрать (PROMPT 10 §19)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('li', { hasText: 'Дверей' })).toContainText('0');
+
+  const addButton = page.getByRole('button', { name: 'Добавить дверь' });
+  await expect(addButton).toBeDisabled();
+
+  // Единственная ячейка изделия по умолчанию — первый (и единственный) пункт списка.
+  await page.getByLabel('Ячейка').selectOption({ index: 1 });
+  await expect(addButton).toBeEnabled();
+  await addButton.click();
+
+  await expect(page.locator('li', { hasText: 'Дверей' })).toContainText('1');
+  await expect(addButton).toBeDisabled();
+
+  const removeButton = page.getByRole('button', { name: 'Убрать дверь' });
+  await expect(removeButton).toBeEnabled();
+  await removeButton.click();
+
+  await expect(page.locator('li', { hasText: 'Дверей' })).toContainText('0');
+});

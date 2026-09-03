@@ -207,7 +207,8 @@ tests/
 scripts/                     проверки реестра предположений и самостоятельности
 ```
 
-Появится на следующих этапах: `geometry/stages/{fill,facades,back,base,countertop,edges,drilling}`,
+Появится на следующих этапах: `geometry/stages/{back,base,countertop,edges,drilling}`
+(`fill` и `facades` уже реализованы — PROMPT 6/9 и PROMPT 10 соответственно),
 `parts/` (спецификация и группировка), `export/`, `planner/`. Интерактивная
 (не debug) отрисовка схемы — расширение уже существующего `render/`, а не
 новый слой.
@@ -267,7 +268,11 @@ export function buildGeometry(input: GeometryInput): GeometryResult;
 5. back           — деталь задней стенки как отдельный Part                план: этап 13
 6. base           — цоколь, ножки                                         план: этап 23
 7. countertop     — столешница со свесами                                 план: этап 23
-8. facades        — фасады по OverlaySpec                                 план: этап 22
+8. facades        — Cell → FacadeGroup → resolveDoorGeometry → Part       БАЗОВЫЙ СЛУЧАЙ
+                     (docs/GEOMETRY_RULES.md §18)                         РЕАЛИЗОВАН
+                     распашная дверь, 1–2 створки, 1 ячейка на фасад;      (PROMPT 10);
+                     купе/складные/подъёмные и покрытие нескольких        остальное —
+                     ячеек — статус not-implemented                       этап 22 (продолжение)
 9. edges          — назначение кромки по ролям и сторонам                 план: этап 15
 10. drilling      — присадка                                              план: этап 28
 ```

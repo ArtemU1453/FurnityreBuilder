@@ -242,6 +242,13 @@ export interface FacadeLeaf {
   readonly handle?: HandleSpec | null;
   readonly materialId?: MaterialId;
   readonly edge?: EdgeSpec;
+  /**
+   * Толщина створки. Если не задана — толщина корпуса
+   * (`Dimensions.panelThickness`), тот же приоритет, что у `Shelf.thickness`
+   * (`docs/GEOMETRY_RULES.md` §9.4): своя толщина переопределяет общую,
+   * а не заводит отдельное умолчание.
+   */
+  readonly thickness?: Mm;
 }
 
 export interface OverlaySpec {
@@ -258,6 +265,26 @@ export type FacadeCoverage =
   | { readonly kind: 'node'; readonly nodeId: NodeId }
   | { readonly kind: 'carcass' };
 
+/**
+ * Контракт конфигурации купе — типизирован, но геометрия не реализована (PROMPT 10 §9).
+ * Все поля не подтверждены (`UNKNOWN T-DOOR-01`): наличие вида купе в этом
+ * инструменте, число направляющих, величина нахлёста створок, вынос створки
+ * от плоскости фасада и число створок — ни одно значение не имеет
+ * источника, поэтому не читается ни одним резолвером и не влияет на
+ * `GeometryResult`. Поле существует, чтобы место в модели было готово,
+ * когда T-DOOR-01 будет подтверждён, без переработки `FacadeGroup`.
+ */
+export interface SlidingDoorConfig {
+  /** Число направляющих (обычно 2 или 3). UNKNOWN: T-DOOR-01 */
+  readonly trackCount: number;
+  /** Нахлёст соседних створок купе. UNKNOWN: T-DOOR-01 */
+  readonly overlap: Mm;
+  /** Вынос створки вперёд от плоскости корпуса. UNKNOWN: T-DOOR-01 */
+  readonly frontOffset: Mm;
+  /** Число створок купе (может отличаться от числа направляющих). UNKNOWN: T-DOOR-01 */
+  readonly doorCount: number;
+}
+
 /** Фасад может закрывать несколько ячеек, поэтому он не принадлежит ячейке. */
 export interface FacadeGroup {
   readonly id: NodeId;
@@ -265,6 +292,8 @@ export interface FacadeGroup {
   readonly type: FacadeType;
   readonly leaves: readonly FacadeLeaf[];
   readonly overlay: OverlaySpec;
+  /** Только для `type: 'sliding'`. Архитектурный контракт, не геометрия — см. `SlidingDoorConfig`. */
+  readonly slidingConfig?: SlidingDoorConfig;
 }
 
 // ── Изделие ──────────────────────────────────────────────────────────────────

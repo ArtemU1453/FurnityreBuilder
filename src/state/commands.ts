@@ -2,9 +2,13 @@ import type { Draft } from 'immer';
 import type {
   ConstructionScheme,
   EdgeSizingPolicy,
+  EdgeSpec,
+  FacadeGroup,
+  HingeSide,
   LeafFill,
   Material,
   MaterialId,
+  Mm,
   NodeId,
   PartRole,
   Project,
@@ -104,6 +108,33 @@ export type Command =
       readonly size: SizeSpec;
     }
   | { readonly type: 'SetFill'; readonly furnitureIndex: number; readonly nodeId: NodeId; readonly fill: LeafFill }
+  | {
+      /**
+       * Назначает фасад ячейке (PROMPT 10). `facade.covers` уже указывает
+       * на ячейку — id не генерирует, как и `SetRoot`/`SplitNode`: их
+       * даёт вызывающая сторона (UI, `createHingedFacade`). Именно эта
+       * команда — та точка записи, для которой `docs/DATA_MODEL.md` §7
+       * и `PLANNED_COMMANDS` держали место с более ранних этапов.
+       */
+      readonly type: 'AddFacade';
+      readonly furnitureIndex: number;
+      readonly facade: FacadeGroup;
+    }
+  | { readonly type: 'RemoveFacade'; readonly furnitureIndex: number; readonly facadeId: NodeId }
+  | {
+      /** Правка одной створки: сторона петель, материал, кромка, толщина, доля ширины. */
+      readonly type: 'UpdateFacadeLeaf';
+      readonly furnitureIndex: number;
+      readonly facadeId: NodeId;
+      readonly leafId: NodeId;
+      readonly patch: {
+        readonly hingeSide?: HingeSide;
+        readonly materialId?: MaterialId;
+        readonly edge?: EdgeSpec;
+        readonly thickness?: Mm;
+        readonly size?: SizeSpec;
+      };
+    }
   | { readonly type: 'SetConstructionScheme'; readonly scheme: ConstructionScheme }
   | { readonly type: 'SetTolerances'; readonly tolerances: Tolerances }
   | { readonly type: 'SetEdgeSizingPolicy'; readonly policy: EdgeSizingPolicy }
@@ -119,9 +150,6 @@ export type Command =
  * валидации; ни компоненты, ни стор при этом не меняются.
  */
 export const PLANNED_COMMANDS = [
-  'AddFacade',
-  'RemoveFacade',
-  'UpdateFacadeLeaf',
   'AddDrawer',
   'RemoveDrawer',
   'AddShelf',
@@ -336,6 +364,50 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
       if (node === undefined || node.kind !== 'leaf') return;
       // Draft снимает readonly; команда несёт неизменяемое значение, копия не нужна.
       node.fill = command.fill as Draft<LeafFill>;
+      return;
+    }
+
+    case 'AddFacade': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const { covers } = command.facade;
+      if (covers.kind === 'node') {
+        const node = findNodeDraft(furniture.root, covers.nodeId);
+        if (node === undefined || node.kind !== 'leaf') return;
+        // Базовый случай PROMPT 10 §6: одна ячейка — не более одного
+        // фасада. Правило проверяется здесь, а не только в валидации,
+        // чтобы неоткуда было взяться двум дверям одной ячейки в истории.
+        const alreadyCovered = furniture.facades.some(
+          (f) => f.covers.kind === 'node' && f.covers.nodeId === covers.nodeId,
+        );
+        if (alreadyCovered) return;
+      }
+      furniture.facades.push(command.facade as Draft<FacadeGroup>);
+      return;
+    }
+
+    case 'RemoveFacade': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const index = furniture.facades.findIndex((f) => f.id === command.facadeId);
+      if (index === -1) return;
+      furniture.facades.splice(index, 1);
+      return;
+    }
+
+    case 'UpdateFacadeLeaf': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const facade = furniture.facades.find((f) => f.id === command.facadeId);
+      if (facade === undefined) return;
+      const leaf = facade.leaves.find((l) => l.id === command.leafId);
+      if (leaf === undefined) return;
+      const { patch } = command;
+      if (patch.hingeSide !== undefined) leaf.hingeSide = patch.hingeSide;
+      if (patch.materialId !== undefined) leaf.materialId = patch.materialId;
+      if (patch.edge !== undefined) leaf.edge = patch.edge;
+      if (patch.thickness !== undefined) leaf.thickness = patch.thickness;
+      if (patch.size !== undefined) leaf.size = patch.size;
       return;
     }
 

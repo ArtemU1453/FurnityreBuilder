@@ -29,7 +29,9 @@ describe('контракт геометрического движка', () => {
     // 'layout' реализован на PROMPT 4 (объединён с 'dividers' — см. engine.ts)
     // и больше не входит в pendingStages.
     expect(result.pendingStages).not.toContain('layout');
-    expect(result.pendingStages).toContain('facades');
+    // 'facades' реализован на PROMPT 10 (базовый случай — одна ячейка на
+    // фасад, см. stages/facades.ts) и тоже больше не входит в pendingStages.
+    expect(result.pendingStages).not.toContain('facades');
   });
 
   it('возвращает замороженный результат: движок не отдаёт изменяемое состояние', () => {

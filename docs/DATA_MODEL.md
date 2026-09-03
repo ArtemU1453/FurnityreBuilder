@@ -592,10 +592,12 @@ export interface FacadeGroup {
   type: FacadeType;
   leaves: FacadeLeaf[];               // створки
   overlay: OverlaySpec;
+  /** Только для type: 'sliding'. Архитектурный контракт, геометрия не реализована (PROMPT 10 §9). */
+  slidingConfig?: SlidingDoorConfig;
 }
 
 export type FacadeType =
-  | 'hinged'        // распашные
+  | 'hinged'        // распашные   (геометрия — PROMPT 10, базовый случай)
   | 'sliding'       // купе        (UNKNOWN наличие: T-DOOR-01)
   | 'folding'       // складные    (UNKNOWN наличие: T-DOOR-01)
   | 'lift';         // подъёмные   (UNKNOWN наличие: T-DOOR-01)
@@ -608,6 +610,8 @@ export interface FacadeLeaf {
   handle?: HandleSpec | null;
   materialId?: MaterialId;
   edge?: EdgeSpec;
+  /** Толщина створки. Не задана — берётся толщина корпуса (PROMPT 10, тот же приоритет, что у `Shelf.thickness`). */
+  thickness?: Mm;
 }
 
 export interface OverlaySpec {
@@ -618,7 +622,46 @@ export interface OverlaySpec {
   gapBottom: Mm;           // ASSUMPTION 2
   gapSide: Mm;             // ASSUMPTION 2
 }
+
+/**
+ * Контракт купе (PROMPT 10 §9) — типизирован, геометрия не реализована.
+ * Все поля UNKNOWN: T-DOOR-01, ни один резолвер их не читает.
+ */
+export interface SlidingDoorConfig {
+  trackCount: number;    // число направляющих
+  overlap: Mm;           // нахлёст соседних створок
+  frontOffset: Mm;       // вынос створки от плоскости корпуса
+  doorCount: number;     // число створок купе
+}
 ```
+
+### 7.1 Дверь — геометрия распашного фасада (PROMPT 10)
+
+`FacadeGroup` существовал в модели с ранних этапов (см. выше), но геометрии
+для него не было — этап `facades` (PIPELINE, `docs/ARCHITECTURE.md` §5.2)
+был `planned`. PROMPT 10 реализует его для БАЗОВОГО случая: `covers.kind
+=== 'node'`, указывающий ровно на один лист дерева (одну ячейку), `type:
+'hinged'`, 1–2 створки.
+
+**Резолвер — `resolveDoorGeometry(facade, cell, panelThickness)`
+(`src/geometry/doors.ts`)** — читает уже существующий `FacadeGroup`, а не
+новый `DoorContent { cellId, … }`, которого буквально просит формулировка
+задания: `FacadeGroup` намеренно живёт вне ячейки, потому что один фасад
+может закрывать несколько ячеек сразу (см. выше); заводить рядом второй
+тип с полем `cellId` означало бы второй способ описать ту же дверь — тот
+же класс решения, от которого PROMPT 9 отказался для `Content` (§5.5).
+Формулы и правила размещения — `docs/GEOMETRY_RULES.md` §18.
+
+Покрытие нескольких ячеек (`covers.kind === 'carcass'` или узел-разделение)
+архитектурно предусмотрено полем `covers`, но геометрия для него не
+реализована — `stages/facades.ts` сообщает `DOOR_COVERAGE_NOT_IMPLEMENTED`
+(severity `info`) и не строит деталей, тем же принципом явного статуса,
+каким PROMPT 9 отметил ящики и штангу.
+
+Дверная деталь получает `Part.role = 'facade'` — существующая роль, не
+новая: `DoorContent` и физическая деталь двери не путаются, потому что
+`FacadeGroup`/`FacadeLeaf` (модель) и `Part` (результат резолвера) — две
+разные, уже разделённые в типах сущности.
 
 ---
 

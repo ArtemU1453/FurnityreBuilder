@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { createEmptyLeaf, createShelvesLeaf } from '../domain/furniture/defaults.js';
-import { createRandomIdFactory, formatMm, isSplit } from '../domain/index.js';
+import { createEmptyLeaf, createHingedFacade, createShelvesLeaf } from '../domain/furniture/defaults.js';
+import { asId, createRandomIdFactory, formatMm, isSplit } from '../domain/index.js';
+import type { HingeSide, MaterialId, NodeId } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
 import { buildDebugView, DebugSchema } from '../render/index.js';
@@ -46,6 +47,9 @@ export function App(): React.JSX.Element {
   const [sectionsDraft, setSectionsDraft] = useState(1);
   const [sectionWidthsDraft, setSectionWidthsDraft] = useState('');
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  // Выбранная для управления дверью ячейка (PROMPT 10 §19). Черновой выбор,
+  // а не команда: сам по себе он ничего в проекте не меняет.
+  const [selectedCellId, setSelectedCellId] = useState<NodeId | ''>('');
 
   const furniture = project.furniture[0];
 
@@ -161,6 +165,42 @@ export function App(): React.JSX.Element {
       });
     });
     endTransaction();
+  };
+
+  // Технические элементы управления дверью (PROMPT 10 §19): выбрать ячейку,
+  // добавить/убрать дверь, сторона петель, материал через уже существующий
+  // materialId. НЕ производственный UI — минимум, нужный для проверки
+  // конвейера Cell → FacadeGroup → resolveDoorGeometry → Part.
+  const facadeForCell = (nodeId: NodeId) => furniture.facades.find((f) => f.covers.kind === 'node' && f.covers.nodeId === nodeId);
+  const selectedFacade = selectedCellId === '' ? undefined : facadeForCell(selectedCellId);
+
+  const addDoor = (): void => {
+    if (selectedCellId === '') return;
+    const facade = createHingedFacade(createRandomIdFactory(), selectedCellId, 1);
+    execute({ type: 'AddFacade', furnitureIndex: 0, facade }, 'Добавить дверь');
+  };
+
+  const removeDoor = (): void => {
+    if (selectedFacade === undefined) return;
+    execute({ type: 'RemoveFacade', furnitureIndex: 0, facadeId: selectedFacade.id }, 'Убрать дверь');
+  };
+
+  const setDoorHingeSide = (hingeSide: HingeSide): void => {
+    const leaf = selectedFacade?.leaves[0];
+    if (selectedFacade === undefined || leaf === undefined) return;
+    execute(
+      { type: 'UpdateFacadeLeaf', furnitureIndex: 0, facadeId: selectedFacade.id, leafId: leaf.id, patch: { hingeSide } },
+      'Сторона петель',
+    );
+  };
+
+  const setDoorMaterial = (materialId: MaterialId): void => {
+    const leaf = selectedFacade?.leaves[0];
+    if (selectedFacade === undefined || leaf === undefined) return;
+    execute(
+      { type: 'UpdateFacadeLeaf', furnitureIndex: 0, facadeId: selectedFacade.id, leafId: leaf.id, patch: { materialId } },
+      'Материал двери',
+    );
   };
 
   return (
@@ -323,6 +363,78 @@ export function App(): React.JSX.Element {
           </Button>
         </section>
 
+        <section className={styles.panel} aria-labelledby="doors-title">
+          <h2 id="doors-title" className={styles.panelTitle}>
+            Двери
+          </h2>
+          <div className={styles.grid}>
+            <Field label="Ячейка">
+              {({ id }) => (
+                <select
+                  id={id}
+                  className={styles.numberInput}
+                  value={selectedCellId}
+                  onChange={(event) => {
+                    setSelectedCellId(event.target.value === '' ? '' : asId<'Node'>(event.target.value));
+                  }}
+                >
+                  <option value="">— выбрать —</option>
+                  {geometry.cells.map((cell) => (
+                    <option key={cell.nodeId} value={cell.nodeId}>
+                      {cell.nodeId} ({formatMm(cell.box.size.x)} × {formatMm(cell.box.size.y)})
+                      {facadeForCell(cell.nodeId) === undefined ? '' : ' — дверь'}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            {selectedFacade === undefined ? null : (
+              <>
+                <Field label="Сторона петель">
+                  {({ id }) => (
+                    <select
+                      id={id}
+                      className={styles.numberInput}
+                      value={selectedFacade.leaves[0]?.hingeSide ?? 'left'}
+                      onChange={(event) => {
+                        setDoorHingeSide(event.target.value as HingeSide);
+                      }}
+                    >
+                      <option value="left">Слева</option>
+                      <option value="right">Справа</option>
+                    </select>
+                  )}
+                </Field>
+                <Field label="Материал">
+                  {({ id }) => (
+                    <select
+                      id={id}
+                      className={styles.numberInput}
+                      value={selectedFacade.leaves[0]?.materialId ?? ''}
+                      onChange={(event) => {
+                        if (event.target.value !== '') setDoorMaterial(asId<'Material'>(event.target.value));
+                      }}
+                    >
+                      <option value="">по умолчанию</option>
+                      {Object.values(project.materials.items).map((material) => (
+                        <option key={material.id} value={material.id}>
+                          {material.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+              </>
+            )}
+          </div>
+          <Button onClick={addDoor} disabled={selectedCellId === '' || selectedFacade !== undefined} style={{ marginTop: 'var(--sp-3)' }}>
+            Добавить дверь
+          </Button>
+          <Button onClick={removeDoor} disabled={selectedFacade === undefined} style={{ marginTop: 'var(--sp-2)' }}>
+            Убрать дверь
+          </Button>
+        </section>
+
         <aside className={styles.panel} aria-labelledby="result-title">
           <h2 id="result-title" className={styles.panelTitle}>
             Результат расчёта
@@ -351,6 +463,10 @@ export function App(): React.JSX.Element {
               <span className={styles.statValue}>
                 {geometry.parts.filter((p) => p.role === 'shelf-fixed' || p.role === 'shelf-adjustable').length}
               </span>
+            </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Дверей</span>
+              <span className={styles.statValue}>{geometry.parts.filter((p) => p.role === 'facade').length}</span>
             </li>
             <li className={styles.stat}>
               <span className={styles.statLabel}>Внутренняя ширина</span>

@@ -144,6 +144,13 @@ const backPanelMount = z.union([
   z.object({ kind: z.literal('inset-flush'), thickness: positiveMm }),
 ]);
 
+const slidingDoorConfig = z.object({
+  trackCount: z.number().int(),
+  overlap: mm,
+  frontOffset: mm,
+  doorCount: z.number().int(),
+});
+
 const facadeGroup = z.object({
   id,
   covers: z.union([
@@ -159,6 +166,9 @@ const facadeGroup = z.object({
       handle: handleSpec.nullable().optional(),
       materialId: id.optional(),
       edge: edgeSpec.optional(),
+      // Добавлено PROMPT 10: опциональное поле, старые документы без него
+      // читаются без миграции — движок берёт толщину корпуса по умолчанию.
+      thickness: mm.optional(),
     }),
   ),
   overlay: z.object({
@@ -168,6 +178,9 @@ const facadeGroup = z.object({
     gapBottom: mm,
     gapSide: mm,
   }),
+  // Добавлено PROMPT 10: архитектурный контракт для купе, геометрией не
+  // читается (T-DOOR-01). Опционально — не влияет на старые документы.
+  slidingConfig: slidingDoorConfig.optional(),
 });
 
 const furniture = z.object({

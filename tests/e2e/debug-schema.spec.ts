@@ -149,6 +149,31 @@ test('наполнение ячейки подписано в схеме и ме
   await expect(schema.getByText('CONTENT: ПУСТО')).toHaveCount(0);
 });
 
+test('дверь появляется в схеме и подписана содержимым ячейки (PROMPT 10 §18)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
+
+  await page.getByLabel('Ячейка').selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Добавить дверь' }).click();
+
+  // 4 детали каркаса + 1 дверь = 5 деталей, плюс 1 ячейка = 6 прямоугольников.
+  await expect(schema.locator('rect')).toHaveCount(6);
+  await expect(schema.getByText(/CONTENT: ПУСТО · ДВЕРЬ/)).toBeVisible();
+
+  await page.getByLabel('Показывать ID и координаты').check();
+  await expect(schema.locator('text').filter({ hasText: 'петли слева' }).first()).toBeVisible();
+
+  await page.getByLabel('Сторона петель').selectOption('right');
+  await expect(schema.locator('text').filter({ hasText: 'петли справа' }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Убрать дверь' }).click();
+  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.getByText(/CONTENT: ПУСТО · ДВЕРЬ/)).toHaveCount(0);
+});
+
 test('изменение габарита в поле обновляет схему сразу, без перезагрузки', async ({ page }) => {
   await page.goto('/');
 

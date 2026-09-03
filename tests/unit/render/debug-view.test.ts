@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { buildDebugView } from '../../../src/render/debug-view.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
 import { createSections, createSizedSplit, createUniformGrid, fixedSizes } from '../../../src/domain/furniture/sections.js';
-import { createEmptyLeaf, createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
+import { createEmptyLeaf, createHingedFacade, createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
+import { createSequentialIdFactory } from '../../../src/domain/ids.js';
+import type { NodeId } from '../../../src/domain/index.js';
+import type { GeometryInput } from '../../../src/geometry/types.js';
 import { makeGeometryInput, makeGeometryInputWithRoot } from '../geometry/helpers.js';
 
 /**
@@ -294,6 +297,55 @@ describe('buildDebugView: наполнение ячейки (PROMPT 9 §15)', ()
     const cells = view.rects.filter((r) => r.kind === 'cell').sort((a, b) => a.x - b.x);
     expect(cells.map((c) => c.content)).toEqual(['CONTENT: ПОЛКИ', 'CONTENT: ПУСТО']);
     expect(cells.map((c) => c.id)).toEqual(geometry.cells.map((c) => c.nodeId));
+  });
+});
+
+describe('buildDebugView: дверь на ячейке (PROMPT 10 §18)', () => {
+  function buildWithDoor() {
+    let cellId!: NodeId;
+    const input = makeGeometryInputWithRoot((ids) => {
+      const leaf = createEmptyLeaf(ids);
+      cellId = leaf.id;
+      return leaf;
+    }, { width: 1000, height: 2000, depth: 500, panelThickness: 16 });
+    const facade = createHingedFacade(createSequentialIdFactory('f'), cellId, 1);
+    const withFacade: GeometryInput = { ...input, furniture: { ...input.furniture, facades: [facade] } };
+    return { geometry: buildGeometry(withFacade), cellId };
+  }
+
+  it('дверь становится прямоугольником-деталью со своей ролью', () => {
+    const { geometry } = buildWithDoor();
+    const view = buildDebugView(geometry);
+    const door = view.rects.find((r) => r.role === 'facade');
+    expect(door).toBeDefined();
+    expect(door?.kind).toBe('part');
+  });
+
+  it('подпись двери содержит id, координаты, ширину/высоту/толщину и сторону петель', () => {
+    const { geometry } = buildWithDoor();
+    const view = buildDebugView(geometry);
+    const door = view.rects.find((r) => r.role === 'facade')!;
+    expect(door.detail).toContain(door.id);
+    expect(door.detail).toContain('петли слева');
+    expect(door.detail).toMatch(/Ш \d/);
+    expect(door.detail).toMatch(/В \d/);
+    expect(door.detail).toMatch(/Т \d/);
+  });
+
+  it('ячейка с дверью показывает её в CONTENT и в подробной подписи', () => {
+    const { geometry, cellId } = buildWithDoor();
+    const view = buildDebugView(geometry);
+    const cell = view.rects.find((r) => r.kind === 'cell' && r.id === cellId)!;
+    expect(cell.content).toContain('ДВЕРЬ');
+    expect(cell.detail).toContain('дверь');
+  });
+
+  it('ячейка без двери не упоминает её в подписи', () => {
+    const geometry = buildGeometry(makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 }));
+    const view = buildDebugView(geometry);
+    const cell = view.rects.find((r) => r.kind === 'cell')!;
+    expect(cell.content).not.toContain('ДВЕРЬ');
+    expect(cell.detail).not.toContain('дверь');
   });
 });
 

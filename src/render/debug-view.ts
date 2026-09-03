@@ -97,6 +97,12 @@ function partDetail(part: GeometryResult['parts'][number]): string {
   if (role === 'shelf-fixed' || role === 'shelf-adjustable') {
     return `${role} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × Г ${formatMm(part.size.z)} × Т ${formatMm(part.size.y)}`;
   }
+  if (role === 'facade') {
+    // Дверь (PROMPT 10 §18): та же геометрия, что и у остальных деталей,
+    // плюс сторона петель — она уже закодирована в `part.label`
+    // (`stages/facades.ts`), здесь не пересчитывается и не дублируется.
+    return `${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Т ${formatMm(part.size.z)}`;
+  }
   return `${role} · ${part.id} · ${at}`;
 }
 
@@ -122,21 +128,44 @@ export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
     };
   });
 
-  const cellRects: DebugRect[] = geometry.cells.map((cell) => ({
-    id: cell.nodeId,
-    label: `${formatMm(cell.box.size.x)} × ${formatMm(cell.box.size.y)}`,
-    kind: 'cell',
-    x: cell.box.min.x,
-    y: cell.box.min.y,
-    width: cell.box.size.x,
-    height: cell.box.size.y,
-    // Наполнение приходит из `GeometryResult.cells[].fill` — того же места,
-    // откуда его берёт движок. Разбирать `LeafFill` рендерер не умеет
-    // и не должен: вид наполнения отдаёт `contentKindOf`.
-    content: `CONTENT: ${contentLabel(contentKindOf(cell.fill)).toUpperCase()}`,
-    // Ячейка: id, X, Y, ширина, высота (PROMPT 8 §24) и вид наполнения (PROMPT 9 §15).
-    detail: `${cell.nodeId} · X ${formatMm(cell.box.min.x)} Y ${formatMm(cell.box.min.y)} · Ш ${formatMm(cell.box.size.x)} × В ${formatMm(cell.box.size.y)} · ${contentKindOf(cell.fill)}`,
-  }));
+  // Двери на ячейке (PROMPT 10 §18) — НЕ `LeafFill`: `FacadeGroup` живёт
+  // отдельно (`Furniture.facades`, docs/GEOMETRY_RULES.md §17.4), поэтому
+  // «есть ли дверь» здесь узнают по уже построенным деталям роли `facade`
+  // с этой ячейкой как `origin.nodeId`, а не по `cell.fill`.
+  const doorPartsByCell = new Map<string, Array<GeometryResult['parts'][number]>>();
+  for (const part of geometry.parts) {
+    if (part.role !== 'facade' || part.origin.nodeId === undefined) continue;
+    const list = doorPartsByCell.get(part.origin.nodeId);
+    if (list === undefined) doorPartsByCell.set(part.origin.nodeId, [part]);
+    else list.push(part);
+  }
+
+  const cellRects: DebugRect[] = geometry.cells.map((cell) => {
+    const doors = doorPartsByCell.get(cell.nodeId) ?? [];
+    const fillContent = `CONTENT: ${contentLabel(contentKindOf(cell.fill)).toUpperCase()}`;
+    const content =
+      doors.length === 0
+        ? fillContent
+        : `${fillContent} · ДВЕРЬ${doors.length > 1 ? ` ×${String(doors.length)}` : ''}: ${doors.map((d) => d.id).join(', ')}`;
+    return {
+      id: cell.nodeId,
+      label: `${formatMm(cell.box.size.x)} × ${formatMm(cell.box.size.y)}`,
+      kind: 'cell',
+      x: cell.box.min.x,
+      y: cell.box.min.y,
+      width: cell.box.size.x,
+      height: cell.box.size.y,
+      // Наполнение приходит из `GeometryResult.cells[].fill` — того же места,
+      // откуда его берёт движок. Разбирать `LeafFill` рендерер не умеет
+      // и не должен: вид наполнения отдаёт `contentKindOf`. Дверь к нему
+      // добавляется отдельно (см. `doorPartsByCell` выше), потому что живёт
+      // не в `fill`, а в `Furniture.facades`.
+      content,
+      // Ячейка: id, X, Y, ширина, высота (PROMPT 8 §24), вид наполнения
+      // (PROMPT 9 §15) и id её дверей, если есть (PROMPT 10 §18).
+      detail: `${cell.nodeId} · X ${formatMm(cell.box.min.x)} Y ${formatMm(cell.box.min.y)} · Ш ${formatMm(cell.box.size.x)} × В ${formatMm(cell.box.size.y)} · ${contentKindOf(cell.fill)}${doors.length === 0 ? '' : ` · дверь: ${doors.map((d) => d.id).join(', ')}`}`,
+    };
+  });
 
   const dimensions: DebugDimensionLine[] = [];
 

@@ -2,6 +2,7 @@ import { box3, vec3 } from '../domain/index.js';
 import { GeometryContext } from './context.js';
 import type { GeometryStage } from './context.js';
 import { carcassStage } from './stages/carcass.js';
+import { facadesStage } from './stages/facades.js';
 import { fillStage } from './stages/fill.js';
 import { layoutStage } from './stages/layout.js';
 import { normalizeStage } from './stages/normalize.js';
@@ -32,7 +33,13 @@ export const PIPELINE: readonly StageDescriptor[] = [
   { name: 'back', status: 'planned', plannedAt: '13' },
   { name: 'base', status: 'planned', plannedAt: '23' },
   { name: 'countertop', status: 'planned', plannedAt: '23' },
-  { name: 'facades', status: 'planned', plannedAt: '22' },
+  // 'facades' реализован на PROMPT 10 только для базового случая — одного
+  // FacadeGroup, покрывающего ровно один лист дерева (одну ячейку).
+  // Покрытие нескольких ячеек (covers.kind === 'carcass' или узел-
+  // разделение) и типы, отличные от 'hinged', остаются не построенными
+  // видами того же этапа — geometry для них появится позже, расширяя
+  // тот же файл, а не заменяя его. docs/GEOMETRY_RULES.md §18.
+  { name: 'facades', status: 'implemented' },
   { name: 'edges', status: 'planned', plannedAt: '15' },
   { name: 'drilling', status: 'planned', plannedAt: '28' },
 ];
@@ -42,6 +49,7 @@ const IMPLEMENTED: Readonly<Record<string, GeometryStage>> = {
   carcass: carcassStage,
   layout: layoutStage,
   fill: fillStage,
+  facades: facadesStage,
 };
 
 /**
