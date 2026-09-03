@@ -68,17 +68,18 @@ describe('Test 2: пустое наполнение не создаёт дета
       kind: 'empty',
       status: 'empty',
       shelves: [],
+      drawers: [],
     });
   });
 });
 
 describe('контракт резолвера: нереализованные виды получают явный статус', () => {
-  it('ящики: not-implemented с указанием, чего не хватает', () => {
+  it('пустой список ящиков — статус empty, а не not-implemented (PROMPT 11, симметрично shelves)', () => {
     const fill: LeafFill = { kind: 'drawers', drawers: [] };
     const resolution = resolveContentGeometry(fill, asId<'Node'>('c'));
-    expect(resolution.status).toBe('not-implemented');
-    expect(resolution.missing).toBe('ящики');
-    expect(resolution.shelves).toEqual([]);
+    expect(resolution.status).toBe('empty');
+    expect(resolution.drawers).toEqual([]);
+    expect(resolution.missing).toBeUndefined();
   });
 
   it('штанга с полкой: полка строится, штанга — нет, и это видно в статусе', () => {
@@ -91,8 +92,9 @@ describe('контракт резолвера: нереализованные в
   });
 
   it('движок сообщает о нереализованном наполнении, а не молчит', () => {
+    const ids = createSequentialIdFactory('r');
     const result = buildGeometry(
-      makeGeometryInputWithRoot((ids) => leafWith(ids, { kind: 'drawers', drawers: [] }), DIMS),
+      makeGeometryInputWithRoot((leafIds) => leafWith(leafIds, { kind: 'rod', rod: rod(ids) }), DIMS),
     );
     expect(result.diagnostics.map((d) => d.code)).toContain('CONTENT_NOT_IMPLEMENTED');
     // Это не ошибка: модель корректна, просто геометрия для неё ещё не написана.
@@ -100,9 +102,10 @@ describe('контракт резолвера: нереализованные в
   });
 
   it('одна диагностика на вид наполнения, а не на каждую ячейку', () => {
+    const ids = createSequentialIdFactory('r');
     const result = buildGeometry(
       makeGeometryInputWithRoot(
-        (ids) => createSizedSplit(ids, 'x', fixedSizes([300, 400]), T, (leafIds) => leafWith(leafIds, { kind: 'drawers', drawers: [] })),
+        (leafIds) => createSizedSplit(leafIds, 'x', fixedSizes([300, 400]), T, (cellIds) => leafWith(cellIds, { kind: 'rod', rod: rod(ids) })),
         { ...DIMS, width: 300 + 400 + T + 2 * T },
       ),
     );

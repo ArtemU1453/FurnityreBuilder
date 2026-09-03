@@ -110,6 +110,24 @@ export const facadesStage: GeometryStage = {
         continue;
       }
 
+      if (node.fill.kind === 'drawers' && node.fill.drawers.length > 0) {
+        // Дверь и ящики в одной ячейке физически не сочетаются: фасады
+        // ящиков уже занимают переднюю плоскость ячейки (`stages/fill.ts`,
+        // PROMPT 11), а дверь начинается ровно на той же границе — второй
+        // слой перед уже видимыми фасадами ящиков не имеет функционального
+        // смысла. Явное правило валидации (PROMPT 11 §14), а не догадка:
+        // сочетание запрещено, потому что наполнение ячейки одно
+        // (`docs/GEOMETRY_RULES.md` §17.3) и это оно, а дверь — второй,
+        // конкурирующий фасад той же плоскости.
+        ctx.report(
+          'DOOR_CELL_HAS_DRAWERS',
+          'error',
+          'Ячейка уже содержит ящики: дверь на ту же ячейку не построена.',
+          { nodeId: cell.nodeId },
+        );
+        continue;
+      }
+
       if (claimedCells.has(cell.nodeId)) {
         ctx.report(
           'DOOR_CELL_ALREADY_COVERED',

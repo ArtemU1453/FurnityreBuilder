@@ -168,6 +168,19 @@ export interface HandleSpec {
 export interface DrawerFacadeSpec {
   readonly materialId?: MaterialId;
   readonly edge?: EdgeSpec;
+  /** Не задана — толщина корпуса, тот же приоритет, что у `FacadeLeaf.thickness` (PROMPT 10). */
+  readonly thickness?: Mm;
+  /**
+   * Зазоры фасада ящика. Не задан — берётся `DEFAULT_OVERLAY` (PROMPT 11,
+   * `ASSUMPTION(T-DRW-04)`): второй тип зазоров для ящиков не заводится,
+   * переиспользуется `OverlaySpec`, уже существующий для фасадов дверей —
+   * тот же физический смысл (зазор между соседними фасадами и по периметру
+   * ячейки), только для стопки фасадов ящиков, а не створок двери. Если
+   * ящиков в ячейке несколько, стопку целиком задаёт `overlay` ПЕРВОГО
+   * ящика — тот же приоритет, что у `Shelf.thickness` внутри одной
+   * auto-группы полок (`docs/GEOMETRY_RULES.md` §14).
+   */
+  readonly overlay?: OverlaySpec;
 }
 
 export interface Drawer {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDebugView } from '../../../src/render/debug-view.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
 import { createSections, createSizedSplit, createUniformGrid, fixedSizes } from '../../../src/domain/furniture/sections.js';
-import { createEmptyLeaf, createHingedFacade, createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
+import { createDrawersLeaf, createEmptyLeaf, createHingedFacade, createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
 import type { NodeId } from '../../../src/domain/index.js';
 import type { GeometryInput } from '../../../src/geometry/types.js';
@@ -344,6 +344,37 @@ describe('buildDebugView: дверь на ячейке (PROMPT 10 §18)', () => 
     const geometry = buildGeometry(makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 }));
     const view = buildDebugView(geometry);
     const cell = view.rects.find((r) => r.kind === 'cell')!;
+    expect(cell.content).not.toContain('ДВЕРЬ');
+    expect(cell.detail).not.toContain('дверь');
+  });
+});
+
+describe('buildDebugView: фасады ящиков на ячейке (PROMPT 11)', () => {
+  it('фасад ящика становится прямоугольником-деталью роли facade', () => {
+    const geometry = buildGeometry(
+      makeGeometryInputWithRoot((ids) => createDrawersLeaf(ids, 2), {
+        width: 1000,
+        height: 2000,
+        depth: 500,
+        panelThickness: 16,
+      }),
+    );
+    const facadeRects = buildDebugView(geometry).rects.filter((r) => r.role === 'facade');
+    expect(facadeRects).toHaveLength(2);
+    expect(facadeRects.every((r) => r.kind === 'part')).toBe(true);
+  });
+
+  it('ячейка с ящиками подписана CONTENT: ЯЩИКИ, БЕЗ пометки ДВЕРЬ', () => {
+    const geometry = buildGeometry(
+      makeGeometryInputWithRoot((ids) => createDrawersLeaf(ids, 2), {
+        width: 1000,
+        height: 2000,
+        depth: 500,
+        panelThickness: 16,
+      }),
+    );
+    const cell = buildDebugView(geometry).rects.find((r) => r.kind === 'cell')!;
+    expect(cell.content).toBe('CONTENT: ЯЩИКИ');
     expect(cell.content).not.toContain('ДВЕРЬ');
     expect(cell.detail).not.toContain('дверь');
   });

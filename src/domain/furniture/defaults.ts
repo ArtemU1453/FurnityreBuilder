@@ -6,6 +6,8 @@ import type {
   ConstructionScheme,
   Dimensions,
   DividerSpec,
+  Drawer,
+  DrawerBoxSpec,
   FacadeGroup,
   FacadeLeaf,
   Furniture,
@@ -113,6 +115,42 @@ export function createShelvesLeaf(
     frontSetback: 0,
   }));
   return { id: ids.next<'Node'>(), kind: 'leaf', fill: { kind: 'shelves', shelves } };
+}
+
+/** ASSUMPTION(T-DRW-02): дно в паз, толщина 4 мм (ХДФ) — распространённая практика. */
+export const DEFAULT_DRAWER_BOX: DrawerBoxSpec = {
+  sideHeight: 150,
+  bottom: { mount: 'groove', thickness: 4 },
+};
+
+/**
+ * Один ящик со значениями по умолчанию (`flex`-вес 1 — равная доля высоты
+ * ячейки среди других ящиков стопки). Короб (`DrawerBoxSpec`) и
+ * направляющая (`SlideSpec`) заданы умолчаниями (`DEFAULT_DRAWER_BOX`,
+ * `DEFAULT_SLIDE`) — они существуют в модели и переживают сериализацию,
+ * но геометрией пока не читаются (`T-DRW-02`, `src/geometry/drawers.ts`).
+ */
+export function createDrawer(ids: IdFactory): Drawer {
+  return {
+    id: ids.next<'Node'>(),
+    size: { mode: 'flex', weight: 1 },
+    slide: DEFAULT_SLIDE,
+    box: DEFAULT_DRAWER_BOX,
+    facade: {},
+  };
+}
+
+/**
+ * Лист с `count` ящиками (PROMPT 11), в порядке снизу вверх — та же
+ * конвенция, что уже действует у `resolveSizes`/`Shelf.placement.index`
+ * (`docs/GEOMETRY_RULES.md`, новый раздел «ЯЩИКИ И ФАСАДЫ ЯЩИКОВ»). Высота
+ * каждого фасада не хранится — её на каждом пересчёте вычисляет
+ * `resolveDrawerFacadeGeometry` из `cell.box`, той же логикой, что и
+ * остальное наполнение.
+ */
+export function createDrawersLeaf(ids: IdFactory, count: number): LeafNode {
+  const drawers: Drawer[] = Array.from({ length: count }, () => createDrawer(ids));
+  return { id: ids.next<'Node'>(), kind: 'leaf', fill: { kind: 'drawers', drawers } };
 }
 
 /**

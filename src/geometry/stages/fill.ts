@@ -13,24 +13,28 @@ import {
 import type { GeometryContext, GeometryStage } from '../context.js';
 import { makePart, resolveMaterial } from '../parts.js';
 import { contentLabel, resolveContentGeometry } from '../content.js';
+import { resolveDrawerFacadeGeometry } from '../drawers.js';
 
 /**
- * Наполнение ячеек: полки (PROMPT 6). Первая часть этапа `fill`
- * (`docs/GEOMETRY_RULES.md` §10) — ящики и штанга остаются `LeafFill`-видами
- * без геометрии до своих этапов плана (21, 23).
+ * Наполнение ячеек: полки (PROMPT 6) и фасады ящиков (PROMPT 11). Штанга
+ * остаётся `LeafFill`-видом без геометрии до своего этапа плана (23).
  *
  * Что означает наполнение ячейки, решает резолвер `../content.ts`; этот
  * этап только размещает то, что резолвер вернул. Виды без геометрии
  * получают статус `not-implemented` и попадают в диагностику: до PROMPT 9
- * они пропускались молча, и «ящики есть в модели, но деталей нет» ничем
+ * они пропускались молча, и «штанга есть в модели, но деталей нет» ничем
  * не отличалось от «ячейка пуста».
  *
- * Источник истины — `LeafNode.fill`, как и раньше: полка не хранит своих
- * X/Y/Z/width/height/depth — они вычисляются здесь из объёма ячейки,
- * которую уже построил `layout` (§9). Cell — пространство, Shelf — деталь;
- * ни одна ячейка сама по себе этим этапом не создаётся и не меняется
- * (PROMPT 6 §5, `docs/DATA_MODEL.md` §5.6 и §6.1).
+ * Источник истины — `LeafNode.fill`, как и раньше: ни полка, ни фасад
+ * ящика не хранят своих X/Y/Z/width/height/depth — они вычисляются здесь
+ * из объёма ячейки, которую уже построил `layout` (§9). Cell — пространство,
+ * Shelf/Drawer — наполнение, Part — деталь; ни одна ячейка сама по себе
+ * этим этапом не создаётся и не меняется (PROMPT 6 §5, `docs/DATA_MODEL.md`
+ * §5.6 и §6.1).
  */
+
+/** Роль фасада ящика — та же, что и у двери (PROMPT 10): фасад остаётся фасадом независимо от того, что за ним. */
+const DRAWER_FACADE_ROLE: PartRole = 'facade';
 
 function shelfRole(mounting: Shelf['mounting']): PartRole {
   return mounting === 'adjustable' ? 'shelf-adjustable' : 'shelf-fixed';
@@ -188,10 +192,18 @@ export const fillStage: GeometryStage = {
       ctx.report('MATERIAL_NOT_ASSIGNED', 'warning', 'Материал для полки не назначен, взят первый из библиотеки.');
     };
 
+    let drawerFallbackReported = false;
+    const reportDrawerMaterialFallback = (): void => {
+      if (drawerFallbackReported) return;
+      drawerFallbackReported = true;
+      ctx.report('MATERIAL_NOT_ASSIGNED', 'warning', 'Материал для фасада ящика не назначен, взят первый из библиотеки.');
+    };
+
     // Виды наполнения, о которых уже сообщили: одна диагностика на вид,
     // а не по одной на каждую ячейку — иначе шкаф с шестью ящичными
     // секциями выдал бы шесть одинаковых сообщений.
     const reportedKinds = new Set<string>();
+    let drawerBoxNotImplementedReported = false;
 
     for (const cell of ctx.getCells()) {
       const node = findNode(furniture.root, cell.nodeId);
@@ -211,6 +223,61 @@ export const fillStage: GeometryStage = {
           `Наполнение «${contentLabel(content.kind)}» пока не строится геометрией: ${content.missing ?? 'нет реализации'}.`,
           { nodeId: cell.nodeId },
         );
+      }
+
+      if (content.kind === 'drawers' && content.drawers.length > 0) {
+        const resolution = resolveDrawerFacadeGeometry(content.drawers, cell, T);
+
+        if (resolution.status === 'invalid') {
+          // Та же граница error/info, что и у двери (PROMPT 10
+          // GEOMETRY_RULES.md §18.5): «зазоры не оставляют места при уже
+          // заданных пользователем числах» — ошибка пользовательских
+          // данных, а не «функция ещё не реализована».
+          ctx.report(
+            'DRAWER_GEOMETRY_INVALID',
+            'error',
+            resolution.missing ?? 'фасады ящиков не построены: геометрия недопустима.',
+            { nodeId: cell.nodeId },
+          );
+        } else {
+          if (!drawerBoxNotImplementedReported) {
+            drawerBoxNotImplementedReported = true;
+            // Короб (боковины/дно/задняя стенка) не строится — конструкция
+            // не подтверждена (T-DRW-02). Явный статус, а не тихий пропуск:
+            // фасад в результате есть, короба за ним — нет, и это видно.
+            ctx.report(
+              'DRAWER_BOX_NOT_IMPLEMENTED',
+              'info',
+              'Короб ящика (боковины, дно, задняя стенка) пока не строится геометрией: конструкция короба не подтверждена.',
+              { nodeId: cell.nodeId },
+            );
+          }
+
+          resolution.facades.forEach((facadeGeo, i) => {
+            const materialId = facadeGeo.materialId;
+            const resolvedMaterial =
+              materialId === undefined
+                ? resolveMaterial(materials, DRAWER_FACADE_ROLE)
+                : { materialId, resolved: true };
+            if (materialId === undefined && !resolvedMaterial.resolved) reportDrawerMaterialFallback();
+
+            ctx.addPart(
+              makePart({
+                furnitureId: furniture.id,
+                role: DRAWER_FACADE_ROLE,
+                label: resolution.facades.length > 1 ? `Фасад ящика ${String(i + 1)}` : 'Фасад ящика',
+                index: facadeGeo.drawerId,
+                position: vec3(facadeGeo.x, facadeGeo.y, facadeGeo.z),
+                size: vec3(facadeGeo.width, facadeGeo.height, facadeGeo.thickness),
+                orientation: 'frontal-xy',
+                materialId: resolvedMaterial.materialId,
+                edge: facadeGeo.edge ?? DEFAULT_EDGE,
+                edgeSizing,
+                nodeId: cell.nodeId,
+              }),
+            );
+          });
+        }
       }
 
       const allShelves = content.shelves;

@@ -131,10 +131,17 @@ export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
   // Двери на ячейке (PROMPT 10 §18) — НЕ `LeafFill`: `FacadeGroup` живёт
   // отдельно (`Furniture.facades`, docs/GEOMETRY_RULES.md §17.4), поэтому
   // «есть ли дверь» здесь узнают по уже построенным деталям роли `facade`
-  // с этой ячейкой как `origin.nodeId`, а не по `cell.fill`.
+  // с этой ячейкой как `origin.nodeId`, а не по `cell.fill`. Фасады ящиков
+  // (PROMPT 11) используют ТУ ЖЕ роль `facade` (переиспользована, не
+  // заведена вторая), поэтому исключаются здесь явно по `cell.fill.kind`:
+  // у ячейки одно наполнение (§17.3), и когда это `drawers`, её facade-
+  // детали — фасады ящиков, а не дверь; `CONTENT: ЯЩИКИ` эти детали уже
+  // не нуждается — он и так виден в `fillContent` через `contentLabel`.
+  const fillKindByCellNodeId = new Map(geometry.cells.map((cell) => [cell.nodeId, cell.fill.kind]));
   const doorPartsByCell = new Map<string, Array<GeometryResult['parts'][number]>>();
   for (const part of geometry.parts) {
     if (part.role !== 'facade' || part.origin.nodeId === undefined) continue;
+    if (fillKindByCellNodeId.get(part.origin.nodeId) === 'drawers') continue;
     const list = doorPartsByCell.get(part.origin.nodeId);
     if (list === undefined) doorPartsByCell.set(part.origin.nodeId, [part]);
     else list.push(part);
@@ -157,9 +164,10 @@ export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
       height: cell.box.size.y,
       // Наполнение приходит из `GeometryResult.cells[].fill` — того же места,
       // откуда его берёт движок. Разбирать `LeafFill` рендерер не умеет
-      // и не должен: вид наполнения отдаёт `contentKindOf`. Дверь к нему
-      // добавляется отдельно (см. `doorPartsByCell` выше), потому что живёт
-      // не в `fill`, а в `Furniture.facades`.
+      // и не должен: вид наполнения отдаёт `contentKindOf` (для ящиков —
+      // «ЯЩИКИ», без отдельной пометки: они, в отличие от двери, и есть
+      // `fill`). Дверь к нему добавляется отдельно (см. `doorPartsByCell`
+      // выше), потому что живёт не в `fill`, а в `Furniture.facades`.
       content,
       // Ячейка: id, X, Y, ширина, высота (PROMPT 8 §24), вид наполнения
       // (PROMPT 9 §15) и id её дверей, если есть (PROMPT 10 §18).

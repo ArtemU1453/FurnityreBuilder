@@ -531,7 +531,7 @@ export interface Drawer {
   size: SizeSpec;
   slide: SlideSpec;
   box: DrawerBoxSpec;
-  facade: FacadeSpec;
+  facade: DrawerFacadeSpec;
   handle?: HandleSpec | null;         // null = PUSH-открывание
 }
 
@@ -553,7 +553,25 @@ export interface DrawerBoxSpec {
   };
   materialId?: MaterialId;
 }
+
+export interface DrawerFacadeSpec {
+  materialId?: MaterialId;
+  edge?: EdgeSpec;
+  /** Добавлено PROMPT 11. Не задана — толщина корпуса, тот же приоритет, что у `FacadeLeaf.thickness`. */
+  thickness?: Mm;
+  /**
+   * Добавлено PROMPT 11. Зазоры фасада ящика. Не задан — `DEFAULT_OVERLAY`:
+   * второй тип зазоров для ящиков не заводится, переиспользован `OverlaySpec`
+   * дверей (§7). При нескольких ящиках в ячейке стопку целиком задаёт
+   * `overlay` ПЕРВОГО ящика. `ASSUMPTION(T-DRW-04)`.
+   */
+  overlay?: OverlaySpec;
+}
 ```
+
+**Геометрия фасада — реализована PROMPT 11** (`resolveDrawerFacadeGeometry`,
+`src/geometry/drawers.ts`), короб — нет: см. `docs/GEOMETRY_RULES.md`, раздел
+«ЯЩИКИ И ФАСАДЫ ЯЩИКОВ».
 
 ```ts
 // ASSUMPTION (до T-DRW-02): шариковые направляющие полного выдвижения,

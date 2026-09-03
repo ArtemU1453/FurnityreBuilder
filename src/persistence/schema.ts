@@ -71,6 +71,19 @@ const handleSpec = z.object({
   lengthMm: mm.optional(),
 });
 
+/**
+ * Зазоры фасада. Один тип на все виды фасадов (дверь — PROMPT 10, ящик —
+ * PROMPT 11): второй, «ящичный» тип зазоров не заводится, см.
+ * `DrawerFacadeSpec.overlay` в `src/domain/furniture/types.ts`.
+ */
+const overlaySpec = z.object({
+  mode: z.enum(['overlay', 'inset']),
+  gapBetweenLeaves: mm,
+  gapTop: mm,
+  gapBottom: mm,
+  gapSide: mm,
+});
+
 const drawer = z.object({
   id,
   size: sizeSpec,
@@ -89,7 +102,14 @@ const drawer = z.object({
     }),
     materialId: id.optional(),
   }),
-  facade: z.object({ materialId: id.optional(), edge: edgeSpec.optional() }),
+  facade: z.object({
+    materialId: id.optional(),
+    edge: edgeSpec.optional(),
+    // Добавлено PROMPT 11: опциональные поля, старые документы без них
+    // читаются без миграции — движок берёт толщину корпуса и DEFAULT_OVERLAY.
+    thickness: mm.optional(),
+    overlay: overlaySpec.optional(),
+  }),
   handle: handleSpec.nullable().optional(),
 });
 
@@ -171,13 +191,7 @@ const facadeGroup = z.object({
       thickness: mm.optional(),
     }),
   ),
-  overlay: z.object({
-    mode: z.enum(['overlay', 'inset']),
-    gapBetweenLeaves: mm,
-    gapTop: mm,
-    gapBottom: mm,
-    gapSide: mm,
-  }),
+  overlay: overlaySpec,
   // Добавлено PROMPT 10: архитектурный контракт для купе, геометрией не
   // читается (T-DOOR-01). Опционально — не влияет на старые документы.
   slidingConfig: slidingDoorConfig.optional(),

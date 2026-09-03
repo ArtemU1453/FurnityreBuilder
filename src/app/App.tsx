@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { createEmptyLeaf, createHingedFacade, createShelvesLeaf } from '../domain/furniture/defaults.js';
-import { asId, createRandomIdFactory, formatMm, isSplit } from '../domain/index.js';
-import type { HingeSide, MaterialId, NodeId } from '../domain/index.js';
+import { createDrawer, createEmptyLeaf, createHingedFacade, createShelvesLeaf } from '../domain/furniture/defaults.js';
+import { asId, createRandomIdFactory, findNode, formatMm, isSplit } from '../domain/index.js';
+import type { HingeSide, LeafFill, MaterialId, NodeId } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
 import { buildDebugView, DebugSchema } from '../render/index.js';
@@ -203,6 +203,46 @@ export function App(): React.JSX.Element {
     );
   };
 
+  // Технические элементы управления ящиками (PROMPT 11 §21): та же выбранная
+  // ячейка, что и у двери — ящик и дверь в одной ячейке несовместимы
+  // (§14, `DOOR_CELL_HAS_DRAWERS`), поэтому один селектор ячейки на оба
+  // наполнения достаточен и не заводит вторую систему выбора. В отличие
+  // от двери, ящики — уже существующий `LeafFill.kind === 'drawers'`
+  // (`docs/GEOMETRY_RULES.md`), поэтому команда — уже существующий `SetFill`,
+  // без новых addDrawer/removeDrawer: то же решение, каким PROMPT 6/9
+  // обошлись без отдельных addShelf/removeShelf.
+  const selectedLeaf = selectedCellId === '' ? undefined : findNode(furniture.root, selectedCellId);
+  const selectedDrawers = selectedLeaf?.kind === 'leaf' && selectedLeaf.fill.kind === 'drawers' ? selectedLeaf.fill.drawers : [];
+  const canAddDrawer =
+    selectedCellId !== '' &&
+    selectedFacade === undefined &&
+    (selectedLeaf?.kind === 'leaf' && (selectedLeaf.fill.kind === 'empty' || selectedLeaf.fill.kind === 'drawers'));
+
+  const addDrawer = (): void => {
+    if (selectedCellId === '' || !canAddDrawer) return;
+    const drawer = createDrawer(createRandomIdFactory());
+    const fill: LeafFill = { kind: 'drawers', drawers: [...selectedDrawers, drawer] };
+    execute({ type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill }, 'Добавить ящик');
+  };
+
+  const removeDrawer = (): void => {
+    if (selectedCellId === '' || selectedDrawers.length === 0) return;
+    const rest = selectedDrawers.slice(0, -1);
+    const fill: LeafFill = rest.length === 0 ? { kind: 'empty' } : { kind: 'drawers', drawers: rest };
+    execute({ type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill }, 'Убрать ящик');
+  };
+
+  // Дверь и фасад ящика используют одну и ту же роль `facade` (переиспользована,
+  // не заведена вторая) — для счётчиков в панели результата их различают
+  // по наполнению ячейки-источника, тем же способом, что и debug-схема
+  // (`render/debug-view.ts`).
+  const cellFillKindByNodeId = new Map(geometry.cells.map((cell) => [cell.nodeId, cell.fill.kind]));
+  const facadeParts = geometry.parts.filter((p) => p.role === 'facade');
+  const doorPartCount = facadeParts.filter(
+    (p) => p.origin.nodeId === undefined || cellFillKindByNodeId.get(p.origin.nodeId) !== 'drawers',
+  ).length;
+  const drawerFacadePartCount = facadeParts.length - doorPartCount;
+
   return (
     <div className={styles.shell}>
       <a className={styles.skipLink} href="#main">
@@ -379,12 +419,17 @@ export function App(): React.JSX.Element {
                   }}
                 >
                   <option value="">— выбрать —</option>
-                  {geometry.cells.map((cell) => (
-                    <option key={cell.nodeId} value={cell.nodeId}>
-                      {cell.nodeId} ({formatMm(cell.box.size.x)} × {formatMm(cell.box.size.y)})
-                      {facadeForCell(cell.nodeId) === undefined ? '' : ' — дверь'}
-                    </option>
-                  ))}
+                  {geometry.cells.map((cell) => {
+                    const node = findNode(furniture.root, cell.nodeId);
+                    const drawerCount = node?.kind === 'leaf' && node.fill.kind === 'drawers' ? node.fill.drawers.length : 0;
+                    return (
+                      <option key={cell.nodeId} value={cell.nodeId}>
+                        {cell.nodeId} ({formatMm(cell.box.size.x)} × {formatMm(cell.box.size.y)})
+                        {facadeForCell(cell.nodeId) === undefined ? '' : ' — дверь'}
+                        {drawerCount === 0 ? '' : ` — ящиков: ${String(drawerCount)}`}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
             </Field>
@@ -427,11 +472,36 @@ export function App(): React.JSX.Element {
               </>
             )}
           </div>
-          <Button onClick={addDoor} disabled={selectedCellId === '' || selectedFacade !== undefined} style={{ marginTop: 'var(--sp-3)' }}>
+          <Button
+            onClick={addDoor}
+            disabled={selectedCellId === '' || selectedFacade !== undefined || selectedDrawers.length > 0}
+            style={{ marginTop: 'var(--sp-3)' }}
+          >
             Добавить дверь
           </Button>
           <Button onClick={removeDoor} disabled={selectedFacade === undefined} style={{ marginTop: 'var(--sp-2)' }}>
             Убрать дверь
+          </Button>
+        </section>
+
+        <section className={styles.panel} aria-labelledby="drawers-title">
+          <h2 id="drawers-title" className={styles.panelTitle}>
+            Ящики
+          </h2>
+          <p className={styles.pending}>
+            Ячейка выбирается в панели «Двери» выше — ящик и дверь на одной ячейке несовместимы.
+          </p>
+          <ul className={styles.stats}>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Ящиков в выбранной ячейке</span>
+              <span className={styles.statValue}>{selectedDrawers.length}</span>
+            </li>
+          </ul>
+          <Button onClick={addDrawer} disabled={!canAddDrawer} style={{ marginTop: 'var(--sp-3)' }}>
+            Добавить ящик
+          </Button>
+          <Button onClick={removeDrawer} disabled={selectedDrawers.length === 0} style={{ marginTop: 'var(--sp-2)' }}>
+            Убрать ящик
           </Button>
         </section>
 
@@ -466,7 +536,11 @@ export function App(): React.JSX.Element {
             </li>
             <li className={styles.stat}>
               <span className={styles.statLabel}>Дверей</span>
-              <span className={styles.statValue}>{geometry.parts.filter((p) => p.role === 'facade').length}</span>
+              <span className={styles.statValue}>{doorPartCount}</span>
+            </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Фасадов ящиков</span>
+              <span className={styles.statValue}>{drawerFacadePartCount}</span>
             </li>
             <li className={styles.stat}>
               <span className={styles.statLabel}>Внутренняя ширина</span>

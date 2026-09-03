@@ -182,6 +182,29 @@
       ]
     },
     {
+      "id": "T-DRW-04",
+      "area": "drawers",
+      "question": "Формула фасада ящика: зазор между фасадами, по периметру, накладной/вкладной",
+      "status": "unknown",
+      "defaultAssumption": "PROMPT 11: переиспользован OverlaySpec/DEFAULT_OVERLAY фасадов дверей (зазор между фасадами 3 мм, по периметру 2 мм) — отдельного значения для ящиков референс не подтвердил, второй тип зазоров не заводился",
+      "test": "Сопоставить высоту фасада ящика с высотой ячейки при 1 и при 3 ящиках; разница даст зазоры (docs/PRIVETMAKET_FUNCTIONAL_SPEC.md T-DRW-04)",
+      "blocks": [
+        "src/domain/furniture/types.ts",
+        "src/geometry/drawers.ts"
+      ]
+    },
+    {
+      "id": "T-DRW-05",
+      "area": "drawers",
+      "question": "Ограничение количества ящиков в одной ячейке",
+      "status": "unknown",
+      "defaultAssumption": "PROMPT 11: искусственный предел не введён — количество ограничено только тем, помещаются ли фасады по высоте (resolveSizes), реального верхнего порога референс не подтвердил",
+      "test": "Попытаться поставить нереалистично много ящиков в одну ячейку и сверить с референсом (docs/PRIVETMAKET_FUNCTIONAL_SPEC.md T-DRW-05)",
+      "blocks": [
+        "src/geometry/drawers.ts"
+      ]
+    },
+    {
       "id": "T-EDG-02",
       "area": "edge",
       "question": "Правило выбора сторон оклейки кромкой",

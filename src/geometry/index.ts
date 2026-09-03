@@ -5,6 +5,8 @@ export { resolveContentGeometry, contentKindOf, contentLabel } from './content.j
 export type { ContentKind, ContentStatus, ContentResolution } from './content.js';
 export { resolveDoorGeometry } from './doors.js';
 export type { DoorStatus, DoorLeafGeometry, DoorGeometryResolution } from './doors.js';
+export { resolveDrawerFacadeGeometry } from './drawers.js';
+export type { DrawerFacadeStatus, DrawerFacadeGeometry, DrawerFacadeGeometryResolution } from './drawers.js';
 export { findPartOverlaps } from './overlaps.js';
 export type { PartOverlap } from './overlaps.js';
 export { GeometryContext } from './context.js';

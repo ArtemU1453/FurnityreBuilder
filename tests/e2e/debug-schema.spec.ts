@@ -174,6 +174,33 @@ test('дверь появляется в схеме и подписана сод
   await expect(schema.getByText(/CONTENT: ПУСТО · ДВЕРЬ/)).toHaveCount(0);
 });
 
+test('фасады ящиков появляются в схеме и подписаны CONTENT: ЯЩИКИ (PROMPT 11 §20)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
+
+  await page.getByLabel('Ячейка').selectOption({ index: 1 });
+  const addDrawerButton = page.getByRole('button', { name: 'Добавить ящик' });
+  await addDrawerButton.click();
+  await addDrawerButton.click();
+
+  // 4 детали каркаса + 2 фасада ящиков = 6 деталей, плюс 1 ячейка = 7 прямоугольников.
+  await expect(schema.locator('rect')).toHaveCount(7);
+  await expect(schema.getByText('CONTENT: ЯЩИКИ')).toBeVisible();
+  // Фасад ящика — не дверь: пометки ДВЕРЬ на ячейке с ящиками быть не должно.
+  await expect(schema.getByText(/ДВЕРЬ/)).toHaveCount(0);
+
+  await page.getByLabel('Показывать ID и координаты').check();
+  await expect(schema.locator('text').filter({ hasText: 'Фасад ящика' }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Убрать ящик' }).click();
+  await page.getByRole('button', { name: 'Убрать ящик' }).click();
+  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.getByText('CONTENT: ЯЩИКИ')).toHaveCount(0);
+});
+
 test('изменение габарита в поле обновляет схему сразу, без перезагрузки', async ({ page }) => {
   await page.goto('/');
 

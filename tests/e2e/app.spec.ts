@@ -105,3 +105,32 @@ test('дверь можно добавить на выбранную ячейк�
 
   await expect(page.locator('li', { hasText: 'Дверей' })).toContainText('0');
 });
+
+test('ящики можно добавлять и убирать на выбранной ячейке (PROMPT 11 §21)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('li', { hasText: 'Фасадов ящиков' })).toContainText('0');
+
+  const addButton = page.getByRole('button', { name: 'Добавить ящик' });
+  await expect(addButton).toBeDisabled();
+
+  await page.getByLabel('Ячейка').selectOption({ index: 1 });
+  await expect(addButton).toBeEnabled();
+
+  await addButton.click();
+  await expect(page.locator('li', { hasText: 'Ящиков в выбранной ячейке' })).toContainText('1');
+  await expect(page.locator('li', { hasText: 'Фасадов ящиков' })).toContainText('1');
+
+  await addButton.click();
+  await expect(page.locator('li', { hasText: 'Ящиков в выбранной ячейке' })).toContainText('2');
+  await expect(page.locator('li', { hasText: 'Фасадов ящиков' })).toContainText('2');
+
+  // Дверь на ту же ячейку, что уже содержит ящики, недоступна.
+  await expect(page.getByRole('button', { name: 'Добавить дверь' })).toBeDisabled();
+
+  const removeButton = page.getByRole('button', { name: 'Убрать ящик' });
+  await removeButton.click();
+  await expect(page.locator('li', { hasText: 'Ящиков в выбранной ячейке' })).toContainText('1');
+  await removeButton.click();
+  await expect(page.locator('li', { hasText: 'Ящиков в выбранной ячейке' })).toContainText('0');
+  await expect(page.locator('li', { hasText: 'Фасадов ящиков' })).toContainText('0');
+});

@@ -1,4 +1,4 @@
-import type { LeafFill, NodeId, Shelf } from '../domain/index.js';
+import type { Drawer, LeafFill, NodeId, Shelf } from '../domain/index.js';
 
 /**
  * Контракт наполнения ячейки: Cell → Content → Parts (PROMPT 9).
@@ -62,8 +62,17 @@ import type { LeafFill, NodeId, Shelf } from '../domain/index.js';
  * `Furniture.facades: FacadeGroup[]` с полем `covers`, указывающим на узел
  * дерева или на корпус целиком (`docs/DATA_MODEL.md` §7). Добавить `door`
  * в `LeafFill` значило бы завести второй способ описать ту же дверь и
- * получить два расходящихся источника истины. Геометрия фасадов — этап 22
- * плана, здесь не реализуется.
+ * получить два расходящихся источника истины. Геометрия распашных дверей
+ * на одну ячейку реализована в PROMPT 10 (`src/geometry/doors.ts`).
+ *
+ * ## Ящик — наполнение ячейки (в отличие от двери)
+ *
+ * `DRAWER`, в отличие от `DOOR`, был вариантом `LeafFill` с самого начала
+ * (`kind: 'drawers'`): один ящик физически не может обслуживать несколько
+ * ячеек сразу — ровно тот случай, где структурная вложенность корректна.
+ * PROMPT 11 реализует геометрию его фасада (`src/geometry/drawers.ts`);
+ * сам короб (боковины/дно/задняя стенка) остаётся `not-implemented` —
+ * схема сборки не подтверждена (`T-DRW-02`, `docs/UNKNOWNS.json`).
  */
 
 /** Вид наполнения. Дискриминант `LeafFill`, а не отдельный перечень. */
@@ -89,6 +98,13 @@ export interface ContentResolution {
    * и для видов, геометрия которых ещё не реализована.
    */
   readonly shelves: readonly Shelf[];
+  /**
+   * Ящики, которые нужно построить в этой ячейке (PROMPT 11). Пусто для
+   * всех видов, кроме `drawers`. Отдельное поле, а не переиспользование
+   * `shelves`: `Shelf` и `Drawer` — разные типы, а резолвер лишь передаёт
+   * то, что уже лежит в `LeafFill`, не приводя одно к другому.
+   */
+  readonly drawers: readonly Drawer[];
   /** Человекочитаемое «что именно ещё не строится» — только для `not-implemented`. */
   readonly missing?: string;
 }
@@ -107,7 +123,7 @@ export function resolveContentGeometry(fill: LeafFill, cellId: NodeId): ContentR
     case 'empty':
       // Пустая ячейка не порождает деталей. Это не «нечего строить
       // по недосмотру», а нормальное и самое частое состояние.
-      return { cellId, kind: fill.kind, status: 'empty', shelves: [] };
+      return { cellId, kind: fill.kind, status: 'empty', shelves: [], drawers: [] };
 
     case 'shelves':
       return {
@@ -115,6 +131,7 @@ export function resolveContentGeometry(fill: LeafFill, cellId: NodeId): ContentR
         kind: fill.kind,
         status: fill.shelves.length === 0 ? 'empty' : 'built',
         shelves: fill.shelves,
+        drawers: [],
       };
 
     case 'rod+shelf':
@@ -125,16 +142,23 @@ export function resolveContentGeometry(fill: LeafFill, cellId: NodeId): ContentR
         kind: fill.kind,
         status: 'not-implemented',
         shelves: [fill.shelfAbove],
+        drawers: [],
         missing: 'штанга',
       };
 
     case 'drawers':
+      // Фасады ящиков строятся (PROMPT 11) — статус честно отражает,
+      // есть ли хоть один ящик, тем же правилом, что и у 'shelves'. Сам
+      // короб остаётся не построенным геометрией (см. `drawers.ts`), но
+      // это не делает наполнение ячейки в целом not-implemented: фасад —
+      // не «часть, которой не хватает», а физически основная, видимая
+      // часть ящика.
       return {
         cellId,
         kind: fill.kind,
-        status: 'not-implemented',
+        status: fill.drawers.length === 0 ? 'empty' : 'built',
         shelves: [],
-        missing: 'ящики',
+        drawers: fill.drawers,
       };
 
     case 'rod':
@@ -143,6 +167,7 @@ export function resolveContentGeometry(fill: LeafFill, cellId: NodeId): ContentR
         kind: fill.kind,
         status: 'not-implemented',
         shelves: [],
+        drawers: [],
         missing: 'штанга',
       };
   }
