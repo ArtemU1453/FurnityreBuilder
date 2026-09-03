@@ -1,9 +1,10 @@
 import type { CellBox } from '../types.js';
-import type { HingeSide, MaterialLibrary, NodeId, PartRole } from '../../domain/index.js';
+import type { HingeSide, MaterialLibrary, NodeId, OpeningSystem, PartRole } from '../../domain/index.js';
 import { DEFAULT_EDGE, findNode, isLeaf, roundMm } from '../../domain/index.js';
 import type { GeometryContext, GeometryStage } from '../context.js';
 import { makePart, resolveMaterial } from '../parts.js';
 import { resolveDoorGeometry } from '../doors.js';
+import { resolveOpeningSystemGeometry } from '../opening-system.js';
 
 const DOOR_ROLE: PartRole = 'facade';
 
@@ -26,6 +27,18 @@ function hingeLabel(side: HingeSide): string {
       return 'снизу';
     case 'none':
       return 'без петель';
+  }
+}
+
+/** Русская подпись способа открывания для debug-схемы (PROMPT 12 §18). */
+function openingLabel(kind: OpeningSystem['kind']): string {
+  switch (kind) {
+    case 'none':
+      return 'нет';
+    case 'handle':
+      return 'ручка';
+    case 'push-to-open':
+      return 'push-to-open';
   }
 }
 
@@ -56,6 +69,13 @@ export const facadesStage: GeometryStage = {
       if (fallbackReported) return;
       fallbackReported = true;
       ctx.report('MATERIAL_NOT_ASSIGNED', 'warning', 'Материал для двери не назначен, взят первый из библиотеки.');
+    };
+
+    let openingFallbackReported = false;
+    const reportOpeningMaterialFallback = (): void => {
+      if (openingFallbackReported) return;
+      openingFallbackReported = true;
+      ctx.report('MATERIAL_NOT_ASSIGNED', 'warning', 'Материал для ручки/механизма открывания не назначен, взят первый из библиотеки.');
     };
 
     // Одна диагностика на вид непокрытого случая, а не на каждый фасад —
@@ -186,6 +206,49 @@ export const facadesStage: GeometryStage = {
             nodeId: cell.nodeId,
           }),
         );
+
+        // Способ открывания (PROMPT 12): читает уже построенный объём
+        // ДВЕРНОГО ЛИСТА, а не ячейки — «Facade → Opening System», не
+        // «Cell → Opening System». `facade.leaves[i]` и `resolution.leaves[i]`
+        // идут в одном порядке (`resolveDoorGeometry` строит их map'ом).
+        const openingConfig = facade.leaves[i]?.opening ?? { kind: 'none' as const };
+        const openingResolution = resolveOpeningSystemGeometry(openingConfig, {
+          x: leaf.x,
+          y: leaf.y,
+          z: leaf.z,
+          width: leaf.width,
+          height: leaf.height,
+          thickness: leaf.thickness,
+        });
+
+        if (openingResolution.status === 'invalid') {
+          ctx.report(
+            'OPENING_GEOMETRY_INVALID',
+            'error',
+            openingResolution.missing ?? 'способ открывания не построен: геометрия недопустима.',
+            { nodeId: cell.nodeId },
+          );
+        }
+
+        for (const item of openingResolution.items) {
+          const resolvedOpeningMaterial = resolveMaterial(materials, item.role);
+          if (!resolvedOpeningMaterial.resolved) reportOpeningMaterialFallback();
+          ctx.addPart(
+            makePart({
+              furnitureId: furniture.id,
+              role: item.role,
+              label: openingLabel(openingConfig.kind),
+              index: item.id,
+              position: { x: item.x, y: item.y, z: item.z },
+              size: { x: item.width, y: item.height, z: item.thickness },
+              orientation: 'frontal-xy',
+              materialId: resolvedOpeningMaterial.materialId,
+              edge: DEFAULT_EDGE,
+              edgeSizing,
+              nodeId: cell.nodeId,
+            }),
+          );
+        }
       });
     }
   },

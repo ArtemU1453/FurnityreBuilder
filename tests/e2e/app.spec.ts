@@ -134,3 +134,36 @@ test('ящики можно добавлять и убирать на выбра
   await expect(page.locator('li', { hasText: 'Ящиков в выбранной ячейке' })).toContainText('0');
   await expect(page.locator('li', { hasText: 'Фасадов ящиков' })).toContainText('0');
 });
+
+test('способ открывания двери можно выбрать и снять (PROMPT 12 §19)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('li', { hasText: 'Ручек' })).toContainText('0');
+  await expect(page.locator('li', { hasText: 'Push-to-open' })).toContainText('0');
+
+  await page.getByLabel('Ячейка').selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Добавить дверь' }).click();
+
+  const opening = page.getByLabel('Открывание');
+  await expect(opening).toHaveValue('none');
+
+  await opening.selectOption('handle');
+  await expect(page.locator('li', { hasText: 'Ручек' })).toContainText('1');
+
+  await opening.selectOption('push-to-open');
+  await expect(page.locator('li', { hasText: 'Ручек' })).toContainText('0');
+  await expect(page.locator('li', { hasText: 'Push-to-open' })).toContainText('1');
+
+  await opening.selectOption('none');
+  await expect(page.locator('li', { hasText: 'Push-to-open' })).toContainText('0');
+});
+
+test('способ открывания ящиков можно выбрать (PROMPT 12 §19)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Ячейка').selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Добавить ящик' }).click();
+  await page.getByRole('button', { name: 'Добавить ящик' }).click();
+
+  const opening = page.getByLabel('Открывание (все ящики ячейки)');
+  await opening.selectOption('handle');
+  await expect(page.locator('li', { hasText: 'Ручек' })).toContainText('2');
+});

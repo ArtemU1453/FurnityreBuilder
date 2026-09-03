@@ -201,6 +201,30 @@ test('фасады ящиков появляются в схеме и подпи
   await expect(schema.getByText('CONTENT: ЯЩИКИ')).toHaveCount(0);
 });
 
+test('ручка появляется в схеме и подписана в CONTENT ячейки (PROMPT 12 §18)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await expect(schema.locator('rect')).toHaveCount(5);
+
+  await page.getByLabel('Ячейка').selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Добавить дверь' }).click();
+  // 4 детали каркаса + 1 дверь = 5, плюс 1 ячейка = 6 прямоугольников.
+  await expect(schema.locator('rect')).toHaveCount(6);
+
+  await page.getByLabel('Открывание').selectOption('handle');
+  // + 1 деталь ручки = 6 деталей, плюс 1 ячейка = 7 прямоугольников.
+  await expect(schema.locator('rect')).toHaveCount(7);
+  await expect(schema.getByText(/Opening: HANDLE/)).toBeVisible();
+
+  await page.getByLabel('Показывать ID и координаты').check();
+  await expect(schema.locator('text').filter({ hasText: 'ручка' }).first()).toBeVisible();
+
+  await page.getByLabel('Открывание').selectOption('none');
+  await expect(schema.locator('rect')).toHaveCount(6);
+  await expect(schema.getByText(/Opening: HANDLE/)).toHaveCount(0);
+});
+
 test('изменение габарита в поле обновляет схему сразу, без перезагрузки', async ({ page }) => {
   await page.goto('/');
 

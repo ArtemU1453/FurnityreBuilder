@@ -7,6 +7,8 @@ export { resolveDoorGeometry } from './doors.js';
 export type { DoorStatus, DoorLeafGeometry, DoorGeometryResolution } from './doors.js';
 export { resolveDrawerFacadeGeometry } from './drawers.js';
 export type { DrawerFacadeStatus, DrawerFacadeGeometry, DrawerFacadeGeometryResolution } from './drawers.js';
+export { resolveOpeningSystemGeometry } from './opening-system.js';
+export type { OpeningStatus, OpeningGeometry, OpeningSystemResolution, FacadeBox } from './opening-system.js';
 export { findPartOverlaps } from './overlaps.js';
 export type { PartOverlap } from './overlaps.js';
 export { GeometryContext } from './context.js';

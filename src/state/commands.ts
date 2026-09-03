@@ -10,6 +10,7 @@ import type {
   MaterialId,
   Mm,
   NodeId,
+  OpeningSystem,
   PartRole,
   Project,
   SectionNode,
@@ -122,7 +123,14 @@ export type Command =
     }
   | { readonly type: 'RemoveFacade'; readonly furnitureIndex: number; readonly facadeId: NodeId }
   | {
-      /** Правка одной створки: сторона петель, материал, кромка, толщина, доля ширины. */
+      /**
+       * Правка одной створки: сторона петель, материал, кромка, толщина,
+       * доля ширины, способ открывания. `opening` покрывает и PROMPT 12
+       * §15 (`setOpeningSystem`/`removeOpeningSystem`/`addHandle`/
+       * `removeHandle`/`updateHandleConfig`) — одно поле патча заменяет
+       * их все, тем же приёмом, каким уже покрыты предыдущие поля:
+       * второй командный слой не заводится.
+       */
       readonly type: 'UpdateFacadeLeaf';
       readonly furnitureIndex: number;
       readonly facadeId: NodeId;
@@ -133,6 +141,7 @@ export type Command =
         readonly edge?: EdgeSpec;
         readonly thickness?: Mm;
         readonly size?: SizeSpec;
+        readonly opening?: OpeningSystem;
       };
     }
   | { readonly type: 'SetConstructionScheme'; readonly scheme: ConstructionScheme }
@@ -408,6 +417,7 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
       if (patch.edge !== undefined) leaf.edge = patch.edge;
       if (patch.thickness !== undefined) leaf.thickness = patch.thickness;
       if (patch.size !== undefined) leaf.size = patch.size;
+      if (patch.opening !== undefined) leaf.opening = patch.opening;
       return;
     }
 

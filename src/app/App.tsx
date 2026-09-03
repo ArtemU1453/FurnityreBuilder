@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react';
-import { createDrawer, createEmptyLeaf, createHingedFacade, createShelvesLeaf } from '../domain/furniture/defaults.js';
+import {
+  createDrawer,
+  createEmptyLeaf,
+  createHandleOpeningSystem,
+  createHingedFacade,
+  createPushToOpenSystem,
+  createShelvesLeaf,
+} from '../domain/furniture/defaults.js';
 import { asId, createRandomIdFactory, findNode, formatMm, isSplit } from '../domain/index.js';
-import type { HingeSide, LeafFill, MaterialId, NodeId } from '../domain/index.js';
+import type { HingeSide, LeafFill, MaterialId, NodeId, OpeningSystem } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
 import { buildDebugView, DebugSchema } from '../render/index.js';
@@ -203,6 +210,20 @@ export function App(): React.JSX.Element {
     );
   };
 
+  // Способ открывания двери (PROMPT 12 §19): та же команда UpdateFacadeLeaf,
+  // поле patch.opening — ни setOpeningSystem, ни addHandle отдельно не заведены.
+  const setDoorOpening = (kind: OpeningSystem['kind']): void => {
+    const leaf = selectedFacade?.leaves[0];
+    if (selectedFacade === undefined || leaf === undefined) return;
+    const ids = createRandomIdFactory();
+    const opening: OpeningSystem =
+      kind === 'none' ? { kind: 'none' } : kind === 'handle' ? createHandleOpeningSystem(ids, leaf.hingeSide) : createPushToOpenSystem(ids, leaf.hingeSide);
+    execute(
+      { type: 'UpdateFacadeLeaf', furnitureIndex: 0, facadeId: selectedFacade.id, leafId: leaf.id, patch: { opening } },
+      'Способ открывания двери',
+    );
+  };
+
   // Технические элементы управления ящиками (PROMPT 11 §21): та же выбранная
   // ячейка, что и у двери — ящик и дверь в одной ячейке несовместимы
   // (§14, `DOOR_CELL_HAS_DRAWERS`), поэтому один селектор ячейки на оба
@@ -232,6 +253,19 @@ export function App(): React.JSX.Element {
     execute({ type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill }, 'Убрать ящик');
   };
 
+  // Способ открывания ящиков (PROMPT 12 §19): применяется ко ВСЕМ ящикам
+  // выбранной ячейки разом (тот же стиль ручек на всей стопке) — через тот
+  // же SetFill, что и добавление/удаление ящика, второй команды не заведено.
+  const setDrawersOpening = (kind: OpeningSystem['kind']): void => {
+    if (selectedCellId === '' || selectedDrawers.length === 0) return;
+    const drawers = selectedDrawers.map((drawer) => {
+      const ids = createRandomIdFactory();
+      const opening: OpeningSystem = kind === 'none' ? { kind: 'none' } : kind === 'handle' ? createHandleOpeningSystem(ids) : createPushToOpenSystem(ids);
+      return { ...drawer, facade: { ...drawer.facade, opening } };
+    });
+    execute({ type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill: { kind: 'drawers', drawers } }, 'Способ открывания ящиков');
+  };
+
   // Дверь и фасад ящика используют одну и ту же роль `facade` (переиспользована,
   // не заведена вторая) — для счётчиков в панели результата их различают
   // по наполнению ячейки-источника, тем же способом, что и debug-схема
@@ -242,6 +276,8 @@ export function App(): React.JSX.Element {
     (p) => p.origin.nodeId === undefined || cellFillKindByNodeId.get(p.origin.nodeId) !== 'drawers',
   ).length;
   const drawerFacadePartCount = facadeParts.length - doorPartCount;
+  const handlePartCount = geometry.parts.filter((p) => p.role === 'handle').length;
+  const pushToOpenPartCount = geometry.parts.filter((p) => p.role === 'push-to-open').length;
 
   return (
     <div className={styles.shell}>
@@ -469,6 +505,22 @@ export function App(): React.JSX.Element {
                     </select>
                   )}
                 </Field>
+                <Field label="Открывание">
+                  {({ id }) => (
+                    <select
+                      id={id}
+                      className={styles.numberInput}
+                      value={selectedFacade.leaves[0]?.opening?.kind ?? 'none'}
+                      onChange={(event) => {
+                        setDoorOpening(event.target.value as OpeningSystem['kind']);
+                      }}
+                    >
+                      <option value="none">Нет</option>
+                      <option value="handle">Ручка</option>
+                      <option value="push-to-open">Push-to-open</option>
+                    </select>
+                  )}
+                </Field>
               </>
             )}
           </div>
@@ -497,6 +549,26 @@ export function App(): React.JSX.Element {
               <span className={styles.statValue}>{selectedDrawers.length}</span>
             </li>
           </ul>
+          {selectedDrawers.length === 0 ? null : (
+            <div className={styles.grid}>
+              <Field label="Открывание (все ящики ячейки)">
+                {({ id }) => (
+                  <select
+                    id={id}
+                    className={styles.numberInput}
+                    value={selectedDrawers[0]?.facade.opening?.kind ?? 'none'}
+                    onChange={(event) => {
+                      setDrawersOpening(event.target.value as OpeningSystem['kind']);
+                    }}
+                  >
+                    <option value="none">Нет</option>
+                    <option value="handle">Ручка</option>
+                    <option value="push-to-open">Push-to-open</option>
+                  </select>
+                )}
+              </Field>
+            </div>
+          )}
           <Button onClick={addDrawer} disabled={!canAddDrawer} style={{ marginTop: 'var(--sp-3)' }}>
             Добавить ящик
           </Button>
@@ -541,6 +613,14 @@ export function App(): React.JSX.Element {
             <li className={styles.stat}>
               <span className={styles.statLabel}>Фасадов ящиков</span>
               <span className={styles.statValue}>{drawerFacadePartCount}</span>
+            </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Ручек</span>
+              <span className={styles.statValue}>{handlePartCount}</span>
+            </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Push-to-open</span>
+              <span className={styles.statValue}>{pushToOpenPartCount}</span>
             </li>
             <li className={styles.stat}>
               <span className={styles.statLabel}>Внутренняя ширина</span>

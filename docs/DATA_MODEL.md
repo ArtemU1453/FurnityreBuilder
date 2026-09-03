@@ -532,7 +532,6 @@ export interface Drawer {
   slide: SlideSpec;
   box: DrawerBoxSpec;
   facade: DrawerFacadeSpec;
-  handle?: HandleSpec | null;         // null = PUSH-открывание
 }
 
 export interface SlideSpec {
@@ -566,12 +565,19 @@ export interface DrawerFacadeSpec {
    * `overlay` ПЕРВОГО ящика. `ASSUMPTION(T-DRW-04)`.
    */
   overlay?: OverlaySpec;
+  /**
+   * Добавлено PROMPT 12. Способ открывания — заменяет прежнее
+   * `Drawer.handle?: HandleSpec | null`. Не задан — `{kind: 'none'}`.
+   * Живёт на фасаде (не на `Drawer` целиком): ручка/push-to-open — свойство
+   * видимой передней панели, а не короба. См. §7.1 «Способ открывания».
+   */
+  opening?: OpeningSystem;
 }
 ```
 
 **Геометрия фасада — реализована PROMPT 11** (`resolveDrawerFacadeGeometry`,
 `src/geometry/drawers.ts`), короб — нет: см. `docs/GEOMETRY_RULES.md`, раздел
-«ЯЩИКИ И ФАСАДЫ ЯЩИКОВ».
+«ЯЩИКИ И ФАСАДЫ ЯЩИКОВ». Геометрия способа открывания — PROMPT 12, §7.1 ниже.
 
 ```ts
 // ASSUMPTION (до T-DRW-02): шариковые направляющие полного выдвижения,
@@ -625,11 +631,12 @@ export interface FacadeLeaf {
   /** Доля ширины проёма. */
   size: SizeSpec;
   hingeSide: 'left' | 'right' | 'top' | 'bottom' | 'none';
-  handle?: HandleSpec | null;
   materialId?: MaterialId;
   edge?: EdgeSpec;
   /** Толщина створки. Не задана — берётся толщина корпуса (PROMPT 10, тот же приоритет, что у `Shelf.thickness`). */
   thickness?: Mm;
+  /** Способ открывания (PROMPT 12). Не задан — `{kind: 'none'}`. Было `handle?: HandleSpec | null` до PROMPT 12 — см. §7.2. */
+  opening?: OpeningSystem;
 }
 
 export interface OverlaySpec {
@@ -680,6 +687,71 @@ export interface SlidingDoorConfig {
 новая: `DoorContent` и физическая деталь двери не путаются, потому что
 `FacadeGroup`/`FacadeLeaf` (модель) и `Part` (результат резолвера) — две
 разные, уже разделённые в типах сущности.
+
+### 7.2 Способ открывания (PROMPT 12)
+
+```ts
+export type OpeningSystem =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'handle'; readonly id: NodeId; readonly handle: HandleSpec; readonly placement: HandlePlacement }
+  | { readonly kind: 'push-to-open'; readonly id: NodeId; readonly pushToOpen: PushToOpenConfig };
+
+export interface HandleSpec {
+  kind: 'bar' | 'knob' | 'profile' | 'recessed';
+  lengthMm?: Mm;
+}
+
+export interface HandlePlacement {
+  anchor: 'top' | 'bottom' | 'center';   // край фасада, от которого считается offsetY
+  side: 'left' | 'right' | 'center';     // край фасада, от которого считается offsetX
+  offsetX: Mm;
+  offsetY: Mm;
+  offsetZ: Mm;                           // вынос ручки вперёд от плоскости фасада
+  orientation: 'horizontal' | 'vertical';
+}
+
+export interface PushToOpenConfig {
+  mechanismType: 'push-latch';           // единственный HardwareKind, который сюда подходит
+  position: HandlePlacement;             // переиспользован тот же offset-тип
+  clearance: Mm;                          // зазор, требуемый для срабатывания
+}
+```
+
+**Живёт на фасаде, а не на ячейке.** `Cabinet → Cell → Content → Facade →
+Opening System → Hardware Parts` (PROMPT 12 §0): `opening` лежит на
+`FacadeLeaf` (дверь) и на `DrawerFacadeSpec` (ящик) — ровно там, где
+раньше лежало `handle?: HandleSpec | null`. Заменяет его, а не дополняет:
+`null` неявно означал push-to-open — «магический» флаг вроде `hasHandle:
+true`, которого PROMPT 12 §2 прямо просит избегать. Дискриминант `kind`
+делает три состояния явными.
+
+**Почему не отдельная модель вне фасада.** Ссылаться на фасад по id
+(`targetFacadeId`, как буквально просит задание §3) не нужно: `opening`
+вложен в ТУ ЖЕ структуру, что уже владеет фасадом — тот же класс решения,
+которым PROMPT 9 избежал `Content.cellId`, а PROMPT 11 — `DrawerContent`.
+Осиротевшей ссылки не бывает структурно: `opening` не существует отдельно
+от своей створки/ящика.
+
+**Параметрическая позиция, а не мировые координаты.** `HandlePlacement` —
+якорь (`anchor`/`side`) и отступы, а не `Handle.x = 742`: резолвер
+(`resolveOpeningSystemGeometry`, `src/geometry/opening-system.ts`)
+применяет их к уже вычисленному объёму фасада на каждом пересчёте, поэтому
+изменение ширины/высоты фасада автоматически двигает ручку без отдельного
+кода на этот случай. Подробности и формулы — `docs/GEOMETRY_RULES.md`,
+раздел «РУЧКИ, PUSH-TO-OPEN И МЕХАНИЗМЫ ОТКРЫВАНИЯ».
+
+**`id` — собственная стабильная идентичность** ручки/push-to-open (тот же
+`NodeId`, что у `Shelf.id`/`Drawer.id`/`FacadeLeaf.id`), не зависящая от
+пересчёта геометрии — переживает resize, но исчезает вместе со своей
+створкой/ящиком при удалении (структурная гарантия, не отдельная проверка).
+
+**`Part.role`, а не отдельный список.** Ручка и push-to-open — детали
+`GeometryResult.parts` с ролями `'handle'`/`'push-to-open'` (расширение
+`PartRole`), НЕ отдельный массив в `GeometryResult`: комментарий, введённый
+ещё на PROMPT 7 в `GeometryContext` («фурнитура шлёт детали через тот же
+addPart»), буквально предвидел это решение. Второй Geometry Engine и вторая
+Hardware System (`src/domain/hardware/types.ts`, уже существующая) не
+заводятся.
 
 ---
 

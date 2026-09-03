@@ -71,6 +71,32 @@ const handleSpec = z.object({
   lengthMm: mm.optional(),
 });
 
+const handlePlacement = z.object({
+  anchor: z.enum(['top', 'bottom', 'center']),
+  side: z.enum(['left', 'right', 'center']),
+  offsetX: mm,
+  offsetY: mm,
+  offsetZ: mm,
+  orientation: z.enum(['horizontal', 'vertical']),
+});
+
+const pushToOpenConfig = z.object({
+  mechanismType: z.literal('push-latch'),
+  position: handlePlacement,
+  clearance: mm,
+});
+
+/**
+ * Способ открывания фасада (PROMPT 12). Заменяет прежнее
+ * `handle: handleSpec.nullable().optional()`, где `null` неявно означал
+ * push-to-open — см. `OpeningSystem` в `src/domain/furniture/types.ts`.
+ */
+const openingSystem = z.union([
+  z.object({ kind: z.literal('none') }),
+  z.object({ kind: z.literal('handle'), id, handle: handleSpec, placement: handlePlacement }),
+  z.object({ kind: z.literal('push-to-open'), id, pushToOpen: pushToOpenConfig }),
+]);
+
 /**
  * Зазоры фасада. Один тип на все виды фасадов (дверь — PROMPT 10, ящик —
  * PROMPT 11): второй, «ящичный» тип зазоров не заводится, см.
@@ -109,8 +135,11 @@ const drawer = z.object({
     // читаются без миграции — движок берёт толщину корпуса и DEFAULT_OVERLAY.
     thickness: mm.optional(),
     overlay: overlaySpec.optional(),
+    // Добавлено PROMPT 12: заменяет прежнее необязательное поле handle
+    // на facade (не на Drawer целиком) — старые документы читаются без
+    // миграции, Zod без .strict() молча отбрасывает незнакомые ключи.
+    opening: openingSystem.optional(),
   }),
-  handle: handleSpec.nullable().optional(),
 });
 
 const hangingRod = z.object({
@@ -183,12 +212,13 @@ const facadeGroup = z.object({
       id,
       size: sizeSpec,
       hingeSide: z.enum(['left', 'right', 'top', 'bottom', 'none']),
-      handle: handleSpec.nullable().optional(),
       materialId: id.optional(),
       edge: edgeSpec.optional(),
       // Добавлено PROMPT 10: опциональное поле, старые документы без него
       // читаются без миграции — движок берёт толщину корпуса по умолчанию.
       thickness: mm.optional(),
+      // Добавлено PROMPT 12: заменяет прежнее handle:handleSpec.nullable().optional().
+      opening: openingSystem.optional(),
     }),
   ),
   overlay: overlaySpec,

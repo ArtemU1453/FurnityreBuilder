@@ -14,6 +14,7 @@ import type { GeometryContext, GeometryStage } from '../context.js';
 import { makePart, resolveMaterial } from '../parts.js';
 import { contentLabel, resolveContentGeometry } from '../content.js';
 import { resolveDrawerFacadeGeometry } from '../drawers.js';
+import { resolveOpeningSystemGeometry } from '../opening-system.js';
 
 /**
  * Наполнение ячеек: полки (PROMPT 6) и фасады ящиков (PROMPT 11). Штанга
@@ -38,6 +39,18 @@ const DRAWER_FACADE_ROLE: PartRole = 'facade';
 
 function shelfRole(mounting: Shelf['mounting']): PartRole {
   return mounting === 'adjustable' ? 'shelf-adjustable' : 'shelf-fixed';
+}
+
+/** Русская подпись способа открывания для debug-схемы (PROMPT 12 §18) — та же, что в `stages/facades.ts`. */
+function openingLabel(kind: 'none' | 'handle' | 'push-to-open'): string {
+  switch (kind) {
+    case 'none':
+      return 'нет';
+    case 'handle':
+      return 'ручка';
+    case 'push-to-open':
+      return 'push-to-open';
+  }
 }
 
 interface ResolvedShelfMaterial {
@@ -199,6 +212,13 @@ export const fillStage: GeometryStage = {
       ctx.report('MATERIAL_NOT_ASSIGNED', 'warning', 'Материал для фасада ящика не назначен, взят первый из библиотеки.');
     };
 
+    let drawerOpeningFallbackReported = false;
+    const reportDrawerOpeningMaterialFallback = (): void => {
+      if (drawerOpeningFallbackReported) return;
+      drawerOpeningFallbackReported = true;
+      ctx.report('MATERIAL_NOT_ASSIGNED', 'warning', 'Материал для ручки/механизма открывания ящика не назначен, взят первый из библиотеки.');
+    };
+
     // Виды наполнения, о которых уже сообщили: одна диагностика на вид,
     // а не по одной на каждую ячейку — иначе шкаф с шестью ящичными
     // секциями выдал бы шесть одинаковых сообщений.
@@ -276,6 +296,49 @@ export const fillStage: GeometryStage = {
                 nodeId: cell.nodeId,
               }),
             );
+
+            // Способ открывания (PROMPT 12): читает уже построенный объём
+            // фасада ЯЩИКА, а не ячейки — «Facade → Opening System».
+            // `content.drawers[i]` и `resolution.facades[i]` идут в одном
+            // порядке (`resolveDrawerFacadeGeometry` строит их map'ом).
+            const openingConfig = content.drawers[i]?.facade.opening ?? { kind: 'none' as const };
+            const openingResolution = resolveOpeningSystemGeometry(openingConfig, {
+              x: facadeGeo.x,
+              y: facadeGeo.y,
+              z: facadeGeo.z,
+              width: facadeGeo.width,
+              height: facadeGeo.height,
+              thickness: facadeGeo.thickness,
+            });
+
+            if (openingResolution.status === 'invalid') {
+              ctx.report(
+                'OPENING_GEOMETRY_INVALID',
+                'error',
+                openingResolution.missing ?? 'способ открывания не построен: геометрия недопустима.',
+                { nodeId: cell.nodeId },
+              );
+            }
+
+            for (const item of openingResolution.items) {
+              const resolvedOpeningMaterial = resolveMaterial(materials, item.role);
+              if (!resolvedOpeningMaterial.resolved) reportDrawerOpeningMaterialFallback();
+              ctx.addPart(
+                makePart({
+                  furnitureId: furniture.id,
+                  role: item.role,
+                  label: openingLabel(openingConfig.kind),
+                  index: item.id,
+                  position: vec3(item.x, item.y, item.z),
+                  size: vec3(item.width, item.height, item.thickness),
+                  orientation: 'frontal-xy',
+                  materialId: resolvedOpeningMaterial.materialId,
+                  edge: DEFAULT_EDGE,
+                  edgeSizing,
+                  nodeId: cell.nodeId,
+                }),
+              );
+            }
           });
         }
       }

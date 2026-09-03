@@ -165,6 +165,63 @@ export interface HandleSpec {
   readonly lengthMm?: Mm;
 }
 
+/**
+ * Положение ручки на фасаде (PROMPT 12 §5) — параметрическая модель,
+ * а не мировые координаты: `Handle.x = 742` не заводится нигде, только
+ * якорь и отступы, которые резолвер применяет к уже вычисленному объёму
+ * фасада (`resolveOpeningSystemGeometry`, `src/geometry/opening-system.ts`).
+ * Все значения — `ASSUMPTION(T-HW-06)`, референс не подтвердил ни одного.
+ */
+export interface HandlePlacement {
+  /** Край фасада, от которого считается `offsetY`. */
+  readonly anchor: 'top' | 'bottom' | 'center';
+  /**
+   * Край фасада, от которого считается `offsetX` — НЕ всегда левый: для
+   * двери сторона обычно противоположна петлям, поэтому фиксированный
+   * «от левого края» неверно пересчитывался бы при смене `hingeSide` или
+   * при отражении двери. `side` делает эту зависимость явной без второго
+   * параметра позиции.
+   */
+  readonly side: 'left' | 'right' | 'center';
+  /** Отступ от `side` вдоль ширины фасада. */
+  readonly offsetX: Mm;
+  /** Отступ от `anchor` вдоль высоты фасада. */
+  readonly offsetY: Mm;
+  /** Вынос ручки вперёд от плоскости фасада (стандофф). */
+  readonly offsetZ: Mm;
+  readonly orientation: 'horizontal' | 'vertical';
+}
+
+/**
+ * Push-to-open (PROMPT 12 §7) — только логическая модель и точка установки,
+ * без механики: `mechanismType` ограничен уже существующим
+ * `HardwareKind` (`push-latch`, `src/domain/hardware/types.ts`), вторая
+ * фурнитурная система не заводится.
+ */
+export interface PushToOpenConfig {
+  readonly mechanismType: 'push-latch';
+  /** Переиспользован тот же offset-тип, что и у ручки: не вторая модель позиции. */
+  readonly position: HandlePlacement;
+  /** Требуемый зазор для срабатывания механизма. `ASSUMPTION(T-HW-07)`. */
+  readonly clearance: Mm;
+}
+
+/**
+ * Способ открывания фасада (PROMPT 12 §2). Заменяет прежнее
+ * `handle?: HandleSpec | null`, где `null` неявно означал push-to-open —
+ * тот самый `hasHandle`-подобный магический флаг, которого PROMPT 12
+ * прямо просит избегать. Дискриминант `kind` делает три состояния явными:
+ * `none` (нет ни ручки, ни push-to-open), `handle`, `push-to-open`.
+ *
+ * `id` у `handle`/`push-to-open` — их собственная стабильная идентичность
+ * (тот же `NodeId`, что у `Shelf.id`/`Drawer.id`/`FacadeLeaf.id`), не
+ * зависящая от пересчёта геометрии.
+ */
+export type OpeningSystem =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'handle'; readonly id: NodeId; readonly handle: HandleSpec; readonly placement: HandlePlacement }
+  | { readonly kind: 'push-to-open'; readonly id: NodeId; readonly pushToOpen: PushToOpenConfig };
+
 export interface DrawerFacadeSpec {
   readonly materialId?: MaterialId;
   readonly edge?: EdgeSpec;
@@ -181,6 +238,12 @@ export interface DrawerFacadeSpec {
    * auto-группы полок (`docs/GEOMETRY_RULES.md` §14).
    */
   readonly overlay?: OverlaySpec;
+  /**
+   * Способ открывания (PROMPT 12). Не задан — `{kind: 'none'}`. Живёт на
+   * фасаде, а не на `Drawer` целиком (было `Drawer.handle`, до PROMPT 12):
+   * ручка/push-to-open — свойство ВИДИМОЙ передней панели, а не короба.
+   */
+  readonly opening?: OpeningSystem;
 }
 
 export interface Drawer {
@@ -189,8 +252,6 @@ export interface Drawer {
   readonly slide: SlideSpec;
   readonly box: DrawerBoxSpec;
   readonly facade: DrawerFacadeSpec;
-  /** null — PUSH-открывание вместо ручки. */
-  readonly handle?: HandleSpec | null;
 }
 
 export interface HangingRod {
@@ -252,7 +313,6 @@ export interface FacadeLeaf {
   readonly id: NodeId;
   readonly size: SizeSpec;
   readonly hingeSide: HingeSide;
-  readonly handle?: HandleSpec | null;
   readonly materialId?: MaterialId;
   readonly edge?: EdgeSpec;
   /**
@@ -262,6 +322,8 @@ export interface FacadeLeaf {
    * а не заводит отдельное умолчание.
    */
   readonly thickness?: Mm;
+  /** Способ открывания (PROMPT 12). Не задан — `{kind: 'none'}`. Было `handle?: HandleSpec | null` до PROMPT 12 — см. `OpeningSystem`. */
+  readonly opening?: OpeningSystem;
 }
 
 export interface OverlaySpec {

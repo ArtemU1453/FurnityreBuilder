@@ -1792,3 +1792,161 @@ node.fill.drawers.length > 0` перед тем, как построить дв�
 обслуживает и его. Второй командный слой для того же действия означал бы
 вторую систему состояния (PROMPT 11 §17, §28) — то же решение, каким
 PROMPT 6/9 обошлись без отдельных `addShelf`/`removeShelf`.
+
+---
+
+## 20. РУЧКИ, PUSH-TO-OPEN И МЕХАНИЗМЫ ОТКРЫВАНИЯ (PROMPT 12)
+
+```
+Cabinet → Cell → Content → Facade → Opening System → Hardware Parts
+```
+
+### 20.1 Почему `OpeningSystem` вложен в фасад, а не отдельная сущность
+
+Ручка или push-to-open физически не существуют без фасада, который они
+открывают — тот же класс структурной корректности, что PROMPT 9 применил
+к `Content` (лежит в ячейке) и PROMPT 11 — к фасаду ящика (лежит в
+`Drawer`). `OpeningSystem` лежит на `FacadeLeaf.opening` (дверь) и
+`DrawerFacadeSpec.opening` (ящик), а не в отдельном списке со ссылкой
+`targetFacadeId`/`targetContentId`, которые буквально просит PROMPT 12 §3:
+ссылаться по id было бы вторым способом выразить то, что уже выражено
+вложенностью, и вернуло бы проблему битой ссылки, которую вложенность
+устраняет по построению (осиротевшей ручки не бывает структурно, §20.5).
+
+Это заменяет прежнее поле `handle?: HandleSpec | null` (существовало с
+ранних этапов, геометрией никогда не читалось): `null` неявно значил
+push-to-open — тот самый `hasHandle`-подобный магический флаг, которого
+PROMPT 12 §2 прямо просит избегать. `OpeningSystem.kind` делает три
+состояния (`none`/`handle`/`push-to-open`) явными без спецзначений.
+
+### 20.2 Почему ручка — `Part`, а не отдельный список
+
+`GeometryContext.addPart`/`finish()` (`src/geometry/context.ts`) несёт
+комментарий, написанный ещё на PROMPT 7, до появления самих ручек:
+«наполнение, фасады и фурнитура (этапы 11+) шлют детали через тот же
+`addPart` и получают эту защиту бесплатно». PROMPT 12 реализует ровно это
+— `Part.role` расширен значениями `'handle'`/`'push-to-open'`, и обе роли
+идут в `GeometryResult.parts` наравне с фасадом/полкой/перегородкой:
+второй список в `GeometryResult`, вторая проверка инвариантов и второй
+Geometry Engine не заводятся (PROMPT 12 §25).
+
+Материал ручки — тот же `MaterialId`/`MaterialLibrary`, что и у панелей
+(`resolveMaterial(materials, 'handle')`/`resolveMaterial(materials,
+'push-to-open')`, тот же fallback-с-предупреждением, что и у остальных
+ролей): вторая Material System не заводится. Расчёт количества
+петель/направляющих/крепежа под конкретную ручку остаётся задачей будущего
+Hardware Engine (`src/domain/hardware/types.ts`, уже существующий каталог
+`HardwareKind`/`HardwareItem`, не расширяется геометрией на этом этапе) —
+Opening System определяет СПОСОБ открывания, Hardware посчитает, что для
+него нужно, позже (PROMPT 12 §12).
+
+### 20.3 Резолвер не знает про сторону петель
+
+`resolveOpeningSystemGeometry(opening, facade)` (`src/geometry/
+opening-system.ts`) — чистая функция от `OpeningSystem` и уже построенного
+объёма фасада (`{x,y,z,width,height,thickness}` — тот же формат, что уже
+возвращают `resolveDoorGeometry`/`resolveDrawerFacadeGeometry` для одной
+створки/фасада ящика). Она не получает `hingeSide` и не решает, какая
+сторона фасада «дальняя от петель» — это решение принимает фабрика по
+умолчанию (`createHandleOpeningSystem`/`createPushToOpenSystem`,
+`src/domain/furniture/defaults.ts`) ОДИН раз, при создании конфигурации,
+и записывает его как обычное число (`HandlePlacement.side`). Резолвер
+пересчитывает геометрию из уже готового `HandlePlacement` на каждом
+вызове — доменная логика выбора стороны не дублируется в двух местах.
+
+### 20.4 Формулы
+
+```
+HandlePlacement:
+  anchor: 'top' | 'bottom' | 'center'   — откуда считать offsetY
+  side:   'left' | 'right' | 'center'   — откуда считать offsetX
+  offsetX, offsetY: Mm
+  offsetZ: Mm                            — вынос ручки от плоскости фасада
+  orientation: 'horizontal' | 'vertical'
+```
+
+Позиция левого-нижнего угла ручки:
+```
+x = side === 'right' ? facade.x + facade.width  − offsetX − footprint.width
+  : side === 'left'  ? facade.x + offsetX
+  :                     facade.x + facade.width/2 − footprint.width/2 + offsetX
+
+y = anchor === 'top'    ? facade.y + facade.height − offsetY − footprint.height
+  : anchor === 'bottom' ? facade.y + offsetY
+  :                        facade.y + facade.height/2 − footprint.height/2 + offsetY
+
+z = facade.z + facade.thickness   — передняя грань фасада, та же формула
+                                     и то же обоснование отсутствия
+                                     пересечений с наполнением, что у
+                                     самого фасада (§18.3/§19.3): ручка
+                                     начинается ровно на границе фасада
+                                     и уходит только вперёд.
+```
+
+`footprint` (габарит ручки в плоскости фасада), `ASSUMPTION(T-HW-06)`:
+```
+bar:                width = HandleSpec.lengthMm ?? 128, height = 14   (orientation: horizontal)
+                     width = 14, height = HandleSpec.lengthMm ?? 128  (orientation: vertical)
+knob/profile/recessed: width = height = 32
+```
+`thickness` детали (вынос вперёд) = `placement.offsetZ` для ручки; для
+push-to-open — `pushToOpen.clearance` (footprint 20×20 мм,
+`ASSUMPTION T-HW-07`), НЕ `placement.offsetZ`: клиренс механизма — своя
+физическая величина, отдельная от произвольного выноса ручки.
+
+Умолчания по умолчанию (`createHandleOpeningSystem`/
+`createPushToOpenSystem`): дверь — вертикальная штанга у края,
+противоположного `hingeSide`, вертикальный центр фасада, вынос 25 мм;
+ящик (`hingeSide` не передан) — горизонтальная штанга по центру ширины,
+30 мм от верхнего края; push-to-open — верхний угол со стороны,
+противоположной петлям (дверь), либо центр верхнего края (ящик), отступ
+40 мм, clearance 3 мм. Ни одно значение не подтверждено референсом —
+`T-DOOR-04` (docs/PRIVETMAKET_FUNCTIONAL_SPEC.md) лишь фиксирует, что
+координаты ручки МОГУТ быть в присадке, не какие именно.
+
+### 20.5 Валидация и границы фасада
+
+| Случай | Статус резолвера | Диагностика |
+| --- | --- | --- |
+| `opening.kind === 'none'` | `none`, `items: []` | нет |
+| размеры ручки не положительны | `invalid` | `OPENING_GEOMETRY_INVALID`, error |
+| ручка/push-to-open выходит за X/Y границы фасада | `invalid` | `OPENING_GEOMETRY_INVALID`, error |
+| вынос ручки (`offsetZ`) не положителен | `invalid` | `OPENING_GEOMETRY_INVALID`, error |
+| зазор `clearance` push-to-open не положителен | `invalid` | `OPENING_GEOMETRY_INVALID`, error |
+
+Граница X/Y проверяется по формуле фасада (не по Z: вынос вперёд —
+ожидаемое поведение самой ручки, не выход за пределы). Та же граница
+error, что и у `DOOR_GEOMETRY_INVALID`/`DRAWER_GEOMETRY_INVALID` (§18.5,
+§19.4): недопустимая геометрия при уже заданных пользователем числах —
+ошибка данных, не «функция не реализована».
+
+**Orphan-ручка невозможна структурно.** `opening` не хранится отдельно от
+своей створки/ящика — удаление `FacadeGroup` (`RemoveFacade`) или замена
+`drawers` без данного ящика (`SetFill`) убирает `opening` вместе с
+владельцем, тем же путём, каким PROMPT 9 гарантировал отсутствие
+осиротевшего `Content`. Отдельной проверки «удалить ручку при удалении
+фасада» не требуется — нечему остаться.
+
+**Дверь и ящик не получают случайный `OpeningSystem`.** Фабрики
+(`createHingedFacade`, `createDrawer`) НЕ задают `opening` вовсе — поле
+остаётся `undefined`, резолвер трактует это как `none`. Пересборка сетки
+(`SetRoot`/`SetSectionCount`) создаёт новые листья теми же фабриками —
+дверь/ящик после пересборки либо не существуют вовсе (структура
+изменилась), либо явно заданы пользователем; заведённого по умолчанию
+`opening` взяться неоткуда.
+
+### 20.6 Команды
+
+Ни одна из `setOpeningSystem`/`removeOpeningSystem`/`addHandle`/
+`removeHandle`/`updateHandleConfig` (PROMPT 12 §15) не заведена отдельно:
+
+- **дверь** — поле `patch.opening?: OpeningSystem` в уже существующей
+  `UpdateFacadeLeaf` (PROMPT 10 §18.6). Установка/смена/снятие ручки —
+  одна команда с разным значением `opening`, тот же приём, каким уже
+  патчатся `hingeSide`/`materialId`/`thickness`/`size`;
+- **ящик** — уже существующий `SetFill` (PROMPT 11 §19.6), заменяющий
+  весь `drawers[]`; `opening` — поле внутри `facade` заменяемого ящика.
+
+Второй командный слой для того же действия означал бы вторую систему
+состояния (PROMPT 12 §25) — то же решение, каким PROMPT 10/11 обошлись
+без отдельных команд для фасада/ящика.

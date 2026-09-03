@@ -21,6 +21,8 @@ export type PartRole =
   | 'drawer-side'
   | 'drawer-back'
   | 'drawer-bottom'
+  | 'handle'
+  | 'push-to-open'
   | 'filler'
   | 'other';
 

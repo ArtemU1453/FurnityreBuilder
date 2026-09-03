@@ -42,6 +42,7 @@ P2 — расширенная · P3 — дополнительные возмо�
 | GEO-09 | Короб ящика: боковины, дно, перед/зад короба | UNKNOWN T-DRW-02 | `SlideSpec` + `DrawerBoxSpec`; модель и точка расширения готовы, геометрия — нет (`not-implemented`, чтобы не придумывать схему сборки, PROMPT 11 §7) | P1 | L | NOT_STARTED (геометрия) |
 | GEO-10 | Фасады распашные | UNKNOWN T-DOOR-02, T-DOOR-06 | `resolveDoorGeometry`, этап `facades`; базовый случай: 1–2 створки на 1 ячейку (`covers.kind==='node'`, лист дерева); overlay/inset численно не различены (T-DOOR-06) | P1 | L | IMPLEMENTED (базовый случай; покрытие нескольких ячеек — `not-implemented`) |
 | GEO-25 | Фасад ящика | UNKNOWN T-DRW-04 | `resolveDrawerFacadeGeometry`, `src/geometry/drawers.ts`; стопка любого числа ящиков (T-DRW-05: предел не подтверждён, не введён) делится `resolveSizes` вдоль Y | P1 | M | IMPLEMENTED |
+| GEO-26 | Геометрия способа открывания (ручка/push-to-open) | UNKNOWN T-HW-06, T-HW-07 | `resolveOpeningSystemGeometry`, `src/geometry/opening-system.ts`; `Part.role IN ('handle','push-to-open')` наравне с остальными деталями, вторая Geometry Engine не заведена | P2 | M | IMPLEMENTED |
 | GEO-11 | Штанга для одежды | UNKNOWN T-HW-05 | `HangingRod`; модель и точка расширения готовы, геометрия — нет (`not-implemented`) | P1 | S | NOT_STARTED (геометрия) |
 | GEO-12 | Цоколь / ножки | UNKNOWN T-CAR-05 | `BaseSpec` | P1 | M | NOT_STARTED |
 | GEO-13 | Столешница со свесами | UNKNOWN T-CAR-06 | `CountertopSpec` | P2 | M | NOT_STARTED |
@@ -117,8 +118,8 @@ P2 — расширенная · P3 — дополнительные возмо�
 | HW-01 | Крепёж корпуса и правило количества | UNKNOWN T-HW-03 | таблица по глубине стыка | P1 | M | NOT_STARTED |
 | HW-02 | Петли | UNKNOWN T-HW-01 | тип, накладность, количество | P1 | M | NOT_STARTED |
 | HW-03 | Направляющие | UNKNOWN T-DRW-01 | тип, ряд длин | P1 | M | NOT_STARTED |
-| HW-04 | Ручки | UNKNOWN T-DOOR-04 | тип, позиционирование, присадка | P2 | M | NOT_STARTED |
-| HW-05 | PUSH-открывание | UNKNOWN T-HW-04 | вместо ручки | P2 | S | NOT_STARTED |
+| HW-04 | Ручки | UNKNOWN T-DOOR-04, T-HW-06 | тип (`bar`/`knob`/`profile`/`recessed`), позиционирование — `GEO-26`; присадка (координаты отверстий под винты) не реализована | P2 | M | PARTIAL (архитектура и геометрия положения — IMPLEMENTED; присадка — NOT_STARTED) |
+| HW-05 | PUSH-открывание | UNKNOWN T-HW-04, T-HW-07 | `PushToOpenConfig` (`mechanismType: 'push-latch'`, единственный подтверждённый в каталоге `HardwareKind`), точка установки — `GEO-26`; сам механизм (расчёт усилия, крепёж) не реализован | P2 | S | PARTIAL (архитектура и точка установки — IMPLEMENTED; механизм — NOT_STARTED) |
 | HW-06 | Полкодержатели | UNKNOWN T-SHF-02 | 4 на съёмную полку | P1 | S | NOT_STARTED |
 | HW-07 | Штанга и фланцы | UNKNOWN T-HW-05 | комплект | P1 | S | NOT_STARTED |
 | HW-08 | Сводная спецификация фурнитуры | CONFIRMED (есть в выгрузке) | группировка с трассировкой к деталям | P1 | M | NOT_STARTED |
@@ -250,6 +251,19 @@ NOT_STARTED — намеренно: схема сборки короба (бок
 дверь и ящик используют одну роль `Part.role === 'facade'`, они не могут
 существовать в одной ячейке одновременно: `DOOR_CELL_HAS_DRAWERS` (error),
 `docs/GEOMETRY_RULES.md` §19.5.
+
+На этапе PROMPT 12 добавлена строка `GEO-26` (геометрия способа
+открывания — IMPLEMENTED): резолвер `resolveOpeningSystemGeometry`
+(`src/geometry/opening-system.ts`) читает `OpeningSystem`, вложенный в
+`FacadeLeaf`/`DrawerFacadeSpec` (заменяет прежнее неиспользованное поле
+`handle?: HandleSpec | null`), и строит `Part` с ролью `handle`/
+`push-to-open` наравне с остальными деталями — переиспользован комментарий
+из `GeometryContext`, написанный ещё на PROMPT 7 в предвидении именно
+этого шага (`docs/GEOMETRY_RULES.md` §20.2). `HW-04`/`HW-05` перешли в
+PARTIAL: архитектура и геометрия положения реализованы, присадка
+(координаты крепёжных отверстий) и сам механизм push-to-open — нет.
+`HW-02` (петли) и `HW-03` (направляющие) остаются NOT_STARTED — вне
+объёма PROMPT 12 (§25: полный расчёт фурнитуры не реализуется).
 
 На этапе PROMPT 7 `VAL-05` перешёл в PARTIAL: геометрический предикат
 пересечения деталей (`overlaps`, отличающий касание от наложения) написан

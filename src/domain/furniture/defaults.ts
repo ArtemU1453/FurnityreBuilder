@@ -11,8 +11,10 @@ import type {
   FacadeGroup,
   FacadeLeaf,
   Furniture,
+  HandlePlacement,
   HingeSide,
   LeafNode,
+  OpeningSystem,
   OverlaySpec,
   Shelf,
   SlideSpec,
@@ -176,6 +178,91 @@ export function createHingedFacade(
     type: 'hinged',
     leaves,
     overlay: DEFAULT_OVERLAY,
+  };
+}
+
+/** Отступ ручки от бокового края фасада и от верхней/центральной привязки. `ASSUMPTION(T-HW-06)`. */
+const DEFAULT_HANDLE_OFFSET: number = 32;
+/** Вынос ручки вперёд от плоскости фасада (стандофф). `ASSUMPTION(T-HW-06)`. */
+const DEFAULT_HANDLE_STANDOFF: number = 25;
+/** Отступ площадки push-to-open от края фасада. `ASSUMPTION(T-HW-07)`. */
+const DEFAULT_PUSH_TO_OPEN_OFFSET: number = 40;
+/** Зазор срабатывания push-to-open. `ASSUMPTION(T-HW-07)`. */
+const DEFAULT_PUSH_TO_OPEN_CLEARANCE: number = 3;
+
+/**
+ * Сторона фасада, от которой типично отсчитывают ручку двери — тот край,
+ * что дальше от петель, поэтому его тянут на себя. Только для двери:
+ * у ящика нет петель, ручка по умолчанию берётся по центру ширины.
+ * `ASSUMPTION(T-HW-06)`.
+ */
+function handleSideOppositeHinge(hingeSide: HingeSide): 'left' | 'right' | 'center' {
+  switch (hingeSide) {
+    case 'left':
+      return 'right';
+    case 'right':
+      return 'left';
+    case 'top':
+    case 'bottom':
+    case 'none':
+      return 'center';
+  }
+}
+
+/**
+ * Ручка по умолчанию (PROMPT 12 §5–§6): вертикальная штанга у двери
+ * (сторона — противоположная петлям), горизонтальная штанга по центру
+ * ширины у ящика (`hingeSide` не передан). Резолвер геометрии
+ * (`resolveOpeningSystemGeometry`) сам этой логики не знает и не должен —
+ * решение «какая сторона» принимается здесь, один раз, при создании
+ * конфигурации, а не в каждом пересчёте.
+ */
+export function createHandleOpeningSystem(ids: IdFactory, hingeSide?: HingeSide): OpeningSystem {
+  const isDoor = hingeSide !== undefined;
+  const placement: HandlePlacement = isDoor
+    ? {
+        anchor: 'center',
+        side: handleSideOppositeHinge(hingeSide),
+        offsetX: DEFAULT_HANDLE_OFFSET,
+        offsetY: 0,
+        offsetZ: DEFAULT_HANDLE_STANDOFF,
+        orientation: 'vertical',
+      }
+    : {
+        anchor: 'top',
+        side: 'center',
+        offsetX: 0,
+        offsetY: DEFAULT_HANDLE_OFFSET,
+        offsetZ: DEFAULT_HANDLE_STANDOFF,
+        orientation: 'horizontal',
+      };
+  return { kind: 'handle', id: ids.next<'Node'>(), handle: { kind: 'bar' }, placement };
+}
+
+/**
+ * Push-to-open по умолчанию (PROMPT 12 §7): верхний угол фасада со
+ * стороны, противоположной петлям (дверь), либо центр верхнего края
+ * (ящик, `hingeSide` не передан).
+ */
+export function createPushToOpenSystem(ids: IdFactory, hingeSide?: HingeSide): OpeningSystem {
+  const side = hingeSide === undefined ? 'center' : handleSideOppositeHinge(hingeSide);
+  const position: HandlePlacement = {
+    anchor: 'top',
+    side,
+    // По центру ширины отступ вдоль X не нужен — «центр верхнего края»
+    // у ящика, а не смещённый в сторону угол.
+    offsetX: side === 'center' ? 0 : DEFAULT_PUSH_TO_OPEN_OFFSET,
+    offsetY: DEFAULT_PUSH_TO_OPEN_OFFSET,
+    // Вынос push-to-open от плоскости фасада задаёт не offsetZ, а
+    // pushToOpen.clearance (см. resolveOpeningSystemGeometry) — здесь 0,
+    // чтобы поле не подразумевало действие, которого не выполняет.
+    offsetZ: 0,
+    orientation: 'horizontal',
+  };
+  return {
+    kind: 'push-to-open',
+    id: ids.next<'Node'>(),
+    pushToOpen: { mechanismType: 'push-latch', position, clearance: DEFAULT_PUSH_TO_OPEN_CLEARANCE },
   };
 }
 
