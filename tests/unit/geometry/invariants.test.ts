@@ -122,7 +122,11 @@ describe('вырожденный результат при фатальной о
     // Пропущенные из-за ошибки implemented-этапы НЕ должны попадать в
     // pendingStages: это ввело бы в заблуждение при появлении новых этапов.
     const result = buildGeometry(makeGeometryInput({ width: -100 }));
-    expect(result.pendingStages).toContain('back');
+    // 'back' и 'base' реализованы на PROMPT 14 и из списка ушли —
+    // нереализованными остались этапы 'countertop', 'edges', 'drilling'.
+    expect(result.pendingStages).toContain('countertop');
+    expect(result.pendingStages).not.toContain('back');
+    expect(result.pendingStages).not.toContain('base');
     expect(result.pendingStages).not.toContain('carcass');
     expect(result.pendingStages).not.toContain('normalize');
     expect(result.pendingStages).not.toContain('layout');

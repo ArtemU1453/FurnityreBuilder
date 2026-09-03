@@ -1,6 +1,8 @@
 import { box3, vec3 } from '../domain/index.js';
 import { GeometryContext } from './context.js';
 import type { GeometryStage } from './context.js';
+import { backStage } from './stages/back.js';
+import { baseStage } from './stages/base.js';
 import { carcassStage } from './stages/carcass.js';
 import { facadesStage } from './stages/facades.js';
 import { fillStage } from './stages/fill.js';
@@ -30,8 +32,14 @@ export const PIPELINE: readonly StageDescriptor[] = [
   // этапах 21 и 23 соответственно, расширяя тот же файл, а не заменяя его.
   // docs/GEOMETRY_RULES.md, раздел «Shelf Calculation Rules».
   { name: 'fill', status: 'implemented' },
-  { name: 'back', status: 'planned', plannedAt: '13' },
-  { name: 'base', status: 'planned', plannedAt: '23' },
+  // 'back' реализован на PROMPT 14: задняя стенка стала деталью, а не только
+  // вычетом из глубины корпуса (им она была с PROMPT 2). Разделение по
+  // секциям — там же, docs/GEOMETRY_RULES.md §22.
+  { name: 'back', status: 'implemented' },
+  // 'base' реализован на PROMPT 14 для цоколя ('plinth'): высота влияет на
+  // корпус через resolveBasePlacement, царги строятся по явно заданному
+  // составу (T-BASE-01). Ножки ('legs') деталей не дают — это фурнитура.
+  { name: 'base', status: 'implemented' },
   { name: 'countertop', status: 'planned', plannedAt: '23' },
   // 'facades' реализован на PROMPT 10 только для базового случая — одного
   // FacadeGroup, покрывающего ровно один лист дерева (одну ячейку).
@@ -49,6 +57,8 @@ const IMPLEMENTED: Readonly<Record<string, GeometryStage>> = {
   carcass: carcassStage,
   layout: layoutStage,
   fill: fillStage,
+  back: backStage,
+  base: baseStage,
   facades: facadesStage,
 };
 

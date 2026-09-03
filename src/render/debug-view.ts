@@ -123,6 +123,18 @@ function partDetail(part: GeometryResult['parts'][number], materials: MaterialLi
     // (`stages/facades.ts`), здесь не пересчитывается и не дублируется.
     return `${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Т ${formatMm(part.size.z)}${mat}`;
   }
+  if (role === 'back') {
+    // Задняя стенка (PROMPT 14 §21): ширина, высота, толщина и — у сегмента —
+    // id его секции, который уже лежит в `origin.nodeId` (сегмент строится
+    // именно от секции, `stages/back.ts`), а не восстанавливается здесь.
+    const section = part.origin.nodeId === undefined ? '' : ` · Секция: ${part.origin.nodeId}`;
+    return `BACK WALL · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Т ${formatMm(part.size.z)}${section}${mat}`;
+  }
+  if (role === 'plinth') {
+    // Цоколь (PROMPT 14 §21): подпись царги уже несёт её вид (передняя,
+    // боковая), высоту и глубину — отступ и вырез видны через саму геометрию.
+    return `PLINTH · ${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Г ${formatMm(part.size.z)}${mat}`;
+  }
   if (role === 'handle' || role === 'push-to-open') {
     // Ручка/push-to-open (PROMPT 12 §18): та же геометрия, что и у
     // остальных деталей — ширина/высота/вынос от плоскости фасада.

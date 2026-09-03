@@ -13,7 +13,8 @@ describe('минимальные размеры', () => {
   it('минимально допустимая мебель строится и даёт положительный внутренний объём', () => {
     const result = buildGeometry(makeGeometryInput({ width: 100, height: 100, depth: 80, panelThickness: 8 }));
     expect(hasErrors(result.diagnostics)).toBe(false);
-    expect(result.parts).toHaveLength(4);
+    // С PROMPT 14 задняя стенка — деталь: 4 детали каркаса + 1 задняя стенка.
+    expect(result.parts).toHaveLength(5);
     expect(result.innerVolume.size.x).toBeGreaterThan(0);
   });
 
@@ -28,7 +29,8 @@ describe('большие размеры', () => {
   it('большая мебель на верхней границе рекомендуемого диапазона строится без ошибок', () => {
     const result = buildGeometry(makeGeometryInput({ width: 5900, height: 2900, depth: 1150, panelThickness: 30 }));
     expect(hasErrors(result.diagnostics)).toBe(false);
-    expect(result.parts).toHaveLength(4);
+    // С PROMPT 14 задняя стенка — деталь: 4 детали каркаса + 1 задняя стенка.
+    expect(result.parts).toHaveLength(5);
   });
 
   it('размер за пределами рекомендуемого диапазона — предупреждение, не ошибка', () => {

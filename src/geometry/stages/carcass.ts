@@ -1,4 +1,4 @@
-import type { BackPanelMount, EdgeSpec, PartRole, Vec3 } from '../../domain/index.js';
+import type { BackPanelMount, BaseSpec, EdgeSpec, PartRole, Vec3 } from '../../domain/index.js';
 import { DEFAULT_EDGE, box3, roundMm, vec3 } from '../../domain/index.js';
 import type { GeometryContext, GeometryStage } from '../context.js';
 import { makePart, resolveMaterial } from '../parts.js';
@@ -21,6 +21,39 @@ interface BackGeometry {
   readonly carcassDepth: number;
   /** Передняя граница внутреннего объёма по Z. */
   readonly innerZ0: number;
+}
+
+/**
+ * Как цоколь смещает корпус по Y (PROMPT 14 §10, §13).
+ *
+ * Симметрична `resolveBackGeometry`: там задняя стенка решает, где начинается
+ * корпус по Z и сколько глубины ему остаётся, здесь цоколь решает то же по Y.
+ * Единственный источник этого сдвига в проекте — корпус, наполнение, двери и
+ * ящики получают его бесплатно, потому что все они выводятся из
+ * `ctx.innerVolume`, а не из `H` напрямую.
+ *
+ * `heightIncludesBase` (`ASSUMPTION(T-CAR-05)`) — тот самый параметр, который
+ * до PROMPT 14 существовал в модели и сериализации, но геометрией не читался:
+ *   true  — H задаёт изделие целиком, корпусу остаётся H − plinthHeight;
+ *   false — H задаёт только корпус, цоколь добавляется под ним сверх H.
+ */
+export function resolveBasePlacement(
+  base: BaseSpec | undefined,
+  height: number,
+  heightIncludesBase: boolean,
+): { plinthHeight: number; carcassY0: number; carcassHeight: number } {
+  const plinthHeight =
+    base === undefined || base.kind === 'none' || !(base.height > 0) ? 0 : roundMm(base.height);
+
+  if (plinthHeight === 0) {
+    return { plinthHeight: 0, carcassY0: 0, carcassHeight: roundMm(height) };
+  }
+
+  return {
+    plinthHeight,
+    carcassY0: plinthHeight,
+    carcassHeight: heightIncludesBase ? roundMm(height - plinthHeight) : roundMm(height),
+  };
 }
 
 export function resolveBackGeometry(
@@ -80,11 +113,19 @@ export const carcassStage: GeometryStage = {
     const H = roundMm(furniture.dimensions.height);
     const D = roundMm(furniture.dimensions.depth);
     const T = roundMm(furniture.dimensions.panelThickness);
-    const { hasTop, hasBottom, back } = furniture.carcass;
+    const { hasTop, hasBottom, back, base } = furniture.carcass;
 
     const backGeom = resolveBackGeometry(back.mount, D, tolerances.depthIncludesBackPanel);
     const Dc = backGeom.carcassDepth;
     const z0 = backGeom.carcassZ0;
+
+    // Цоколь поднимает корпус по Y ровно так же, как задняя стенка сдвигает
+    // его по Z (PROMPT 14 §10). Без цоколя `y0 = 0` и `Hc = H` — формулы ниже
+    // вырождаются в прежние, поэтому подтверждённые правила каркаса (§13
+    // docs/GEOMETRY_RULES.md) при отсутствии цоколя не меняются вовсе.
+    const baseGeom = resolveBasePlacement(base, H, tolerances.heightIncludesBase);
+    const y0 = baseGeom.carcassY0;
+    const Hc = baseGeom.carcassHeight;
 
     if (Dc <= 0) {
       ctx.report(
@@ -96,13 +137,24 @@ export const carcassStage: GeometryStage = {
       return;
     }
 
+    if (Hc <= 0) {
+      ctx.report(
+        'CARCASS_HEIGHT_NOT_POSITIVE',
+        'error',
+        'Высота корпуса после вычета цоколя не положительна: уменьшите высоту цоколя или увеличьте высоту изделия.',
+        { path: 'carcass.base.height' },
+      );
+      return;
+    }
+
     const full = horizontalsSpanFullWidth(ctx);
     const topFull = full.top && hasTop;
     const bottomFull = full.bottom && hasBottom;
 
     // Боковины укорачиваются там, где горизонталь идёт поверх них.
-    const sideY0 = bottomFull ? T : 0;
-    const sideY1 = topFull ? roundMm(H - T) : H;
+    // Все Y-координаты отсчитываются от верха цоколя (`y0`), а не от пола.
+    const sideY0 = roundMm(y0 + (bottomFull ? T : 0));
+    const sideY1 = roundMm(y0 + (topFull ? Hc - T : Hc));
     const sideHeight = roundMm(sideY1 - sideY0);
 
     const material = (role: PartRole): { materialId: ReturnType<typeof resolveMaterial>['materialId']; edge: EdgeSpec } => {
@@ -179,16 +231,19 @@ export const carcassStage: GeometryStage = {
       );
     };
 
-    if (hasBottom) horizontal('bottom', 'Дно', bottomFull, 0);
-    if (hasTop) horizontal('top', 'Крышка', topFull, roundMm(H - T));
+    if (hasBottom) horizontal('bottom', 'Дно', bottomFull, y0);
+    if (hasTop) horizontal('top', 'Крышка', topFull, roundMm(y0 + Hc - T));
 
     // ── Габарит и внутренний объём ────────────────────────────────────────
-    ctx.bounds = box3(vec3(0, 0, 0), vec3(W, H, roundMm(z0 + Dc)));
+    // Габаритная высота — верх корпуса, а не `H`: при `heightIncludesBase =
+    // false` цоколь добавляется сверх заявленной высоты, и bounding box
+    // обязан это показать.
+    ctx.bounds = box3(vec3(0, 0, 0), vec3(W, roundMm(y0 + Hc), roundMm(z0 + Dc)));
 
     const innerX0 = T;
     const innerWidth = roundMm(W - 2 * T);
-    const innerY0 = hasBottom ? T : 0;
-    const innerY1 = hasTop ? roundMm(H - T) : H;
+    const innerY0 = roundMm(y0 + (hasBottom ? T : 0));
+    const innerY1 = roundMm(y0 + (hasTop ? Hc - T : Hc));
     const innerZ0 = roundMm(z0 + (backGeom.innerZ0 - z0 > 0 ? backGeom.innerZ0 - z0 : 0));
     const innerDepth = roundMm(z0 + Dc - innerZ0);
 

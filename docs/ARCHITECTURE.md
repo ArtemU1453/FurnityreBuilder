@@ -273,8 +273,13 @@ export function buildGeometry(input: GeometryInput): GeometryResult;
                      resolveOpeningSystemGeometry (PROMPT 12);             (PROMPT 6, 11, 12);
                      короб ящика и штанга дают статус                      короб: этап 21,
                      not-implemented                                       штанга: этап 23
-5. back           — деталь задней стенки как отдельный Part                план: этап 13
-6. base           — цоколь, ножки                                         план: этап 23
+5. back           — деталь задней стенки как отдельный Part,               РЕАЛИЗОВАНО
+                     цельная либо сегмент на секцию                        (PROMPT 14)
+                     (docs/GEOMETRY_RULES.md §22)
+6. base           — цоколь: царги по явно заданному составу,               ЦОКОЛЬ
+                     высота смещает корпус (resolveBasePlacement);          РЕАЛИЗОВАН
+                     ножки деталей не дают — это фурнитура                 (PROMPT 14);
+                     (docs/GEOMETRY_RULES.md §23)                          ножки: этап 24
 7. countertop     — столешница со свесами                                 план: этап 23
 8. facades        — Cell → FacadeGroup → resolveDoorGeometry → Part,       БАЗОВЫЙ СЛУЧАЙ
                      Facade → OpeningSystem →                             РЕАЛИЗОВАН
@@ -290,6 +295,30 @@ export function buildGeometry(input: GeometryInput): GeometryResult;
 Список воспроизведён в коде целиком, включая нереализованные этапы
 (`PIPELINE` в `src/geometry/engine.ts`) — так неполный результат нельзя
 принять за полный: пропущенные этапы попадают в `GeometryResult.pendingStages`.
+
+**Конструктивная конфигурация — вход этапов, а не отдельный объект**
+(PROMPT 14). Отдельного `StructuralConfiguration` не заведено: им уже
+является `CarcassSpec`, который держит `back`, `base` и `countertop`
+вместе с PROMPT 1. Задняя стенка и цоколь влияют на корпус ДО того, как
+появятся их собственные детали:
+
+```
+Carcass (CarcassSpec)
+ ├── back: BackPanelSpec ── resolveBackGeometry ──┐  carcassZ0 / carcassDepth / innerZ0
+ └── base: BaseSpec ─────── resolveBasePlacement ─┤  carcassY0 / carcassHeight
+                                                  ▼
+                                    stages/carcass.ts → ctx.innerVolume
+                                                  ▼
+                              layout → Cell → fill (Shelf/Drawer) → facades (Door)
+                                                  ▼
+                              stages/back.ts  → Part role 'back'   (сегмент = id секции)
+                              stages/base.ts  → Part role 'plinth' (царги цоколя)
+```
+
+Обе функции размещения — единственные источники своего сдвига: этапы
+`back` и `base` их ПЕРЕЧИТЫВАЮТ, а не считают заново, поэтому деталь
+задней стенки не может разойтись с глубиной корпуса, а царги цоколя — с
+его высотой.
 
 **Материал — вход этапов, а не отдельный этап** (PROMPT 13). Библиотека
 материалов приходит в движок вместе с изделием (`GeometryInput.materials`),

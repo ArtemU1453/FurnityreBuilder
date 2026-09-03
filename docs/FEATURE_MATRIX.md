@@ -38,13 +38,17 @@ P2 — расширенная · P3 — дополнительные возмо�
 | GEO-06 | Перегородки (геометрия детали) | UNKNOWN T-CAR-02 | детали разделителей: позиция/размер/роль/материал в стадии `layout`; drag и магниты — отдельная задача, см. `INT-04` | P0 | M | IMPLEMENTED (геометрия; интерактив — `INT-04`) |
 | GEO-23 | Архитектура наполнения ячейки (Cell → Content → Parts) | N/A | `LeafFill` + `resolveContentGeometry`, статус `not-implemented` вместо тихого пропуска | P0 | M | IMPLEMENTED |
 | GEO-07 | Полки (равномерные и ручные) | UNKNOWN T-SHF-01 | `Shelf.placement`, этап `fill` движка | P0 | M | IMPLEMENTED (геометрия; полкодержатели — `HW-06`, перетаскивание — `INT-04`) |
-| GEO-08 | Задняя стенка (накладная / в паз) | UNKNOWN T-CAR-04 | `BackPanelMount` | P1 | M | NOT_STARTED |
+| GEO-08 | Задняя стенка (наличие, материал, толщина) | UNKNOWN T-CAR-04 | `BackPanelSpec` → `Part` роли `back`, этап `back` (`docs/GEOMETRY_RULES.md` §22); материал — из Material Registry | P1 | M | IMPLEMENTED |
+| GEO-27 | Положение задней стенки (накладная / вкладная / в паз) | UNKNOWN T-CAR-04, T-BACK-01 | три варианта `BackPanelMount`, каждый со своей рамкой детали; вариант `CENTER` не заведён (не подтверждён); паз в деталях корпуса не строится (`BACK_WALL_GROOVE_NOT_IMPLEMENTED`) | P1 | M | PARTIAL |
+| GEO-28 | Разделение задней стенки | UNKNOWN T-CAR-04, T-BACK-01 | `single` и `per-section` (сегмент на секцию, идентичность — id секции); `BY_WIDTH`/`CUSTOM` не заведены — не подтверждены и требуют правила максимальной ширины листа | P1 | M | PARTIAL |
 | GEO-09 | Короб ящика: боковины, дно, перед/зад короба | UNKNOWN T-DRW-02 | `SlideSpec` + `DrawerBoxSpec`; модель и точка расширения готовы, геометрия — нет (`not-implemented`, чтобы не придумывать схему сборки, PROMPT 11 §7) | P1 | L | NOT_STARTED (геометрия) |
 | GEO-10 | Фасады распашные | UNKNOWN T-DOOR-02, T-DOOR-06 | `resolveDoorGeometry`, этап `facades`; базовый случай: 1–2 створки на 1 ячейку (`covers.kind==='node'`, лист дерева); overlay/inset численно не различены (T-DOOR-06) | P1 | L | IMPLEMENTED (базовый случай; покрытие нескольких ячеек — `not-implemented`) |
 | GEO-25 | Фасад ящика | UNKNOWN T-DRW-04 | `resolveDrawerFacadeGeometry`, `src/geometry/drawers.ts`; стопка любого числа ящиков (T-DRW-05: предел не подтверждён, не введён) делится `resolveSizes` вдоль Y | P1 | M | IMPLEMENTED |
 | GEO-26 | Геометрия способа открывания (ручка/push-to-open) | UNKNOWN T-HW-06, T-HW-07 | `resolveOpeningSystemGeometry`, `src/geometry/opening-system.ts`; `Part.role IN ('handle','push-to-open')` наравне с остальными деталями, вторая Geometry Engine не заведена | P2 | M | IMPLEMENTED |
 | GEO-11 | Штанга для одежды | UNKNOWN T-HW-05 | `HangingRod`; модель и точка расширения готовы, геометрия — нет (`not-implemented`) | P1 | S | NOT_STARTED (геометрия) |
-| GEO-12 | Цоколь / ножки | UNKNOWN T-CAR-05 | `BaseSpec` | P1 | M | NOT_STARTED |
+| GEO-12 | Цоколь | UNKNOWN T-CAR-05, T-BASE-01 | `BaseSpec` → `Part` роли `plinth`, этап `base`; высота смещает корпус через `resolveBasePlacement` (`docs/GEOMETRY_RULES.md` §23); состав царг задаётся явно | P1 | M | IMPLEMENTED |
+| GEO-29 | Вырез цоколя | UNKNOWN T-BASE-02 | `PlinthCutout`: вырез на всю высоту делит переднюю царгу на две детали; частичный — паз, который прямоугольная модель `Part` не выражает (`PLINTH_CUTOUT_NOT_IMPLEMENTED`) | P2 | M | PARTIAL |
+| GEO-30 | Ножки | UNKNOWN T-CAR-05 | `BaseSpec.kind = 'legs'`: высота основания учитывается, деталей нет — ножки относятся к фурнитуре (`HW-*`) | P2 | S | NOT_STARTED (геометрия; высота — учтена) |
 | GEO-13 | Столешница со свесами | UNKNOWN T-CAR-06 | `CountertopSpec` | P2 | M | NOT_STARTED |
 | GEO-14 | Кромка и коррекция размера раскроя | UNKNOWN T-EDG-03 | `EdgeSpec` + `EdgeSizingPolicy`: кромка не меняет `Part.size` никогда, размеры раскроя — только при `subtractFromPartSize` (`docs/GEOMETRY_RULES.md` §8.2, §21.5) | P1 | M | IMPLEMENTED |
 | GEO-15 | Присадка (координаты отверстий) | CONFIRMED (формат есть) | `DrillHole[]`, система 32 | P2 | XL | NOT_STARTED |
@@ -267,6 +271,29 @@ PARTIAL: архитектура и геометрия положения реа�
 (координаты крепёжных отверстий) и сам механизм push-to-open — нет.
 `HW-02` (петли) и `HW-03` (направляющие) остаются NOT_STARTED — вне
 объёма PROMPT 12 (§25: полный расчёт фурнитуры не реализуется).
+
+На этапе PROMPT 14 корпус получил недостающие конструктивные элементы.
+`GEO-08` (задняя стенка) и `GEO-12` (цоколь) перешли в IMPLEMENTED:
+задняя стенка влияла на глубину корпуса с PROMPT 2, но деталью не была —
+её просто не существовало в деталировке; цоколь не влиял ни на что, хотя
+`BaseSpec` и `Tolerances.heightIncludesBase` лежали в модели с PROMPT 1 и
+сериализовались. Теперь обе величины проходят через единственные функции
+размещения (`resolveBackGeometry`, `resolveBasePlacement`), а этапы `back`
+и `base` строят детали по уже посчитанным числам.
+
+Добавлены четыре строки. `GEO-27` (положение задней стенки) и `GEO-28`
+(разделение) — PARTIAL, а не IMPLEMENTED, и по разным причинам: у первого
+не строится сам паз в деталях корпуса (прямоугольная модель `Part` его не
+выражает, движок сообщает `BACK_WALL_GROOVE_NOT_IMPLEMENTED`), у второго
+реализованы только два подтверждённых режима из четырёх, названных в
+задании. `GEO-29` (вырез цоколя) — PARTIAL: вырез на всю высоту цоколя
+даёт две детали, частичный остаётся пазом в одной. `GEO-30` (ножки) —
+NOT_STARTED по геометрии: высота основания учитывается, но самих ножек
+как деталей нет, потому что ножки — фурнитура, а не пласть.
+
+`MAT-01`/`MAT-02` от этого этапа не изменились: материал задней стенки и
+цоколя берётся из того же Material Registry через
+`resolveEffectiveMaterial`, второй системы материалов не появилось.
 
 На этапе PROMPT 13 материалы перестали быть справочной пометкой и стали
 источником геометрии. `MAT-01` (Material Registry) и `MAT-02` (назначение

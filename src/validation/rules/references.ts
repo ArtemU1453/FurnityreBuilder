@@ -74,6 +74,18 @@ export const referencesRule: ValidationRule = {
         );
       }
 
+      // Материал цоколя (PROMPT 14 §19) — та же проверка, что уже стоит на
+      // материале задней стенки выше: битая ссылка не должна доживать до
+      // деталировки.
+      const plinthMaterialId = furniture.carcass.base?.materialId;
+      if (plinthMaterialId !== undefined && !materialIds.has(plinthMaterialId)) {
+        issues.push(
+          issue('MATERIAL_REFERENCE_BROKEN', 'error', 'Материал цоколя не найден в библиотеке.', {
+            path: `${base}.carcass.base.materialId`,
+          }),
+        );
+      }
+
       const nodeIds = new Set(collectNodeIds(furniture.root));
       furniture.facades.forEach((facade, gi) => {
         if (facade.covers.kind === 'node' && !nodeIds.has(facade.covers.nodeId)) {

@@ -138,6 +138,40 @@ exports[`снапшот: крупная мебель 5900×2900×1150, T=30 > с
       "z": 1147,
     },
   },
+  {
+    "cut": {
+      "length": 2900,
+      "thickness": 3,
+      "width": 5900,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 0,
+      "left": 0,
+      "right": 0,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/back/0",
+    "label": "Задняя стенка",
+    "materialId": "t-2",
+    "orientation": "frontal-xy",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+    },
+    "quantityGroupKey": "back|t-2|2900.0|5900.0|3.0|0/0/0/0",
+    "role": "back",
+    "size": {
+      "x": 5900,
+      "y": 2900,
+      "z": 3,
+    },
+  },
 ]
 `;
 
@@ -277,6 +311,40 @@ exports[`снапшот: минимальная мебель 100×100×80, T=8 >
       "x": 84,
       "y": 8,
       "z": 77,
+    },
+  },
+  {
+    "cut": {
+      "length": 100,
+      "thickness": 3,
+      "width": 100,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 0,
+      "left": 0,
+      "right": 0,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/back/0",
+    "label": "Задняя стенка",
+    "materialId": "t-2",
+    "orientation": "frontal-xy",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+    },
+    "quantityGroupKey": "back|t-2|100.0|100.0|3.0|0/0/0/0",
+    "role": "back",
+    "size": {
+      "x": 100,
+      "y": 100,
+      "z": 3,
     },
   },
 ]
@@ -420,6 +488,40 @@ exports[`снапшот: типовой шкаф 1000×2000×500, T=16 > сна�
       "z": 497,
     },
   },
+  {
+    "cut": {
+      "length": 2000,
+      "thickness": 3,
+      "width": 1000,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 0,
+      "left": 0,
+      "right": 0,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/back/0",
+    "label": "Задняя стенка",
+    "materialId": "t-2",
+    "orientation": "frontal-xy",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+    },
+    "quantityGroupKey": "back|t-2|2000.0|1000.0|3.0|0/0/0/0",
+    "role": "back",
+    "size": {
+      "x": 1000,
+      "y": 2000,
+      "z": 3,
+    },
+  },
 ]
 `;
 
@@ -559,6 +661,40 @@ exports[`снапшот: увеличенная толщина материал�
       "x": 920,
       "y": 40,
       "z": 497,
+    },
+  },
+  {
+    "cut": {
+      "length": 2000,
+      "thickness": 3,
+      "width": 1000,
+    },
+    "drilling": [],
+    "edge": {
+      "back": 0,
+      "front": 0,
+      "left": 0,
+      "right": 0,
+    },
+    "grainLocked": false,
+    "id": "part:t-3/-/back/0",
+    "label": "Задняя стенка",
+    "materialId": "t-2",
+    "orientation": "frontal-xy",
+    "origin": {
+      "furnitureId": "t-3",
+    },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+    },
+    "quantityGroupKey": "back|t-2|2000.0|1000.0|3.0|0/0/0/0",
+    "role": "back",
+    "size": {
+      "x": 1000,
+      "y": 2000,
+      "z": 3,
     },
   },
 ]

@@ -17,19 +17,21 @@ test('схема появляется в режиме разработки и о
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await expect(schema).toBeVisible();
 
-  // 4 детали каркаса + 1 нераздёленная ячейка = 5 прямоугольников.
+  // 4 детали каркаса + задняя стенка (деталь с PROMPT 14) + 1 нераздёленная
+  // ячейка = 6 прямоугольников. Счёт задней стенки добавлен во все проверки
+  // этого файла разом: она строится по умолчанию в любом изделии.
   // CSS-модули хешируют имена классов — различать «деталь»/«ячейку» по
   // классу в E2E ненадёжно, поэтому здесь проверяется общее число
   // прямоугольников, а не их разбивка по виду (та проверена в
   // tests/unit/render/debug-view.test.ts на уровне данных).
-  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('rect')).toHaveCount(6);
 });
 
 test('применение сетки перестраивает схему: перегородки и ячейки появляются вживую', async ({ page }) => {
   await page.goto('/');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
-  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('rect')).toHaveCount(6);
 
   await page.getByLabel('Строк').fill('2');
   await page.getByLabel('Колонок').fill('3');
@@ -37,7 +39,7 @@ test('применение сетки перестраивает схему: п�
 
   // 2×3: 4 детали каркаса + 4 вертикальные перегородки (2 на ряд × 2 ряда)
   // + 1 горизонтальный разделитель = 9 деталей, плюс 6 ячеек = 15.
-  await expect(schema.locator('rect')).toHaveCount(15);
+  await expect(schema.locator('rect')).toHaveCount(16);
 });
 
 test('переключатель debug-инфо показывает и скрывает подписи ID и координат', async ({ page }) => {
@@ -61,13 +63,13 @@ test('полки появляются в схеме как отдельные д
   await page.goto('/');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
-  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('rect')).toHaveCount(6);
 
   await page.getByLabel('Полок в ячейке').fill('3');
   await page.getByRole('button', { name: /Применить сетку/ }).click();
 
   // 4 детали каркаса + 3 полки + 1 ячейка = 8 прямоугольников.
-  await expect(schema.locator('rect')).toHaveCount(8);
+  await expect(schema.locator('rect')).toHaveCount(9);
   // Счётчик «Полок» в панели результата — точное совпадение текста, иначе
   // локатор поймал бы и подпись поля «Полок в ячейке».
   await expect(page.getByText('Полок', { exact: true }).locator('..')).toContainText('3');
@@ -153,14 +155,14 @@ test('дверь появляется в схеме и подписана сод
   await page.goto('/');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
-  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
 
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Добавить дверь' }).click();
 
   // 4 детали каркаса + 1 дверь = 5 деталей, плюс 1 ячейка = 6 прямоугольников.
-  await expect(schema.locator('rect')).toHaveCount(6);
+  await expect(schema.locator('rect')).toHaveCount(7);
   await expect(schema.getByText(/CONTENT: ПУСТО · ДВЕРЬ/)).toBeVisible();
 
   await page.getByLabel('Показывать ID и координаты').check();
@@ -170,7 +172,7 @@ test('дверь появляется в схеме и подписана сод
   await expect(schema.locator('text').filter({ hasText: 'петли справа' }).first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Убрать дверь' }).click();
-  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.getByText(/CONTENT: ПУСТО · ДВЕРЬ/)).toHaveCount(0);
 });
 
@@ -178,7 +180,7 @@ test('фасады ящиков появляются в схеме и подпи
   await page.goto('/');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
-  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
 
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
@@ -187,7 +189,7 @@ test('фасады ящиков появляются в схеме и подпи
   await addDrawerButton.click();
 
   // 4 детали каркаса + 2 фасада ящиков = 6 деталей, плюс 1 ячейка = 7 прямоугольников.
-  await expect(schema.locator('rect')).toHaveCount(7);
+  await expect(schema.locator('rect')).toHaveCount(8);
   await expect(schema.getByText('CONTENT: ЯЩИКИ')).toBeVisible();
   // Фасад ящика — не дверь: пометки ДВЕРЬ на ячейке с ящиками быть не должно.
   await expect(schema.getByText(/ДВЕРЬ/)).toHaveCount(0);
@@ -197,7 +199,7 @@ test('фасады ящиков появляются в схеме и подпи
 
   await page.getByRole('button', { name: 'Убрать ящик' }).click();
   await page.getByRole('button', { name: 'Убрать ящик' }).click();
-  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.getByText('CONTENT: ЯЩИКИ')).toHaveCount(0);
 });
 
@@ -205,23 +207,23 @@ test('ручка появляется в схеме и подписана в CON
   await page.goto('/');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
-  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('rect')).toHaveCount(6);
 
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Добавить дверь' }).click();
   // 4 детали каркаса + 1 дверь = 5, плюс 1 ячейка = 6 прямоугольников.
-  await expect(schema.locator('rect')).toHaveCount(6);
+  await expect(schema.locator('rect')).toHaveCount(7);
 
   await page.getByLabel('Открывание').selectOption('handle');
   // + 1 деталь ручки = 6 деталей, плюс 1 ячейка = 7 прямоугольников.
-  await expect(schema.locator('rect')).toHaveCount(7);
+  await expect(schema.locator('rect')).toHaveCount(8);
   await expect(schema.getByText(/Opening: HANDLE/)).toBeVisible();
 
   await page.getByLabel('Показывать ID и координаты').check();
   await expect(schema.locator('text').filter({ hasText: 'ручка' }).first()).toBeVisible();
 
   await page.getByLabel('Открывание').selectOption('none');
-  await expect(schema.locator('rect')).toHaveCount(6);
+  await expect(schema.locator('rect')).toHaveCount(7);
   await expect(schema.getByText(/Opening: HANDLE/)).toHaveCount(0);
 });
 
@@ -279,4 +281,53 @@ test('назначение материала роли меняет матери
   await page.getByRole('button', { name: 'Отменить' }).click();
   await expect(shelfLabel()).toContainText('Корпусная плита 16 мм');
   await expect(shelfLabel()).toContainText('Т 16 мм');
+});
+
+test('задняя стенка и цоколь появляются в схеме и пересчитывают корпус (PROMPT 14 §21, §27)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await page.getByLabel('Показывать ID и координаты').check();
+
+  // Задняя стенка — деталь с самого начала: 4 детали каркаса + стенка + ячейка.
+  await expect(schema.locator('rect')).toHaveCount(6);
+  await expect(schema.locator('text').filter({ hasText: 'BACK WALL' }).first()).toBeVisible();
+
+  // Отключение стенки убирает её деталь.
+  await page.getByLabel('Задняя стенка', { exact: true }).selectOption('none');
+  await expect(schema.locator('rect')).toHaveCount(5);
+  await expect(schema.locator('text').filter({ hasText: 'BACK WALL' })).toHaveCount(0);
+
+  await page.getByLabel('Задняя стенка', { exact: true }).selectOption('overlay');
+  await expect(schema.locator('rect')).toHaveCount(6);
+
+  // Цоколь: высота поднимает корпус и добавляет переднюю царгу.
+  await page.getByLabel('Высота цоколя, мм').fill('100');
+  await expect(schema.locator('text').filter({ hasText: 'PLINTH' }).first()).toBeVisible();
+  await expect(schema.locator('rect')).toHaveCount(7);
+
+  // Боковые царги добавляются явно — состав цоколя не угадывается.
+  await page.getByLabel('Царги цоколя').selectOption('sides');
+  await expect(schema.locator('rect')).toHaveCount(9);
+
+  // Отмена возвращает состав, ещё одна — убирает цоколь целиком.
+  await page.getByRole('button', { name: 'Отменить' }).click();
+  await expect(schema.locator('rect')).toHaveCount(7);
+});
+
+test('разделение задней стенки по секциям даёт сегмент на секцию (PROMPT 14 §6–§7)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await page.getByLabel('Секций', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Применить секций/ }).click();
+  await page.getByLabel('Показывать ID и координаты').check();
+
+  // 4 детали каркаса + 2 перегородки + 1 цельная стенка + 3 ячейки = 10.
+  await expect(schema.locator('rect')).toHaveCount(10);
+
+  await page.getByLabel('Разделение стенки').selectOption('per-section');
+  // Цельная стенка заменилась тремя сегментами: +2 прямоугольника.
+  await expect(schema.locator('rect')).toHaveCount(12);
+  await expect(schema.locator('text').filter({ hasText: 'BACK WALL' }).first()).toContainText('Секция:');
 });

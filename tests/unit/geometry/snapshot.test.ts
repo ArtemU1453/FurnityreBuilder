@@ -21,9 +21,10 @@ import { makeGeometryInput } from './helpers.js';
 describe('снапшот: типовой шкаф 1000×2000×500, T=16', () => {
   const result = buildGeometry(makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 }));
 
-  it('без ошибок, четыре детали каркаса', () => {
+  it('без ошибок, четыре детали каркаса и задняя стенка', () => {
     expect(hasErrors(result.diagnostics)).toBe(false);
-    expect(result.parts).toHaveLength(4);
+    // С PROMPT 14 задняя стенка — деталь: 4 детали каркаса + 1 задняя стенка.
+    expect(result.parts).toHaveLength(5);
   });
 
   it('боковины стоят по краям, высота на весь корпус', () => {
@@ -48,8 +49,10 @@ describe('снапшот: типовой шкаф 1000×2000×500, T=16', () => 
     expect(result.boundingBox).toEqual({
       minX: 0, maxX: 1000,
       minY: 0, maxY: 2000,
-      minZ: 3, maxZ: 500,
-      totalWidth: 1000, totalHeight: 2000, totalDepth: 497,
+      // С PROMPT 14 охват включает саму заднюю стенку (z ∈ [0, 3]), поэтому
+      // совпадает с номинальной глубиной целиком, а не теряет её толщину.
+      minZ: 0, maxZ: 500,
+      totalWidth: 1000, totalHeight: 2000, totalDepth: 500,
     });
   });
 
@@ -63,7 +66,8 @@ describe('снапшот: минимальная мебель 100×100×80, T=8'
 
   it('минимальный, но валидный корпус строится без ошибок', () => {
     expect(hasErrors(result.diagnostics)).toBe(false);
-    expect(result.parts).toHaveLength(4);
+    // С PROMPT 14 задняя стенка — деталь: 4 детали каркаса + 1 задняя стенка.
+    expect(result.parts).toHaveLength(5);
   });
 
   it('внутренний проём положителен даже на минимальных габаритах', () => {
@@ -90,7 +94,8 @@ describe('снапшот: крупная мебель 5900×2900×1150, T=30', (
 
   it('строится без ошибок на верхней границе рекомендуемого диапазона', () => {
     expect(hasErrors(result.diagnostics)).toBe(false);
-    expect(result.parts).toHaveLength(4);
+    // С PROMPT 14 задняя стенка — деталь: 4 детали каркаса + 1 задняя стенка.
+    expect(result.parts).toHaveLength(5);
   });
 
   it('внутренний проём отражает увеличенную толщину материала', () => {

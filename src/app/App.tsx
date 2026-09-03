@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   createDrawer,
   createEmptyLeaf,
+  createPlinthBase,
   createHandleOpeningSystem,
   createHingedFacade,
   createPushToOpenSystem,
@@ -264,6 +265,57 @@ export function App(): React.JSX.Element {
       return { ...drawer, facade: { ...drawer.facade, opening } };
     });
     execute({ type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill: { kind: 'drawers', drawers } }, 'Способ открывания ящиков');
+  };
+
+  // Технические элементы управления корпусом (PROMPT 14 §27): задняя стенка
+  // и цоколь. НЕ производственный UI — минимум, нужный, чтобы пройти путь
+  // Carcass → StructuralConfiguration → BackWall/Plinth → Parts руками.
+  const backPanel = furniture.carcass.back;
+  const plinth = furniture.carcass.base;
+
+  const setBackMount = (kind: 'none' | 'overlay' | 'inset-flush'): void => {
+    const thickness = backPanel.mount.kind === 'none' ? 3 : backPanel.mount.thickness;
+    const mount =
+      kind === 'none' ? ({ kind: 'none' } as const) : kind === 'overlay' ? ({ kind: 'overlay', thickness } as const) : ({ kind: 'inset-flush', thickness } as const);
+    execute({ type: 'SetBackPanel', furnitureIndex: 0, patch: { mount } }, 'Монтаж задней стенки');
+  };
+
+  const setBackThickness = (thickness: number): void => {
+    if (!Number.isFinite(thickness) || thickness <= 0 || backPanel.mount.kind === 'none') return;
+    execute(
+      { type: 'SetBackPanel', furnitureIndex: 0, patch: { mount: { ...backPanel.mount, thickness } } },
+      'Толщина задней стенки',
+    );
+  };
+
+  const setBackSegmentation = (segmentation: 'single' | 'per-section'): void => {
+    execute({ type: 'SetBackPanel', furnitureIndex: 0, patch: { segmentation } }, 'Разделение задней стенки');
+  };
+
+  const setPlinthHeight = (height: number): void => {
+    if (!Number.isFinite(height) || height < 0) return;
+    if (height === 0) {
+      execute({ type: 'SetBase', furnitureIndex: 0, base: null }, 'Убрать цоколь');
+      return;
+    }
+    if (plinth === undefined) {
+      execute({ type: 'SetBase', furnitureIndex: 0, base: createPlinthBase(height) }, 'Добавить цоколь');
+      return;
+    }
+    execute({ type: 'UpdateBase', furnitureIndex: 0, patch: { height } }, 'Высота цоколя');
+  };
+
+  const setPlinthSetback = (setback: number): void => {
+    if (plinth === undefined || !Number.isFinite(setback) || setback < 0) return;
+    execute({ type: 'UpdateBase', furnitureIndex: 0, patch: { setback } }, 'Отступ цоколя');
+  };
+
+  const togglePlinthSides = (withSides: boolean): void => {
+    if (plinth === undefined) return;
+    execute(
+      { type: 'UpdateBase', furnitureIndex: 0, patch: { parts: withSides ? ['front', 'left', 'right'] : ['front'] } },
+      'Состав царг цоколя',
+    );
   };
 
   // Технические элементы управления материалами (PROMPT 13 §23): реестр,
@@ -632,6 +684,118 @@ export function App(): React.JSX.Element {
           <Button onClick={removeDrawer} disabled={selectedDrawers.length === 0} style={{ marginTop: 'var(--sp-2)' }}>
             Убрать ящик
           </Button>
+        </section>
+
+        {/*
+          Корпус (PROMPT 14 §27). Технический минимум: задняя стенка и цоколь.
+          Полноценная панель конструкции корпуса — не этот этап.
+        */}
+        <section className={styles.panel} aria-labelledby="structure-title">
+          <h2 id="structure-title" className={styles.panelTitle}>
+            Корпус
+          </h2>
+          <div className={styles.grid}>
+            <Field label="Задняя стенка">
+              {({ id }) => (
+                <select
+                  id={id}
+                  className={styles.numberInput}
+                  value={backPanel.mount.kind === 'inset-groove' ? 'inset-flush' : backPanel.mount.kind}
+                  onChange={(event) => {
+                    setBackMount(event.target.value as 'none' | 'overlay' | 'inset-flush');
+                  }}
+                >
+                  <option value="overlay">Накладная</option>
+                  <option value="inset-flush">Вкладная</option>
+                  <option value="none">Нет</option>
+                </select>
+              )}
+            </Field>
+            {backPanel.mount.kind === 'none' ? null : (
+              <>
+                <Field label="Толщина стенки, мм">
+                  {({ id }) => (
+                    <input
+                      id={id}
+                      className={styles.numberInput}
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={backPanel.mount.kind === 'none' ? '' : backPanel.mount.thickness}
+                      onChange={(event) => {
+                        setBackThickness(event.target.valueAsNumber);
+                      }}
+                    />
+                  )}
+                </Field>
+                <Field label="Разделение стенки">
+                  {({ id }) => (
+                    <select
+                      id={id}
+                      className={styles.numberInput}
+                      value={backPanel.segmentation}
+                      onChange={(event) => {
+                        setBackSegmentation(event.target.value as 'single' | 'per-section');
+                      }}
+                    >
+                      <option value="single">Цельная</option>
+                      <option value="per-section">По секциям</option>
+                    </select>
+                  )}
+                </Field>
+              </>
+            )}
+            <Field label="Высота цоколя, мм" message="0 — цоколя нет.">
+              {({ id, describedBy }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={plinth?.height ?? 0}
+                  {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
+                  onChange={(event) => {
+                    setPlinthHeight(event.target.valueAsNumber);
+                  }}
+                />
+              )}
+            </Field>
+            {plinth === undefined ? null : (
+              <>
+                <Field label="Отступ цоколя, мм">
+                  {({ id }) => (
+                    <input
+                      id={id}
+                      className={styles.numberInput}
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={plinth.setback}
+                      onChange={(event) => {
+                        setPlinthSetback(event.target.valueAsNumber);
+                      }}
+                    />
+                  )}
+                </Field>
+                <Field label="Царги цоколя">
+                  {({ id }) => (
+                    <select
+                      id={id}
+                      className={styles.numberInput}
+                      value={(plinth.parts ?? []).length > 1 ? 'sides' : 'front'}
+                      onChange={(event) => {
+                        togglePlinthSides(event.target.value === 'sides');
+                      }}
+                    >
+                      <option value="front">Только передняя</option>
+                      <option value="sides">Передняя и боковые</option>
+                    </select>
+                  )}
+                </Field>
+              </>
+            )}
+          </div>
         </section>
 
         {/*

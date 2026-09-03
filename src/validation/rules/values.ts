@@ -60,6 +60,78 @@ export const valuesRule: ValidationRule = {
       }
     });
 
+    // Задняя стенка и цоколь (PROMPT 14 §19). Оба параметра прямо участвуют
+    // в положении корпуса: толщина стенки вычитается из глубины, высота
+    // цоколя поднимает корпус — недопустимое значение здесь превращается в
+    // деталь нулевого или отрицательного объёма при первом же пересчёте.
+    project.furniture.forEach((f, fi) => {
+      const base = `furniture.${String(fi)}.carcass`;
+      const mount = f.carcass.back.mount;
+
+      if (mount.kind !== 'none' && (!isFiniteMm(mount.thickness) || lteMm(mount.thickness, 0))) {
+        issues.push(
+          issue('BACK_PANEL_THICKNESS_INVALID', 'error', 'Толщина задней стенки должна быть больше нуля.', {
+            path: `${base}.back.mount.thickness`,
+          }),
+        );
+      }
+
+      const plinth = f.carcass.base;
+      if (plinth === undefined) return;
+
+      if (!isFiniteMm(plinth.height) || plinth.height < 0) {
+        issues.push(
+          issue('PLINTH_HEIGHT_INVALID', 'error', 'Высота цоколя не может быть отрицательной.', {
+            path: `${base}.base.height`,
+          }),
+        );
+      }
+      if (!isFiniteMm(plinth.setback) || plinth.setback < 0) {
+        issues.push(
+          issue('PLINTH_SETBACK_INVALID', 'error', 'Отступ цоколя не может быть отрицательным.', {
+            path: `${base}.base.setback`,
+          }),
+        );
+      }
+      if (plinth.kind === 'plinth' && plinth.height > 0 && plinth.height >= f.dimensions.height) {
+        issues.push(
+          issue(
+            'PLINTH_HEIGHT_EXCEEDS_CARCASS',
+            'error',
+            'Цоколь выше самого изделия: корпусу не остаётся высоты.',
+            { path: `${base}.base.height` },
+          ),
+        );
+      }
+
+      const cutout = plinth.cutout;
+      if (cutout === undefined) return;
+      if (cutout.left < 0 || cutout.right < 0 || !(cutout.height > 0)) {
+        issues.push(
+          issue('PLINTH_CUTOUT_INVALID', 'error', 'Параметры выреза цоколя недопустимы.', {
+            path: `${base}.base.cutout`,
+          }),
+        );
+      }
+      if (cutout.height > plinth.height) {
+        issues.push(
+          issue('PLINTH_CUTOUT_INVALID', 'error', 'Вырез цоколя выше самого цоколя.', {
+            path: `${base}.base.cutout.height`,
+          }),
+        );
+      }
+      if (cutout.left + cutout.right >= f.dimensions.width) {
+        issues.push(
+          issue(
+            'PLINTH_CUTOUT_INVALID',
+            'error',
+            'Вырез цоколя не оставляет материала передней царге.',
+            { path: `${base}.base.cutout` },
+          ),
+        );
+      }
+    });
+
     for (const [id, material] of Object.entries(project.materials.items)) {
       if (!isFiniteMm(material.thickness) || lteMm(material.thickness, 0)) {
         issues.push(

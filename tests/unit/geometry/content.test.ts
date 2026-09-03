@@ -58,7 +58,8 @@ describe('Test 2: пустое наполнение не создаёт дета
     const result = buildGeometry(makeGeometryInputWithRoot((ids) => createSections(ids, 3, T), DIMS));
     expect(shelfParts(result)).toHaveLength(0);
     const roles = new Set(result.parts.map((p) => p.role));
-    expect([...roles].sort()).toEqual(['bottom', 'partition', 'side', 'top']);
+    // 'back' добавилась на PROMPT 14 — задняя стенка стала деталью.
+    expect([...roles].sort()).toEqual(['back', 'bottom', 'partition', 'side', 'top']);
   });
 
   it('резолвер для empty возвращает статус empty и ни одной полки', () => {

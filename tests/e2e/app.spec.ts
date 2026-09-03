@@ -14,9 +14,10 @@ test('приложение запускается и показывает рас
   await expect(page).toHaveTitle(/Furniture Builder/);
   await expect(page.getByRole('heading', { name: 'Furniture Builder' })).toBeVisible();
 
-  // Каркас по умолчанию: 2 боковины + дно + крышка.
+  // Каркас по умолчанию: 2 боковины + дно + крышка + задняя стенка
+  // (деталью она стала на PROMPT 14).
   await expect(page.getByText('Деталей')).toBeVisible();
-  await expect(page.locator('li', { hasText: 'Деталей' })).toContainText('4');
+  await expect(page.locator('li', { hasText: 'Деталей' })).toContainText('5');
 });
 
 test('приложение не выполняет ни одного внешнего запроса', async ({ page }) => {

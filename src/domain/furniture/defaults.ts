@@ -1,7 +1,9 @@
 import type { IdFactory, MaterialId, NodeId } from '../ids.js';
+import type { Mm } from '../units.js';
 import { DEFAULT_EDGE } from '../materials/defaults.js';
 import type {
   BackPanelMount,
+  BaseSpec,
   CarcassSpec,
   ConstructionScheme,
   Dimensions,
@@ -264,6 +266,19 @@ export function createPushToOpenSystem(ids: IdFactory, hingeSide?: HingeSide): O
     id: ids.next<'Node'>(),
     pushToOpen: { mechanismType: 'push-latch', position, clearance: DEFAULT_PUSH_TO_OPEN_CLEARANCE },
   };
+}
+
+/**
+ * Цоколь высотой `height` из передней царги (PROMPT 14).
+ *
+ * `ASSUMPTION(T-BASE-01)`: состав царг не подтверждён, поэтому фабрика даёт
+ * МИНИМАЛЬНЫЙ вариант — одну переднюю царгу; боковые и заднюю пользователь
+ * добавляет явно. Значения по умолчанию для самой высоты нет: цоколь не
+ * появляется сам собой (`T-CAR-05`: «цоколя нет»), его высоту всегда задаёт
+ * вызывающая сторона.
+ */
+export function createPlinthBase(height: Mm, setback = 0): BaseSpec {
+  return { kind: 'plinth', height, setback, parts: ['front'] };
 }
 
 export function createDefaultCarcass(backMaterialId: MaterialId): CarcassSpec {

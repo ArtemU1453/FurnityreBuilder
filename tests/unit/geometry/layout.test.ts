@@ -17,7 +17,8 @@ describe('Test 1: базовый корпус (одна нераздёленна
 
   it('2 боковины, верх, низ — без перегородок', () => {
     const roles = result.parts.map((p) => p.role).sort();
-    expect(roles).toEqual(['bottom', 'side', 'side', 'top']);
+    // 'back' появилась на PROMPT 14: задняя стенка стала деталью.
+    expect(roles).toEqual(['back', 'bottom', 'side', 'side', 'top']);
   });
 
   it('ровно одна ячейка на весь внутренний объём', () => {
@@ -173,7 +174,9 @@ describe('Test 9: изменение глубины пересчитывает �
 
   it('глубина каждой ячейки и каждой перегородки меняется вместе с D', () => {
     expect(after.cells.every((c) => c.box.size.z > (before.cells.find((b) => b.row === c.row && b.column === c.column)?.box.size.z ?? 0))).toBe(true);
-    for (const part of after.parts) {
+    // Задняя стенка (PROMPT 14) исключена намеренно: её размер по Z — это
+    // толщина листа, а не глубина корпуса, и с D она не растёт.
+    for (const part of after.parts.filter((p) => p.role !== 'back')) {
       expect(part.size.z).toBeGreaterThan(100);
     }
   });

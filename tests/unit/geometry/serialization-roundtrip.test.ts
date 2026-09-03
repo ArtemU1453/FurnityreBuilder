@@ -61,7 +61,8 @@ describe('серилизация не меняет геометрический 
     const after = buildGeometry(geometryInputOf(restored));
 
     expect(after).toEqual(before);
-    expect(after.parts).toHaveLength(4);
+    // С PROMPT 14 задняя стенка — деталь: 4 детали каркаса + 1 задняя стенка.
+    expect(after.parts).toHaveLength(5);
   });
 
   it('property: для произвольного валидного проекта результат геометрии переживает круговой путь', () => {

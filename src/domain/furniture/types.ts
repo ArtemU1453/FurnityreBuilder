@@ -71,13 +71,48 @@ export interface BackPanelSpec {
   readonly segmentation: 'single' | 'per-section';
 }
 
+/**
+ * Вырез цоколя (PROMPT 14 §11): участок передней царги, вырезанный под
+ * ноги или под трубы. Заданы боковые отступы выреза от краёв цоколя и его
+ * высота от пола; глубина выреза равна глубине самой царги и отдельным
+ * параметром не заводится.
+ *
+ * `ASSUMPTION(T-BASE-02)`: ни наличие выреза, ни его размеры референсом не
+ * подтверждены — модель параметрическая, значений по умолчанию нет
+ * (`cutout` не задан = выреза нет).
+ */
+export interface PlinthCutout {
+  /** Отступ выреза от левого края цоколя. */
+  readonly left: Mm;
+  /** Отступ выреза от правого края цоколя. */
+  readonly right: Mm;
+  /** Высота выреза от пола. Должна быть меньше высоты цоколя. */
+  readonly height: Mm;
+}
+
 export interface BaseSpec {
   readonly kind: 'plinth' | 'legs' | 'none';
   readonly height: Mm;
   /** ASSUMPTION(T-OFF-01): отступ цоколя вглубь от плоскости фасада. */
   readonly setback: Mm;
   readonly legCount?: number;
+  /**
+   * Из каких царг собран цоколь (PROMPT 14 §12). Пустой массив — цоколь
+   * есть как высота, но деталей не даёт: конструкция цоколя референсом не
+   * подтверждена (`ASSUMPTION(T-BASE-01)`), поэтому боковые царги не
+   * появляются сами собой — их наличие задаёт пользователь.
+   */
+  readonly parts?: readonly PlinthPartKind[];
+  readonly cutout?: PlinthCutout;
+  /** Материал цоколя. Не задан — материал роли `plinth` (PROMPT 13 §9). */
+  readonly materialId?: MaterialId;
+  /** Толщина царги. Не задана — толщина материала, затем толщина корпуса. */
+  readonly thickness?: Mm;
+  readonly edge?: EdgeSpec;
 }
+
+/** Какие царги цоколя строятся физически (PROMPT 14 §12). */
+export type PlinthPartKind = 'front' | 'left' | 'right' | 'rear';
 
 export interface CountertopSpec {
   readonly thickness: Mm;

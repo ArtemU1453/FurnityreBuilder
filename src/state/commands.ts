@@ -1,5 +1,7 @@
 import type { Draft } from 'immer';
 import type {
+  BackPanelMount,
+  BaseSpec,
   ConstructionScheme,
   EdgeSizingPolicy,
   EdgeSpec,
@@ -12,6 +14,8 @@ import type {
   NodeId,
   OpeningSystem,
   PartRole,
+  PlinthCutout,
+  PlinthPartKind,
   Project,
   SectionNode,
   SizeSpec,
@@ -150,6 +154,47 @@ export type Command =
         readonly thickness?: Mm | null;
         readonly size?: SizeSpec;
         readonly opening?: OpeningSystem;
+      };
+    }
+  | {
+      /**
+       * Задняя стенка целиком: монтаж (он же положение и толщина), материал
+       * и способ разделения (PROMPT 14 §18 — `setBackWallConfig`,
+       * `setBackWallMaterial`, `setBackWallPosition`, `setBackWallSplitMode`).
+       * Одна команда вместо четырёх по той же причине, по какой PROMPT 12
+       * обошёлся полем `patch.opening`: все четыре меняют одну и ту же
+       * `BackPanelSpec`, и раздельные команды означали бы четыре пути
+       * записи в одно поле. Патч — частичный: не указанное не меняется.
+       */
+      readonly type: 'SetBackPanel';
+      readonly furnitureIndex: number;
+      readonly patch: {
+        readonly mount?: BackPanelMount;
+        readonly materialId?: MaterialId;
+        readonly segmentation?: 'single' | 'per-section';
+      };
+    }
+  | {
+      /**
+       * Цоколь целиком (PROMPT 14 §18 — `setPlinthConfig`, `setPlinthHeight`,
+       * `setPlinthSetback`, `setPlinthCutout`). `base: null` — убрать
+       * основание; `cutout: null` внутри патча — убрать вырез, оставив цоколь.
+       */
+      readonly type: 'SetBase';
+      readonly furnitureIndex: number;
+      readonly base: BaseSpec | null;
+    }
+  | {
+      readonly type: 'UpdateBase';
+      readonly furnitureIndex: number;
+      readonly patch: {
+        readonly height?: Mm;
+        readonly setback?: Mm;
+        readonly kind?: BaseSpec['kind'];
+        readonly parts?: readonly PlinthPartKind[];
+        readonly cutout?: PlinthCutout | null;
+        readonly materialId?: MaterialId | null;
+        readonly thickness?: Mm | null;
       };
     }
   | { readonly type: 'SetConstructionScheme'; readonly scheme: ConstructionScheme }
@@ -453,6 +498,76 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
       }
       if (patch.size !== undefined) leaf.size = patch.size;
       if (patch.opening !== undefined) leaf.opening = patch.opening;
+      return;
+    }
+
+    case 'SetBackPanel': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const { patch } = command;
+
+      if (patch.mount !== undefined) {
+        // Толщина задней стенки — источник геометрии (она вычитается из
+        // глубины корпуса), поэтому неположительная не принимается (§19).
+        if (patch.mount.kind !== 'none' && !(patch.mount.thickness > 0)) return;
+        furniture.carcass.back.mount = patch.mount;
+      }
+      if (patch.materialId !== undefined) {
+        // Битую ссылку команда не создаёт — тот же приём, что у материалов
+        // на PROMPT 13 §15.
+        if (draft.materials.items[patch.materialId] === undefined) return;
+        furniture.carcass.back.materialId = patch.materialId;
+      }
+      if (patch.segmentation !== undefined) furniture.carcass.back.segmentation = patch.segmentation;
+      return;
+    }
+
+    case 'SetBase': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      if (command.base === null) {
+        delete furniture.carcass.base;
+        return;
+      }
+      if (command.base.height < 0 || command.base.setback < 0) return;
+      furniture.carcass.base = command.base as Draft<BaseSpec>;
+      return;
+    }
+
+    case 'UpdateBase': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const base = furniture.carcass.base;
+      if (base === undefined) return;
+      const { patch } = command;
+
+      // Высота и отступ цоколя не могут быть отрицательными: обе величины
+      // прямо участвуют в положении корпуса и самих царг (§19).
+      if (patch.height !== undefined) {
+        if (patch.height < 0) return;
+        base.height = patch.height;
+      }
+      if (patch.setback !== undefined) {
+        if (patch.setback < 0) return;
+        base.setback = patch.setback;
+      }
+      if (patch.kind !== undefined) base.kind = patch.kind;
+      if (patch.parts !== undefined) base.parts = [...patch.parts];
+      if (patch.cutout !== undefined) {
+        if (patch.cutout === null) delete base.cutout;
+        else {
+          if (patch.cutout.left < 0 || patch.cutout.right < 0 || !(patch.cutout.height > 0)) return;
+          base.cutout = { ...patch.cutout };
+        }
+      }
+      if (patch.materialId !== undefined) {
+        if (patch.materialId === null) delete base.materialId;
+        else if (draft.materials.items[patch.materialId] !== undefined) base.materialId = patch.materialId;
+      }
+      if (patch.thickness !== undefined) {
+        if (patch.thickness === null) delete base.thickness;
+        else if (patch.thickness > 0) base.thickness = patch.thickness;
+      }
       return;
     }
 

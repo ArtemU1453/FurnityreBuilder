@@ -251,6 +251,14 @@ const furniture = z.object({
         height: mm,
         setback: mm,
         legCount: z.number().int().optional(),
+        // Поля PROMPT 14: состав царг, вырез, материал и толщина цоколя.
+        // Все опциональные — старый проект без них читается схемой как есть,
+        // отдельная миграция не нужна (docs/DATA_MODEL.md §8).
+        parts: z.array(z.enum(['front', 'left', 'right', 'rear'])).optional(),
+        cutout: z.object({ left: mm, right: mm, height: mm }).optional(),
+        materialId: id.optional(),
+        thickness: positiveMm.optional(),
+        edge: edgeSpec.optional(),
       })
       .optional(),
     countertop: z

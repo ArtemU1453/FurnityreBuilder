@@ -778,6 +778,20 @@ export interface BaseSpec {
   /** Отступ цоколя вглубь от плоскости фасада. */
   setback: Mm;                 // UNKNOWN: T-OFF-01
   legCount?: number;
+  /** Какие царги строятся физически. Пусто — цоколь только как высота. */
+  parts?: readonly PlinthPartKind[];   // UNKNOWN: T-BASE-01
+  cutout?: PlinthCutout;               // UNKNOWN: T-BASE-02
+  materialId?: MaterialId;             // не задан — материал роли `plinth`
+  thickness?: Mm;                      // не задана — толщина материала
+  edge?: EdgeSpec;
+}
+
+export type PlinthPartKind = 'front' | 'left' | 'right' | 'rear';
+
+export interface PlinthCutout {
+  left: Mm;    // отступ выреза от левого края цоколя
+  right: Mm;   // отступ выреза от правого края
+  height: Mm;  // высота выреза от пола, не больше высоты цоколя
 }
 
 export interface CountertopSpec {
@@ -790,6 +804,41 @@ export interface CountertopSpec {
   edge: EdgeSpec;
 }
 ```
+
+### 8.1. Конструктивная конфигурация корпуса (PROMPT 14)
+
+Отдельного верхнеуровневого объекта `StructuralConfiguration` не заведено:
+им уже является `CarcassSpec` — он и держит `back`, `base` и `countertop`
+вместе с самого PROMPT 1. Заводить рядом второй контейнер значило бы
+описать конструкцию корпуса дважды.
+
+```
+Furniture
+ └── carcass: CarcassSpec           ← и есть Structural Configuration
+      ├── hasTop / hasBottom
+      ├── back: BackPanelSpec       → Part role 'back'      (stages/back.ts)
+      ├── base: BaseSpec?           → Part role 'plinth'    (stages/base.ts)
+      └── countertop: CountertopSpec?  (этап 23 плана)
+```
+
+Граф зависимостей (PROMPT 14 §17):
+
+```
+Carcass ──┬── BackPanelSpec.mount ── resolveBackGeometry ──┐
+          │                                               ├── innerVolume (полезная глубина и высота)
+          └── BaseSpec.height ────── resolveBasePlacement ─┘        │
+                                                                    ├── Cell → Shelf / Drawer
+                                                                    └── FacadeGroup → дверь
+```
+
+`BackWallConfig` и `PlinthConfig` из формулировки задания — это уже
+существующие `BackPanelSpec` и `BaseSpec`: наличие, материал, толщина,
+положение и способ разделения у первой и наличие, высота, отступ и вырез
+у второй лежат именно в них. Отдельного типа `BackWallSegment` в модели
+тоже нет: сегмент — это `Part` роли `back`, чья идентичность — id секции
+(`Part.origin.nodeId`), а границы вычисляются на каждом пересчёте
+(`docs/GEOMETRY_RULES.md` §22.4). Хранить сегменты отдельно означало бы
+хранить производные данные рядом с секциями, из которых они выводятся.
 
 ---
 

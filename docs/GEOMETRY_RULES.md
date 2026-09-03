@@ -2044,3 +2044,191 @@ effectiveThickness(part) =
 
 **Тест.** `tests/unit/geometry/materials.test.ts` («битая ссылка полки —
 error-диагностика движка», «стекло на перегородке — предупреждение»).
+
+---
+
+## 22. ЗАДНЯЯ СТЕНКА (PROMPT 14)
+
+Реализация — резолвер `src/geometry/back-wall.ts` и этап
+`src/geometry/stages/back.ts` (этап 5 конвейера).
+
+### 22.1 Что изменилось на PROMPT 14
+
+Задняя стенка влияла на геометрию с PROMPT 2 — `resolveBackGeometry()`
+вычитала её из глубины корпуса, — но собственной ДЕТАЛИ не давала: в
+деталировке её не было, а bounding box изделия «терял» её толщину. PROMPT
+14 добавил деталь, не тронув расчёт глубины: обе стороны читают одну и ту
+же `resolveBackGeometry`, второй формулы глубины в проекте нет.
+
+### 22.2 Положение = вариант монтажа
+
+Положение задней стенки не отдельная ось настроек, а сам вариант
+`BackPanelMount`. Формулы рамки детали (`панель` = вся стенка при
+`segmentation: 'single'`):
+
+```
+none:          детали нет
+
+overlay:       x ∈ [0, W]
+   (OUTSIDE)   y ∈ [carcassY0, carcassY0 + carcassHeight]
+               z ∈ [0, t]
+               — накладная стенка закрывает корпус целиком, включая торцы
+                 боковин, крышки и дна
+
+inset-flush:   x ∈ [inner.x, inner.x + inner.width]
+   (INSIDE)    y ∈ [inner.y, inner.y + inner.height]
+               z ∈ [innerZ0 − t, innerZ0]
+
+inset-groove:  x ∈ [inner.x − g, inner.x + inner.width + g]
+   (INSIDE)    y ∈ [inner.y − g, inner.y + inner.height + g]
+               z ∈ [innerZ0 − t, innerZ0]
+               где g = mount.grooveDepth — заход в паз с каждой стороны
+```
+`t` — `mount.thickness`, `inner` — `ctx.innerVolume`, `innerZ0` и
+`carcassY0/carcassHeight` приходят из `resolveBackGeometry` и
+`resolveBasePlacement` соответственно.
+
+**Варианта `CENTER` нет:** он не подтверждён (`T-CAR-04`) и для листовой
+задней стенки физического смысла не имеет — «середина» чего-либо здесь не
+определена. Придумывать третье положение ради симметрии перечисления
+запрещено (PROMPT 14 §4: «не добавлять варианты только ради гибкости»).
+
+**Источник.** `UNKNOWN (T-CAR-04)` — монтаж референса не установлен;
+`UNKNOWN (T-BACK-01)` — точный размер детали относительно габарита.
+**Тест.** `tests/unit/geometry/back-wall.test.ts`.
+
+### 22.3 Полезная глубина
+
+Правило одно и оно единственное (`resolveBackGeometry`, §4):
+
+```
+overlay:        carcassZ0 = t,  carcassDepth = D − t (если depthIncludesBackPanel),
+                innerZ0 = t
+inset-*:        carcassZ0 = 0,  carcassDepth = D,
+                innerZ0 = t (flush) | grooveOffsetFromRear + t (groove)
+usableDepth = innerVolume.size.z = carcassZ0 + carcassDepth − innerZ0
+```
+Из `innerVolume` полезную глубину получают ВСЕ потребители: ячейки
+(`layout`), полки и фасады ящиков (`fill`), двери (`facades`). Никто из
+них не читает `D` и толщину стенки напрямую, поэтому «полезная глубина
+считается где-то ещё по своей формуле» в проекте невозможно.
+
+### 22.4 Разделение по секциям
+
+Поддержаны два режима — те, что уже есть в модели: `single` (цельная
+панель) и `per-section` (сегмент на секцию). `BY_WIDTH` и `CUSTOM` из
+формулировки задания НЕ реализованы: ни один из них не подтверждён, а
+`BY_WIDTH` вдобавок требует правила «максимальная ширина листа», которого
+у нас нет.
+
+```
+Границы сегментов по X:
+  внешние края      = края рамки задней стенки (x0, x1)
+  внутренняя i-я    = середина промежутка между секцией i−1 и секцией i
+                      (то есть центр перегородки, к которой крепятся оба)
+Сегмент i:  x ∈ [bounds[i], bounds[i+1]],  y и z — как у цельной панели
+```
+Сегменты покрывают рамку целиком и не пересекаются между собой; при одной
+секции `per-section` вырождается в цельную панель, а не даёт сегмент-
+дубликат. Идентичность сегмента — `NodeId` его секции (`Part.origin.nodeId`
+и `index` в `buildPartId`), поэтому изменение ширин секций пересчитывает
+размеры, но не создаёт новых деталей (§20 задания).
+**Источник.** `ASSUMPTION (T-BACK-01)`.
+
+### 22.5 Известное ограничение монтажа в паз
+
+Деталь в пазу по построению заходит ВНУТРЬ габарита боковин, крышки и дна
+— туда, где у них выбран паз. Прямоугольная модель `Part` паз не
+выражает, поэтому `findPartOverlaps` видит здесь пересечение, которого в
+реальной сборке нет. Движок сообщает об этом явной диагностикой
+`BACK_WALL_GROOVE_NOT_IMPLEMENTED` (`info`) вместо того, чтобы молча
+исключать такие детали из проверки. Найдено property-тестом
+(`tests/unit/geometry/structure-properties.test.ts`).
+
+---
+
+## 23. ЦОКОЛЬ И ОСНОВАНИЕ (PROMPT 14)
+
+Реализация — резолвер `src/geometry/plinth.ts`, этап
+`src/geometry/stages/base.ts` (этап 6 конвейера) и функция размещения
+`resolveBasePlacement()` в `stages/carcass.ts`.
+
+### 23.1 Высота цоколя и высота корпуса
+
+**Формула.**
+```
+plinthHeight = (base отсутствует | kind 'none' | height ≤ 0) ? 0 : base.height
+
+heightIncludesBase = true:   carcassY0 = plinthHeight
+                             carcassHeight = H − plinthHeight
+heightIncludesBase = false:  carcassY0 = plinthHeight
+                             carcassHeight = H
+```
+Весь корпус смещается на `carcassY0`: боковины, крышка, дно, внутренний
+объём. Ячейки, полки, двери и фасады ящиков получают этот сдвиг
+БЕСПЛАТНО, потому что все они выводятся из `ctx.innerVolume`, а не из `H`.
+Двойного учёта высоты (§13 задания) поэтому не возникает: сдвиг задаёт
+ровно одна функция, а `stages/base.ts` строит только сами царги.
+
+`carcassHeight ≤ 0` — ошибка `CARCASS_HEIGHT_NOT_POSITIVE`, а не
+отрицательная геометрия.
+**Источник.** `UNKNOWN (T-CAR-05)` — есть ли цоколь у референса и входит
+ли он в габаритную высоту. Значение по умолчанию: цоколя нет.
+**Тест.** `tests/unit/geometry/plinth.test.ts`.
+
+### 23.2 Состав царг
+
+```
+kinds = base.parts ?? []          пусто → цоколь есть как высота, деталей нет
+innerX0 = 'left'  ∈ kinds ? t : 0
+innerX1 = 'right' ∈ kinds ? W − t : W
+zFront  = carcassZ0 + carcassDepth − setback
+
+front:  x ∈ [innerX0, innerX1],  y ∈ [0, height],  z ∈ [zFront − t, zFront]
+rear:   x ∈ [innerX0, innerX1],  y ∈ [0, height],  z ∈ [carcassZ0, carcassZ0 + t]
+left:   x ∈ [0, t],              y ∈ [0, height],  z ∈ [carcassZ0, zFront]
+right:  x ∈ [W − t, W],          y ∈ [0, height],  z ∈ [carcassZ0, zFront]
+```
+Передняя и задняя царги встают МЕЖДУ боковыми, если те заданы, — поэтому
+пересечений между царгами не бывает.
+
+**Состав не угадывается.** `ASSUMPTION (T-BASE-01)`: какие царги ставит
+референс, не подтверждено, поэтому `parts` перечисляет их явно, а пустой
+список даёт цоколь без деталей с явной диагностикой
+`PLINTH_PARTS_NOT_SPECIFIED` (`info`). `kind: 'legs'` деталей не даёт
+вовсе (`PLINTH_LEGS_NOT_IMPLEMENTED`): ножки — фурнитура, а не пласть.
+
+### 23.3 Отступ
+
+`setback` сдвигает переднюю грань цоколя вглубь от передней плоскости
+корпуса. `setback ≥ carcassDepth` — ошибка `PLINTH_GEOMETRY_INVALID`.
+**Источник.** `UNKNOWN (T-OFF-01)`.
+
+### 23.4 Вырез
+
+```
+допустимо: left ≥ 0, right ≥ 0, 0 < height ≤ plinthHeight,
+           spanWidth − left − right > 0
+
+height = plinthHeight:  передняя царга физически распадается на ДВЕ детали
+                        шириной left и right
+height < plinthHeight:  это ПАЗ в одной детали — царга остаётся целой,
+                        движок сообщает PLINTH_CUTOUT_NOT_IMPLEMENTED (info)
+```
+Вторая ветка — сознательный отказ соврать: выдать две детали там, где в
+цеху одна с вырезом, значило бы испортить деталировку. Прямоугольная
+модель `Part` паз не выражает, и это сказано явно, а не обойдено молчанием.
+**Источник.** `UNKNOWN (T-BASE-02)` — ни наличие выреза, ни его параметры
+не подтверждены.
+
+### 23.5 Диагностика конструктивных элементов
+
+| Код | Severity | Когда |
+|---|---|---|
+| `CARCASS_HEIGHT_NOT_POSITIVE` | error | цоколь не оставляет высоты корпусу |
+| `BACK_WALL_GEOMETRY_INVALID` | error | рамка задней стенки не положительна |
+| `BACK_WALL_GROOVE_NOT_IMPLEMENTED` | info | паз под стенку в деталях корпуса не строится |
+| `PLINTH_GEOMETRY_INVALID` | error | отступ, толщина или вырез недопустимы |
+| `PLINTH_PARTS_NOT_SPECIFIED` | info | цоколь задан высотой, состав царг не указан |
+| `PLINTH_CUTOUT_NOT_IMPLEMENTED` | info | частичный вырез — паз, а не две детали |
+| `PLINTH_LEGS_NOT_IMPLEMENTED` | info | ножки: высота учтена, деталей нет |
