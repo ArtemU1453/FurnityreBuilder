@@ -184,3 +184,20 @@
   padding: var(--sp-2);
   border-radius: var(--r-sm);
 }
+
+/* Технический вывод спецификации фурнитуры (PROMPT 16 §26): моноширинный
+   список строк, а не таблица — это отладочный вывод, а не интерфейс. */
+.hardwareDebug {
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-muted, #555);
+  overflow-x: auto;
+}
+
+.hardwareDebug > li {
+  white-space: pre;
+}

@@ -975,13 +975,17 @@ export interface EdgeSizingPolicy { subtractFromPartSize: boolean }
 ```ts
 export type HardwareKind =
   | 'confirmat' | 'eccentric' | 'dowel' | 'shelf-support'
-  | 'hinge' | 'slide' | 'handle' | 'push-latch'
-  | 'rod' | 'rod-flange' | 'leg' | 'plinth-clip' | 'back-nail';
+  | 'hinge' | 'hinge-fastener' | 'slide' | 'handle' | 'handle-fastener'
+  | 'push-latch' | 'rod' | 'rod-flange' | 'leg' | 'plinth-clip' | 'back-nail';
 
-export interface HardwareItem {
+export type HardwareUnit = 'pcs' | 'pair' | 'set';
+
+/** ОПИСАНИЕ позиции в реестре: количества у него нет и быть не должно. */
+export interface HardwareDefinition {
   readonly id: Id<'Hardware'>;
   kind: HardwareKind;
   name: string;
+  unit: HardwareUnit;
   spec: Record<string, string | number>;   // «7×50», «угол 110°» и т.п.
 }
 
@@ -994,9 +998,22 @@ export interface HardwareLine {
 }
 ```
 
+**Переименование на PROMPT 16.** До него тип назывался `HardwareItem`, хотя
+количества не содержал никогда. Имя освобождено под ПРОИЗВОДНУЮ сущность
+(`src/hardware/types.ts`) — ту, у которой есть и количество, и источник;
+справочник стал `HardwareDefinition`. Так же, как `Material` описывает
+материал, а `Part` — конкретную деталь из него. `hinge-fastener` и
+`handle-fastener` отделены от петли и ручки: это разные позиции
+спецификации.
+
 Правила количества (петли по высоте двери, конфирматы по глубине стыка) —
-**не константы модели**, а таблицы в `src/parts/rules/`, покрытые тестами.
-Пороги — `UNKNOWN (T-DOOR-05, T-HW-03)`, значения по умолчанию — `INDUSTRY`.
+**не константы модели**, а правила слоя `src/hardware/rules/`, покрытые
+тестами. Пороги — `UNKNOWN (T-DOOR-05, T-HW-03, T-HW-08)`, и на PROMPT 16
+они НЕ заполнены: правило существует, вход посчитан, число не выдумано
+(`docs/HARDWARE_RULES.md`).
+
+Сама спецификация (`HardwareBOM`) в проекте не хранится — это производная
+величина, как и `Part` (§11 ниже).
 
 ---
 

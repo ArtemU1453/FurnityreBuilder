@@ -194,6 +194,12 @@ src/
     stages/normalize.ts      пригодность входа
     stages/carcass.ts        три схемы стыка, внутренний объём
     stages/layout.ts         ячейки, перегородки, row/column/sectionId (объединяет layout+dividers)
+  hardware/                  Project + Geometry → HardwareBOM, чистые функции
+    types.ts                 HardwareItem (производная позиция), HardwareRule, HardwareBOM
+    registry.ts              встроенные определения (не сохраняются в файл проекта)
+    rules/                   одно правило — один файл: петли, направляющие, держатели, крепёж, ручки
+    engine.ts                calculateHardware: правила → проверки → агрегация
+    debug.ts                 технический вывод спецификации
   validation/                правила → Issue[]
     rules/{values,references,structure}.ts
   persistence/               схема Zod, сериализация, миграции, репозитории

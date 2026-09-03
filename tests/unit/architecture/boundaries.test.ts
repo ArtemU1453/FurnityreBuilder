@@ -52,6 +52,27 @@ describe('архитектурные границы', () => {
     expect(rules).toContain('no-restricted-imports');
   });
 
+  it('запрещает React в расчёте фурнитуры', { timeout: 60_000 }, async () => {
+    // PROMPT 16 §14: `calculateHardware` обязана быть независима от React и
+    // DOM — иначе спецификацию нельзя ни вынести в Worker, ни сравнить
+    // снапшотом, ровно как и геометрию.
+    const rules = await lintSource(
+      'hardware',
+      'probe.ts',
+      "import { useMemo } from 'react';\nexport const probe = useMemo;\n",
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('запрещает импорт вверх по слоям: hardware → state', { timeout: 60_000 }, async () => {
+    const rules = await lintSource(
+      'hardware',
+      'probe.ts',
+      "import { PLANNED_COMMANDS } from '../../state/commands.js';\nexport const probe = PLANNED_COMMANDS;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
   it('запрещает импорт вверх по слоям: geometry → state', { timeout: 60_000 }, async () => {
     const rules = await lintSource(
       'geometry',

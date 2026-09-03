@@ -17,6 +17,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 const LAYERS = [
   { type: 'domain', pattern: 'src/domain/**/*' },
   { type: 'geometry', pattern: 'src/geometry/**/*' },
+  { type: 'hardware', pattern: 'src/hardware/**/*' },
   { type: 'validation', pattern: 'src/validation/**/*' },
   { type: 'persistence', pattern: 'src/persistence/**/*' },
   { type: 'state', pattern: 'src/state/**/*' },
@@ -29,7 +30,13 @@ const LAYERS = [
 ];
 
 /** Layers that must stay free of React, the DOM and every browser API. */
-const PURE_LAYERS = ['src/domain/**/*.ts', 'src/geometry/**/*.ts', 'src/validation/**/*.ts'];
+const PURE_LAYERS = [
+  'src/domain/**/*.ts',
+  'src/geometry/**/*.ts',
+  'src/validation/**/*.ts',
+  // PROMPT 16 §14: расчёт фурнитуры обязан быть независим от React и DOM.
+  'src/hardware/**/*.ts',
+];
 
 const UI_FRAMEWORK_IMPORTS = {
   patterns: [
@@ -96,16 +103,19 @@ export default tseslint.config(
           rules: [
             { from: 'domain', allow: ['domain'] },
             { from: 'geometry', allow: ['geometry', 'domain'] },
-            { from: 'validation', allow: ['validation', 'geometry', 'domain'] },
+            // Расчёт фурнитуры — производная от геометрии, поэтому видит её
+            // и домен, но не state и не UI (PROMPT 16 §14: движок чистый).
+            { from: 'hardware', allow: ['hardware', 'geometry', 'domain'] },
+            { from: 'validation', allow: ['validation', 'hardware', 'geometry', 'domain'] },
             { from: 'persistence', allow: ['persistence', 'domain'] },
-            { from: 'state', allow: ['state', 'persistence', 'validation', 'geometry', 'domain'] },
+            { from: 'state', allow: ['state', 'persistence', 'validation', 'hardware', 'geometry', 'domain'] },
             { from: 'motion', allow: ['motion'] },
             { from: 'interaction', allow: ['interaction', 'motion', 'state', 'domain'] },
             { from: 'design-system', allow: ['design-system', 'motion'] },
             // render — презентационный слой: получает уже посчитанную
             // геометрию и рисует её. Не видит state/interaction — команды
             // и хранилище остаются заботой app, render только показывает.
-            { from: 'render', allow: ['render', 'domain', 'geometry', 'design-system'] },
+            { from: 'render', allow: ['render', 'domain', 'geometry', 'hardware', 'design-system'] },
             { from: 'app', allow: ['*'] },
             { from: 'entry', allow: ['*'] },
           ],

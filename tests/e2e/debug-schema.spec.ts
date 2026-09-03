@@ -380,3 +380,36 @@ test('фальшпанель и режим установки проходят �
   await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.locator('text').filter({ hasText: 'FALSE PANEL' })).toHaveCount(0);
 });
+
+test('спецификация фурнитуры пересчитывается вместе с моделью (PROMPT 16 §20, §26)', async ({ page }) => {
+  await page.goto('/');
+
+  const hardware = page.getByRole('heading', { name: 'Фурнитура (расчёт)' });
+  await expect(hardware).toBeVisible();
+  const list = page.locator('h3:has-text("Фурнитура (расчёт)") + ul');
+
+  // Технический вывод показывает все поля, которые требует §26.
+  await expect(list.getByText('ID · DEFINITION · CATEGORY · QUANTITY · UNIT · SOURCE · RULE · REASON')).toBeVisible();
+
+  // Пустой корпус: направляющих нет, зато есть внятное объяснение,
+  // почему крепёж не посчитан, — вместо выдуманного числа.
+  await expect(list.getByText(/hw-slide/)).toHaveCount(0);
+  await expect(list.getByText(/Крепёж корпуса не рассчитан/)).toBeVisible();
+
+  // Два ящика — четыре направляющие, без всякой команды «пересчитать».
+  await page.getByLabel('Ячейка').selectOption({ index: 1 });
+  const addDrawerButton = page.getByRole('button', { name: 'Добавить ящик' });
+  await addDrawerButton.click();
+  await addDrawerButton.click();
+  await expect(list.getByText(/ИТОГО · hw-slide · slide · 4 · pcs/)).toBeVisible();
+
+  // Третий ящик — шесть: изменение модели меняет спецификацию мгновенно.
+  await addDrawerButton.click();
+  await expect(list.getByText(/ИТОГО · hw-slide · slide · 6 · pcs/)).toBeVisible();
+
+  // Убрали ящики — позиция исчезла вместе со своим источником.
+  await page.getByRole('button', { name: 'Убрать ящик' }).click();
+  await page.getByRole('button', { name: 'Убрать ящик' }).click();
+  await page.getByRole('button', { name: 'Убрать ящик' }).click();
+  await expect(list.getByText(/hw-slide/)).toHaveCount(0);
+});

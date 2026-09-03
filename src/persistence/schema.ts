@@ -344,6 +344,10 @@ export const projectSchema = z.object({
         id,
         kind: z.string(),
         name: z.string(),
+        // Единица измерения (PROMPT 16 §3). Необязательна ради обратной
+        // совместимости: в старых проектах реестр фурнитуры пуст, а если
+        // позиции всё же есть — они читаются со штучной единицей.
+        unit: z.enum(['pcs', 'pair', 'set']).optional().default('pcs'),
         spec: z.record(z.string(), z.union([z.string(), z.number()])),
       }),
     ),

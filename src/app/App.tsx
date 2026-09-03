@@ -16,6 +16,7 @@ import type { HingeSide, LeafFill, MaterialId, NodeId, OpeningSystem, PartRole }
 import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
 import { buildDebugView, DebugSchema } from '../render/index.js';
+import { calculateHardware, formatHardwareDebug } from '../hardware/index.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import { Button, Field } from '../design-system/index.js';
@@ -77,6 +78,23 @@ export function App(): React.JSX.Element {
       edgeSizing: project.settings.edgeSizing,
     });
   }, [furniture, project.settings, project.materials]);
+
+  // Спецификация фурнитуры (PROMPT 16). Считается тем же способом, что и
+  // геометрия — мемоизацией по ссылке на проект, поэтому изменение любого
+  // габарита, наполнения или фасада пересчитывает её автоматически (§20):
+  // ручного «пересчитать» нет и быть не может, количества нигде не хранятся.
+  //
+  // Готовая геометрия передаётся движку, а не считается им второй раз: это
+  // ровно тот же результат, что уже показан на схеме, поэтому спецификация
+  // гарантированно описывает то же изделие, что видит пользователь.
+  //
+  // Ветка `import.meta.env.DEV` — по той же причине, что у `debugView`:
+  // интерфейса фурнитуры в этом этапе нет (§29 исключает производственный
+  // UI), есть только технический вывод, и в production-бандл он не попадает.
+  const hardwareDebug = useMemo(() => {
+    if (!import.meta.env.DEV || furniture === undefined || geometry === undefined) return undefined;
+    return formatHardwareDebug(calculateHardware(project, { geometry: new Map([[furniture.id, geometry]]) }));
+  }, [project, furniture, geometry]);
 
   const report = useMemo(() => validateProject(project), [project]);
 
@@ -1219,6 +1237,25 @@ export function App(): React.JSX.Element {
               </label>
             </div>
             {debugView === undefined ? null : <DebugSchema view={debugView} showDebugInfo={showDebugInfo} />}
+
+            {/*
+              Технический вывод спецификации фурнитуры (PROMPT 16 §26):
+              идентификатор, определение, категория, количество, единица,
+              источник, правило и причина. Строки собирает
+              `formatHardwareDebug` — здесь они только размещаются.
+            */}
+            {hardwareDebug === undefined ? null : (
+              <>
+                <h3 className={styles.panelTitle} style={{ marginTop: 'var(--sp-4)' }}>
+                  Фурнитура (расчёт)
+                </h3>
+                <ul className={styles.hardwareDebug}>
+                  {hardwareDebug.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </>
+            )}
           </section>
         ) : null}
       </main>
