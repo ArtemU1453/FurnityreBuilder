@@ -441,3 +441,22 @@ test('карта раскроя строится из деталей и пере
 
 
 
+
+test('карта присадки объясняет, чего не хватает, вместо выдуманных отверстий (PROMPT 18 §28)', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: 'Присадка (расчёт)' })).toBeVisible();
+  const list = page.locator('h3:has-text("Присадка (расчёт)") + ul');
+
+  // Ни один технологический параметр не подтверждён, поэтому операций нет
+  // и это сказано прямо, а не показано пустым местом.
+  await expect(list.getByText('— ни одной операции не рассчитано —')).toBeVisible();
+  await expect(list.getByText(/Присадка крепежа задней стенки не рассчитана/)).toBeVisible();
+  await expect(list.getByText(/Присадка корпусного крепежа не рассчитана/)).toBeVisible();
+
+  // Полки добавляют не отверстия, а точное указание недостающей связи.
+  await page.getByLabel('Полок в ячейке').fill('2');
+  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await expect(list.getByText(/какая боковина или перегородка держит полку/)).toBeVisible();
+  await expect(list.getByText('— ни одной операции не рассчитано —')).toBeVisible();
+});

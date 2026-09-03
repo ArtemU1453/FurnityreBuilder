@@ -1040,7 +1040,7 @@ export interface Part {
   grainLocked: boolean;             // нельзя поворачивать при раскрое
   /** Трассируемость: какой узел модели породил деталь. */
   origin: { nodeId?: NodeId; furnitureId: Id<'Furniture'> };
-  drilling: DrillHole[];
+  drilling: DrillHole[];              // с PROMPT 1 не заполняется: присадку считает src/drilling/
   quantityGroupKey: string;         // для группировки одинаковых деталей в спецификации
 }
 

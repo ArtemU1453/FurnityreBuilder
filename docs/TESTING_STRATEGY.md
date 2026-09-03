@@ -88,7 +88,7 @@ Engine» (PROMPT 3) — прирост этого этапа: пять новы�
 ## 3. РАСПРЕДЕЛЕНИЕ
 
 ```
- 10  architecture/boundaries               границы слоёв (+ чистота слоёв фурнитуры и раскроя, PROMPT 16–17)
+ 12  architecture/boundaries               границы слоёв (+ чистота слоёв фурнитуры, раскроя и присадки, PROMPT 16–18)
  10  domain/coordinates                    система координат, пересечение против касания (PROMPT 7)
   7  domain/layout                         раскладка деления, 3 property-теста
   5  domain/project                        создание проекта, детерминизм
@@ -102,6 +102,9 @@ Engine» (PROMPT 3) — прирост этого этапа: пять новы�
   9  geometry/engine                       контракт движка, размеры раскроя
  34  geometry/fill                         полки: 15 сценариев §PROMPT6 + коллизии (PROMPT 6)
   3  geometry/fill-properties              property: полки на случайных W/H/D/числе полок (PROMPT 6)
+ 14  drilling/coordinates                  локальная система детали, грани, переход в мировые (PROMPT 18)
+ 27  drilling/engine                       правила присадки, проверки, порядок, трассируемость (PROMPT 18)
+  7  drilling/drilling-properties          property: границы, глубины, детерминизм, сериализация (PROMPT 18)
  26  production/parts                      деталь → производственная позиция, группы, текстура (PROMPT 17)
  27  production/layout                     раскладка: пропил, кромка листа, поворот, несколько листов (PROMPT 17)
   7  production/cutting-properties         property: границы листа, пересечения, количество, детерминизм (PROMPT 17)
@@ -285,6 +288,8 @@ PROMPT 2 и не замеченное до этого этапа.)
 | `hardware` импортирует `state` | `boundaries/element-types` |
 | React в `src/production` | `no-restricted-imports` |
 | `production` импортирует `state` | `boundaries/element-types` |
+| React в `src/drilling` | `no-restricted-imports` |
+| `drilling` импортирует `state` | `boundaries/element-types` |
 | React в `src/domain` | `no-restricted-imports` |
 | `geometry` импортирует `state` | `boundaries/element-types` |
 | `domain` обращается к `window` | `no-restricted-globals` |

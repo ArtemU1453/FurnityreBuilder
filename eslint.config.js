@@ -19,6 +19,7 @@ const LAYERS = [
   { type: 'geometry', pattern: 'src/geometry/**/*' },
   { type: 'hardware', pattern: 'src/hardware/**/*' },
   { type: 'production', pattern: 'src/production/**/*' },
+  { type: 'drilling', pattern: 'src/drilling/**/*' },
   { type: 'validation', pattern: 'src/validation/**/*' },
   { type: 'persistence', pattern: 'src/persistence/**/*' },
   { type: 'state', pattern: 'src/state/**/*' },
@@ -39,6 +40,8 @@ const PURE_LAYERS = [
   'src/hardware/**/*.ts',
   // PROMPT 17 §35: расчёт раскроя детерминирован и не знает об интерфейсе.
   'src/production/**/*.ts',
+  // PROMPT 18 §33: расчёт присадки — тоже чистый детерминированный расчёт.
+  'src/drilling/**/*.ts',
 ];
 
 const UI_FRAMEWORK_IMPORTS = {
@@ -113,16 +116,19 @@ export default tseslint.config(
             // домен, но не state и не UI (PROMPT 17 §25: раскрой ничего не
             // меняет в модели, зависимость строго односторонняя).
             { from: 'production', allow: ['production', 'geometry', 'domain'] },
-            { from: 'validation', allow: ['validation', 'production', 'hardware', 'geometry', 'domain'] },
+            // Присадка — производная от геометрии, деталей и фурнитуры
+            // (PROMPT 18 §2). Она читает все три и не пишет ни в один.
+            { from: 'drilling', allow: ['drilling', 'production', 'hardware', 'geometry', 'domain'] },
+            { from: 'validation', allow: ['validation', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'persistence', allow: ['persistence', 'domain'] },
-            { from: 'state', allow: ['state', 'persistence', 'validation', 'production', 'hardware', 'geometry', 'domain'] },
+            { from: 'state', allow: ['state', 'persistence', 'validation', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'motion', allow: ['motion'] },
             { from: 'interaction', allow: ['interaction', 'motion', 'state', 'domain'] },
             { from: 'design-system', allow: ['design-system', 'motion'] },
             // render — презентационный слой: получает уже посчитанную
             // геометрию и рисует её. Не видит state/interaction — команды
             // и хранилище остаются заботой app, render только показывает.
-            { from: 'render', allow: ['render', 'domain', 'geometry', 'hardware', 'production', 'design-system'] },
+            { from: 'render', allow: ['render', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'design-system'] },
             { from: 'app', allow: ['*'] },
             { from: 'entry', allow: ['*'] },
           ],

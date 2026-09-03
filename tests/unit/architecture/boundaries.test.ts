@@ -96,6 +96,26 @@ describe('архитектурные границы', () => {
     expect(rules).toContain('boundaries/element-types');
   });
 
+  it('запрещает React в расчёте присадки', { timeout: 60_000 }, async () => {
+    const rules = await lintSource(
+      'drilling',
+      'probe.ts',
+      "import { useMemo } from 'react';\nexport const probe = useMemo;\n",
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('запрещает присадке менять модель: drilling → state', { timeout: 60_000 }, async () => {
+    // PROMPT 18 §25: план присадки производный. Команды `moveHole()` не
+    // существует, и дотянуться до команд слой не должен даже случайно.
+    const rules = await lintSource(
+      'drilling',
+      'probe.ts',
+      "import { PLANNED_COMMANDS } from '../../state/commands.js';\nexport const probe = PLANNED_COMMANDS;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
   it('запрещает импорт вверх по слоям: geometry → state', { timeout: 60_000 }, async () => {
     const rules = await lintSource(
       'geometry',

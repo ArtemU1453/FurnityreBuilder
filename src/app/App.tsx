@@ -17,7 +17,8 @@ import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
 import { buildCuttingView, buildDebugView, CuttingMap, DebugSchema } from '../render/index.js';
 import { calculateHardware, formatHardwareDebug } from '../hardware/index.js';
-import { calculateCutting } from '../production/index.js';
+import { calculateCutting, toProductionParts } from '../production/index.js';
+import { calculateDrilling, formatDrillingDebug } from '../drilling/index.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import { Button, Field } from '../design-system/index.js';
@@ -104,6 +105,21 @@ export function App(): React.JSX.Element {
     if (!import.meta.env.DEV || furniture === undefined || geometry === undefined) return undefined;
     const result = calculateCutting(project, { geometry: new Map([[furniture.id, geometry]]) });
     return buildCuttingView(result, project.materials);
+  }, [project, furniture, geometry]);
+
+  // Карта присадки (PROMPT 18). Третья производная величина подряд и
+  // считается так же: из проекта и готовой геометрии, без хранения и без
+  // инвалидации — устаревать нечему (§26).
+  const drillingDebug = useMemo(() => {
+    if (!import.meta.env.DEV || furniture === undefined || geometry === undefined) return undefined;
+    const geometryByFurniture = new Map([[furniture.id, geometry]]);
+    const plan = calculateDrilling(project, { geometry: geometryByFurniture });
+    const production = toProductionParts(geometry, project.materials, project.settings.cutting).parts;
+    return formatDrillingDebug({
+      plan,
+      partsById: new Map(geometry.parts.map((p) => [p.id, p])),
+      productionById: new Map(production.map((p) => [p.id, p])),
+    });
   }, [project, furniture, geometry]);
 
   const report = useMemo(() => validateProject(project), [project]);
@@ -1267,6 +1283,25 @@ export function App(): React.JSX.Element {
                   Карта раскроя (debug)
                 </h3>
                 <CuttingMap view={cuttingView} />
+              </>
+            )}
+
+            {/*
+              Карта присадки (PROMPT 18 §28): деталь, грань, отверстия с
+              диаметром, глубиной, направлением и идентификатором операции.
+              Технический вывод, не редактор: перемещения отверстий нет
+              намеренно (§25, §34).
+            */}
+            {drillingDebug === undefined ? null : (
+              <>
+                <h3 className={styles.panelTitle} style={{ marginTop: 'var(--sp-4)' }}>
+                  Присадка (расчёт)
+                </h3>
+                <ul className={styles.hardwareDebug}>
+                  {drillingDebug.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
               </>
             )}
 

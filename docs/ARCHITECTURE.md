@@ -207,6 +207,12 @@ src/
     stock.ts                 лист из Material.sheet, рабочая область после trim
     layout.ts                гильотинная раскладка best-fit decreasing
     engine.ts                calculateCutting: детали → группы → листы → раскладка
+  drilling/                  Geometry + Parts + Hardware → DrillingPlan, чистые функции
+    types.ts                 DrillingOperation, DrillingPlan, DrillingParameters
+    faces.ts                 локальная система детали, грани, переход в мировые
+    rules/                   петли, направляющие, полкодержатели, крепёж, ручки, push
+    validate.ts              границы, глубина, пересечения, технологические отступы
+    engine.ts                calculateDrilling: правила → проверки → порядок
   validation/                правила → Issue[]
     rules/{values,references,structure}.ts
   persistence/               схема Zod, сериализация, миграции, репозитории
@@ -224,7 +230,7 @@ tests/
 scripts/                     проверки реестра предположений и самостоятельности
 ```
 
-Появится на следующих этапах: `geometry/stages/{back,base,countertop,edges,drilling}`
+Появится на следующих этапах: `geometry/stages/{edges}`. Этап `drilling` конвейера геометрии остаётся не реализованным намеренно: присадка выводится из фурнитуры, а фурнитура геометрии не видна — расчёт живёт в `src/drilling/` (PROMPT 18)
 (`fill` и `facades` уже реализованы — PROMPT 6/9 и PROMPT 10 соответственно),
 `parts/` (спецификация и группировка), `export/`, `planner/`. Интерактивная
 (не debug) отрисовка схемы — расширение уже существующего `render/`, а не
