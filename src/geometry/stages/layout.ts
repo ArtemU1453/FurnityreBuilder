@@ -10,7 +10,6 @@ import type {
   SplitAxis,
 } from '../../domain/index.js';
 import {
-  DEFAULT_EDGE,
   MIN_CELL_SIZE,
   dividerOffset,
   extentAlong,
@@ -21,7 +20,8 @@ import {
   vec3,
 } from '../../domain/index.js';
 import type { GeometryContext, GeometryStage } from '../context.js';
-import { makePart, resolveMaterial } from '../parts.js';
+import type { resolveMaterial } from '../parts.js';
+import { makePart, resolveEffectiveMaterial } from '../parts.js';
 
 /**
  * Раскладка дерева секций: превращает `Furniture.root` (уже существующее
@@ -55,20 +55,64 @@ function dividerOrientation(axis: SplitAxis): PartOrientation {
 interface ResolvedDividerMaterial {
   readonly materialId: ReturnType<typeof resolveMaterial>['materialId'];
   readonly edge: EdgeSpec;
+  readonly roleNotAssigned: boolean;
+  readonly danglingMaterialId: boolean;
+  readonly danglingEdgeMaterialId: boolean;
+  readonly structuralGlassOrMirror: boolean;
 }
 
-function resolveDividerMaterial(
-  materials: MaterialLibrary,
-  role: PartRole,
-  divider: DividerSpec,
-  onFallback: () => void,
-): ResolvedDividerMaterial {
-  if (divider.materialId !== undefined) {
-    return { materialId: divider.materialId, edge: divider.edge ?? DEFAULT_EDGE };
+/**
+ * Материал перегородки/разделителя. Толщина здесь НЕ пересчитывается через
+ * материал (в отличие от полки, PROMPT 13 §9): `DividerSpec.thickness` —
+ * обязательное поле, то есть уже explicit override верхнего уровня
+ * приоритета, и именно по нему считает `resolveSizes` деление ячейки —
+ * заводить второй, материал-зависимый источник толщины здесь означало бы
+ * разойтись с уже посчитанными границами ячеек. Материал здесь только
+ * назначает `materialId`/`edge` детали и проверяется на битую ссылку.
+ */
+function resolveDividerMaterial(materials: MaterialLibrary, role: PartRole, divider: DividerSpec): ResolvedDividerMaterial {
+  const resolved = resolveEffectiveMaterial({
+    materials,
+    role,
+    explicitMaterialId: divider.materialId,
+    explicitEdge: divider.edge,
+    thicknessOverride: divider.thickness,
+    corpusThickness: divider.thickness,
+  });
+  return {
+    materialId: resolved.materialId,
+    edge: resolved.edge,
+    roleNotAssigned: resolved.roleNotAssigned,
+    danglingMaterialId: resolved.danglingMaterialId,
+    danglingEdgeMaterialId: resolved.danglingEdgeMaterialId,
+    structuralGlassOrMirror: resolved.structuralGlassOrMirror,
+  };
+}
+
+/**
+ * Диагностики результата `resolveDividerMaterial` — тот же приём, что
+ * в `stages/fill.ts`/`stages/facades.ts` (PROMPT 13 §15/§20).
+ */
+function reportMaterialIssues(ctx: GeometryContext, nodeId: NodeId, label: string, resolved: ResolvedDividerMaterial): void {
+  if (resolved.danglingMaterialId) {
+    ctx.report(
+      'MATERIAL_REFERENCE_BROKEN',
+      'error',
+      `${label}: указанный материал не найден в библиотеке, взят материал роли.`,
+      { nodeId },
+    );
   }
-  const resolved = resolveMaterial(materials, role);
-  if (!resolved.resolved) onFallback();
-  return { materialId: resolved.materialId, edge: divider.edge ?? DEFAULT_EDGE };
+  if (resolved.danglingEdgeMaterialId) {
+    ctx.report('MATERIAL_REFERENCE_BROKEN', 'error', `${label}: материал кромки не найден в библиотеке.`, { nodeId });
+  }
+  if (resolved.structuralGlassOrMirror) {
+    ctx.report(
+      'GLASS_MIRROR_STRUCTURAL_ROLE',
+      'warning',
+      `${label}: стекло/зеркало назначено на несущую роль — деталь построена, проверьте выбор материала.`,
+      { nodeId },
+    );
+  }
 }
 
 /** Секция ребёнка при первом (и единственном) делении верхнего уровня по X. */
@@ -196,7 +240,9 @@ export const layoutStage: GeometryStage = {
       // Перегородки: N детей дают N−1 границ между ними.
       if (node.divider.material === 'panel') {
         const role = dividerRole(node.axis, node.divider);
-        const mat = resolveDividerMaterial(materials, role, node.divider, reportMaterialFallback);
+        const mat = resolveDividerMaterial(materials, role, node.divider);
+        if (mat.roleNotAssigned) reportMaterialFallback();
+        reportMaterialIssues(ctx, node.id, node.axis === 'x' ? 'Перегородка' : 'Разделитель', mat);
 
         for (let i = 0; i < node.children.length - 1; i += 1) {
           const offset = dividerOffset(result.spans, i);

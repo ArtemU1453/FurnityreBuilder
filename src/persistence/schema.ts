@@ -32,7 +32,7 @@ const sheetFormat = z.object({ width: positiveMm, height: positiveMm, trim: mm }
 const material = z.object({
   id,
   name: z.string(),
-  kind: z.enum(['chipboard', 'mdf', 'plywood', 'hardboard', 'solid', 'glass', 'other']),
+  kind: z.enum(['chipboard', 'mdf', 'plywood', 'hardboard', 'solid', 'glass', 'mirror', 'other']),
   thickness: positiveMm,
   displayColor: z.string(),
   grain: z.enum(['none', 'along-length', 'along-width']),

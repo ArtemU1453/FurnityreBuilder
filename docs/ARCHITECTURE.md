@@ -291,6 +291,35 @@ export function buildGeometry(input: GeometryInput): GeometryResult;
 (`PIPELINE` в `src/geometry/engine.ts`) — так неполный результат нельзя
 принять за полный: пропущенные этапы попадают в `GeometryResult.pendingStages`.
 
+**Материал — вход этапов, а не отдельный этап** (PROMPT 13). Библиотека
+материалов приходит в движок вместе с изделием (`GeometryInput.materials`),
+и любой этап, который создаёт физическую деталь, проходит один и тот же
+конвейер:
+
+```
+MaterialRegistry (MaterialLibrary)
+        │  materials.assignment[role] — материал роли
+        │  Shelf/DividerSpec/FacadeLeaf/DrawerFacadeSpec.materialId — материал детали
+        ▼
+resolveEffectiveMaterial(materials, role, explicit*, corpusThickness)   src/geometry/parts.ts
+        │  materialId  — всегда существующий в библиотеке
+        │  thickness   — override ?? material.thickness ?? panelThickness
+        │  edge        — EdgeSpec детали ?? DEFAULT_EDGE
+        │  флаги       — roleNotAssigned / dangling* / structuralGlassOrMirror
+        ▼
+makePart(... materialId, size(thickness), edge ...)                     src/geometry/parts.ts
+        ▼
+Part (materialId, size, cut, edge, quantityGroupKey)
+```
+
+Ни один этап не читает `Material.thickness` сам и не хранит «свою»
+толщину: `layout` (перегородки), `fill` (полки, фасады ящиков) и
+`facades` (дверные створки) получают уже вычисленное число. Резолверы
+`resolveDoorGeometry`/`resolveDrawerFacadeGeometry` остаются чистыми и
+`MaterialLibrary` не импортируют — толщина приходит в них callback'ом
+`thicknessOf(leaf|drawer)`, который этап-вызыватель строит из
+`resolveEffectiveMaterial`. Правила — `docs/GEOMETRY_RULES.md` §21.
+
 Каждый реализованный шаг — отдельный модуль (`src/geometry/stages/`)
 с собственными unit-тестами. Цикл, запускающий этапы, останавливается,
 как только предыдущий этап сообщил об ошибке — см. §5.4.

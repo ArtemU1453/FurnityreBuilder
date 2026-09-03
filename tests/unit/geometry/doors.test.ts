@@ -202,7 +202,7 @@ describe('Test 12: недопустимая геометрия отклоняе�
   it('резолвер напрямую: 0 створок — invalid', () => {
     const cell = { nodeId: asId<'Node'>('c'), box: { min: { x: 0, y: 0, z: 0 }, size: { x: 500, y: 500, z: 500 } }, sectionId: asId<'Node'>('s'), row: 0, column: 0, fill: { kind: 'empty' as const } };
     const facade: FacadeGroup = { id: asId<'Node'>('f'), covers: { kind: 'node', nodeId: cell.nodeId }, type: 'hinged', leaves: [], overlay: DEFAULT_OVERLAY };
-    const resolution = resolveDoorGeometry(facade, cell, T);
+    const resolution = resolveDoorGeometry(facade, cell, () => T);
     expect(resolution.status).toBe('invalid');
     expect(resolution.leaves).toHaveLength(0);
   });
@@ -250,7 +250,7 @@ describe('резолвер: явный статус для нереализов�
         leaves: [{ id: asId<'Node'>('l1'), size: { mode: 'flex', weight: 1 }, hingeSide: 'none' }],
         overlay: DEFAULT_OVERLAY,
       };
-      const resolution = resolveDoorGeometry(facade, cell, T);
+      const resolution = resolveDoorGeometry(facade, cell, () => T);
       expect(resolution.status).toBe('not-implemented');
       expect(resolution.leaves).toHaveLength(0);
     }

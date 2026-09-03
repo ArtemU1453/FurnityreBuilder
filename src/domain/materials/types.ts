@@ -14,7 +14,16 @@ export type MaterialKind =
   | 'hardboard'
   | 'solid'
   | 'glass'
+  | 'mirror'
   | 'other';
+
+/**
+ * Несущие роли, для которых стекло/зеркало — необычный, но не запрещённый
+ * выбор (PROMPT 13 §15): при таком сочетании движок сообщает
+ * `GLASS_MIRROR_STRUCTURAL_ROLE` (warning), но всё равно строит деталь —
+ * это предупреждение о вероятной ошибке ввода, а не производственный запрет.
+ */
+export const STRUCTURAL_ROLES = ['side', 'top', 'bottom', 'partition', 'shelf-fixed', 'shelf-adjustable'] satisfies readonly PartRole[];
 
 /** Направление текстуры. Влияет на разрешённый поворот детали при раскрое. */
 export type Grain = 'none' | 'along-length' | 'along-width';

@@ -11,7 +11,7 @@ import {
   vec3,
 } from '../../domain/index.js';
 import type { GeometryContext, GeometryStage } from '../context.js';
-import { makePart, resolveMaterial } from '../parts.js';
+import { makePart, resolveEffectiveMaterial, resolveMaterial } from '../parts.js';
 import { contentLabel, resolveContentGeometry } from '../content.js';
 import { resolveDrawerFacadeGeometry } from '../drawers.js';
 import { resolveOpeningSystemGeometry } from '../opening-system.js';
@@ -56,20 +56,37 @@ function openingLabel(kind: 'none' | 'handle' | 'push-to-open'): string {
 interface ResolvedShelfMaterial {
   readonly materialId: ReturnType<typeof resolveMaterial>['materialId'];
   readonly edge: EdgeSpec;
+  readonly thickness: Mm;
+  readonly roleNotAssigned: boolean;
+  readonly danglingMaterialId: boolean;
+  readonly danglingEdgeMaterialId: boolean;
+  readonly structuralGlassOrMirror: boolean;
 }
 
-function resolveShelfMaterial(
-  materials: MaterialLibrary,
-  role: PartRole,
-  shelf: Shelf,
-  onFallback: () => void,
-): ResolvedShelfMaterial {
-  if (shelf.materialId !== undefined) {
-    return { materialId: shelf.materialId, edge: shelf.edge ?? DEFAULT_EDGE };
-  }
-  const resolved = resolveMaterial(materials, role);
-  if (!resolved.resolved) onFallback();
-  return { materialId: resolved.materialId, edge: shelf.edge ?? DEFAULT_EDGE };
+/**
+ * Единая точка входа «материал + эффективная толщина» полки (PROMPT 13
+ * §9): толщина полки — `Shelf.thickness ?? material.thickness ?? T`, а не
+ * `Shelf.thickness ?? T`, как было до PROMPT 13 — материал перестаёт быть
+ * декорацией и становится источником геометрии, если override не задан.
+ */
+function resolveShelfMaterial(materials: MaterialLibrary, role: PartRole, shelf: Shelf, corpusThickness: Mm): ResolvedShelfMaterial {
+  const resolved = resolveEffectiveMaterial({
+    materials,
+    role,
+    explicitMaterialId: shelf.materialId,
+    explicitEdge: shelf.edge,
+    thicknessOverride: shelf.thickness,
+    corpusThickness,
+  });
+  return {
+    materialId: resolved.materialId,
+    edge: resolved.edge,
+    thickness: resolved.thickness,
+    roleNotAssigned: resolved.roleNotAssigned,
+    danglingMaterialId: resolved.danglingMaterialId,
+    danglingEdgeMaterialId: resolved.danglingEdgeMaterialId,
+    structuralGlassOrMirror: resolved.structuralGlassOrMirror,
+  };
 }
 
 /** Одна вычисленная полка до создания `Part`: только то, что нужно для геометрии и для проверки пересечений. */
@@ -94,7 +111,14 @@ interface ShelfPlan {
  * группы физически противоречили бы самой идее «равномерно». Полное
  * обоснование — `docs/GEOMETRY_RULES.md`, «Shelf Calculation Rules».
  */
-function planAutoShelves(ctx: GeometryContext, box: Box3, nodeId: NodeId, autoShelves: readonly Shelf[], thicknessDefault: Mm): ShelfPlan[] {
+function planAutoShelves(
+  ctx: GeometryContext,
+  box: Box3,
+  nodeId: NodeId,
+  autoShelves: readonly Shelf[],
+  materials: MaterialLibrary,
+  corpusThickness: Mm,
+): ShelfPlan[] {
   const count = autoShelves.length;
   const declaredCounts = new Set(
     autoShelves.map((s) => (s.placement.mode === 'auto' ? s.placement.count : -1)),
@@ -112,7 +136,11 @@ function planAutoShelves(ctx: GeometryContext, box: Box3, nodeId: NodeId, autoSh
     return [];
   }
 
-  const thickness = autoShelves[0]?.thickness ?? thicknessDefault;
+  const firstShelf = autoShelves[0];
+  const thickness =
+    firstShelf === undefined
+      ? corpusThickness
+      : resolveShelfMaterial(materials, shelfRole(firstShelf.mounting), firstShelf, corpusThickness).thickness;
   const result = resolveSizes(
     Array.from({ length: count + 1 }, () => ({ mode: 'flex' as const, weight: 1 })),
     box.size.y,
@@ -149,10 +177,17 @@ function planAutoShelves(ctx: GeometryContext, box: Box3, nodeId: NodeId, autoSh
 }
 
 /** Полка с ручным положением: `offsetFromBottom` — прямой ввод, без распределения. */
-function planManualShelf(ctx: GeometryContext, box: Box3, nodeId: NodeId, shelf: Shelf, thicknessDefault: Mm): ShelfPlan | undefined {
+function planManualShelf(
+  ctx: GeometryContext,
+  box: Box3,
+  nodeId: NodeId,
+  shelf: Shelf,
+  materials: MaterialLibrary,
+  corpusThickness: Mm,
+): ShelfPlan | undefined {
   if (shelf.placement.mode !== 'manual') return undefined;
   const { offsetFromBottom } = shelf.placement;
-  const thickness = shelf.thickness ?? thicknessDefault;
+  const thickness = resolveShelfMaterial(materials, shelfRole(shelf.mounting), shelf, corpusThickness).thickness;
 
   if (ltMm(offsetFromBottom, 0)) {
     ctx.report('SHELF_OUT_OF_CELL_BOUNDS', 'error', 'Отступ полки от низа ячейки отрицателен: полка не построена.', { nodeId });
@@ -189,6 +224,45 @@ function reportOverlaps(ctx: GeometryContext, nodeId: NodeId, plans: readonly Sh
     if (gtMm(roundMm(prev.y + prev.thickness), cur.y)) {
       ctx.report('SHELF_OVERLAP', 'error', 'Две полки одной ячейки пересекаются по высоте.', { nodeId });
     }
+  }
+}
+
+/**
+ * Единые диагностики результата `resolveEffectiveMaterial` (PROMPT 13
+ * §15/§20): битая ссылка на материал — явная `error`-диагностика, а не
+ * тихий откат на материал роли («отсутствующий материал не приводит
+ * к тихому fallback»); несущая роль со стеклом/зеркалом — `warning`
+ * (`T-MAT-04`): деталь всё равно строится, это предупреждение о вероятной
+ * ошибке ввода, а не производственный запрет.
+ */
+function reportMaterialIssues(
+  ctx: GeometryContext,
+  nodeId: NodeId,
+  label: string,
+  resolved: {
+    readonly danglingMaterialId: boolean;
+    readonly danglingEdgeMaterialId: boolean;
+    readonly structuralGlassOrMirror: boolean;
+  },
+): void {
+  if (resolved.danglingMaterialId) {
+    ctx.report(
+      'MATERIAL_REFERENCE_BROKEN',
+      'error',
+      `${label}: указанный материал не найден в библиотеке, взят материал роли.`,
+      { nodeId },
+    );
+  }
+  if (resolved.danglingEdgeMaterialId) {
+    ctx.report('MATERIAL_REFERENCE_BROKEN', 'error', `${label}: материал кромки не найден в библиотеке.`, { nodeId });
+  }
+  if (resolved.structuralGlassOrMirror) {
+    ctx.report(
+      'GLASS_MIRROR_STRUCTURAL_ROLE',
+      'warning',
+      `${label}: стекло/зеркало назначено на несущую роль — деталь построена, проверьте выбор материала.`,
+      { nodeId },
+    );
   }
 }
 
@@ -246,7 +320,27 @@ export const fillStage: GeometryStage = {
       }
 
       if (content.kind === 'drawers' && content.drawers.length > 0) {
-        const resolution = resolveDrawerFacadeGeometry(content.drawers, cell, T);
+        // Материал/толщина каждого фасада ящика — один расчёт (PROMPT 13
+        // §9), переиспользованный и для `thicknessOf`, и для самой детали
+        // ниже: тот же приём, что и у двери (`stages/facades.ts`).
+        const drawerMaterials = new Map(
+          content.drawers.map((drawer) => [
+            drawer.id,
+            resolveEffectiveMaterial({
+              materials,
+              role: DRAWER_FACADE_ROLE,
+              explicitMaterialId: drawer.facade.materialId,
+              explicitEdge: drawer.facade.edge,
+              thicknessOverride: drawer.facade.thickness,
+              corpusThickness: T,
+            }),
+          ]),
+        );
+        const resolution = resolveDrawerFacadeGeometry(
+          content.drawers,
+          cell,
+          (drawer) => drawerMaterials.get(drawer.id)?.thickness ?? T,
+        );
 
         if (resolution.status === 'invalid') {
           // Та же граница error/info, что и у двери (PROMPT 10
@@ -274,24 +368,22 @@ export const fillStage: GeometryStage = {
           }
 
           resolution.facades.forEach((facadeGeo, i) => {
-            const materialId = facadeGeo.materialId;
-            const resolvedMaterial =
-              materialId === undefined
-                ? resolveMaterial(materials, DRAWER_FACADE_ROLE)
-                : { materialId, resolved: true };
-            if (materialId === undefined && !resolvedMaterial.resolved) reportDrawerMaterialFallback();
+            const resolvedMaterial = drawerMaterials.get(facadeGeo.drawerId);
+            if (resolvedMaterial?.roleNotAssigned === true) reportDrawerMaterialFallback();
+            const label = resolution.facades.length > 1 ? `Фасад ящика ${String(i + 1)}` : 'Фасад ящика';
+            if (resolvedMaterial !== undefined) reportMaterialIssues(ctx, cell.nodeId, label, resolvedMaterial);
 
             ctx.addPart(
               makePart({
                 furnitureId: furniture.id,
                 role: DRAWER_FACADE_ROLE,
-                label: resolution.facades.length > 1 ? `Фасад ящика ${String(i + 1)}` : 'Фасад ящика',
+                label,
                 index: facadeGeo.drawerId,
                 position: vec3(facadeGeo.x, facadeGeo.y, facadeGeo.z),
                 size: vec3(facadeGeo.width, facadeGeo.height, facadeGeo.thickness),
                 orientation: 'frontal-xy',
-                materialId: resolvedMaterial.materialId,
-                edge: facadeGeo.edge ?? DEFAULT_EDGE,
+                materialId: resolvedMaterial?.materialId ?? resolveMaterial(materials, DRAWER_FACADE_ROLE).materialId,
+                edge: resolvedMaterial?.edge ?? DEFAULT_EDGE,
                 edgeSizing,
                 nodeId: cell.nodeId,
               }),
@@ -351,10 +443,10 @@ export const fillStage: GeometryStage = {
 
       const plans: ShelfPlan[] = [];
       if (autoShelves.length > 0) {
-        plans.push(...planAutoShelves(ctx, cell.box, cell.nodeId, autoShelves, T));
+        plans.push(...planAutoShelves(ctx, cell.box, cell.nodeId, autoShelves, materials, T));
       }
       for (const shelf of manualShelves) {
-        const plan = planManualShelf(ctx, cell.box, cell.nodeId, shelf, T);
+        const plan = planManualShelf(ctx, cell.box, cell.nodeId, shelf, materials, T);
         if (plan !== undefined) plans.push(plan);
       }
 
@@ -362,7 +454,9 @@ export const fillStage: GeometryStage = {
 
       plans.forEach((plan, i) => {
         const role = shelfRole(plan.shelf.mounting);
-        const mat = resolveShelfMaterial(materials, role, plan.shelf, reportMaterialFallback);
+        const mat = resolveShelfMaterial(materials, role, plan.shelf, T);
+        if (mat.roleNotAssigned) reportMaterialFallback();
+        reportMaterialIssues(ctx, cell.nodeId, `Полка ${String(i + 1)}`, mat);
         ctx.addPart(
           makePart({
             furnitureId: furniture.id,

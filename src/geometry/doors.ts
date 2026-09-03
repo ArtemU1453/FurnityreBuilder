@@ -74,8 +74,12 @@ const MAX_SUPPORTED_LEAVES = 2;
  * - `height = cell.box.size.y - gapTop - gapBottom`, одна высота на все
  *   створки — вертикальный ряд из нескольких дверей не входит в базовый
  *   случай (PROMPT 10 §6);
- * - `thickness = leaf.thickness ?? panelThickness`, тот же приоритет,
- *   что у `Shelf.thickness`;
+ * - `thickness = thicknessOf(leaf)` — с PROMPT 13 вызывающая сторона
+ *   (`stages/facades.ts`) вычисляет её через `resolveEffectiveMaterial`:
+ *   `leaf.thickness ?? material.thickness ?? panelThickness`, тот же
+ *   приоритет, что у `Shelf.thickness` (`docs/GEOMETRY_RULES.md` §9.4),
+ *   но резолвер остаётся чистым и не импортирует `MaterialLibrary`
+ *   напрямую — только принимает уже вычисленное число через callback;
  * - `z` — передняя плоскость ячейки (`cell.box.min.z + cell.box.size.z`):
  *   в системе координат этого проекта Z растёт от задней стенки к фасаду
  *   (`stages/carcass.ts`, `carcassZ0`/`carcassDepth`), поэтому дверь
@@ -94,7 +98,7 @@ const MAX_SUPPORTED_LEAVES = 2;
 export function resolveDoorGeometry(
   facade: FacadeGroup,
   cell: CellBox,
-  panelThickness: Mm,
+  thicknessOf: (leaf: FacadeLeaf) => Mm,
 ): DoorGeometryResolution {
   if (facade.type !== 'hinged') {
     // Купе/складные/подъёмные — модель есть (`FacadeType`), геометрии нет
@@ -164,7 +168,7 @@ export function resolveDoorGeometry(
     const span = layout.spans[i];
     const width = roundMm(span?.length ?? 0);
     const x = roundMm(cell.box.min.x + gapSide + (span?.offset ?? 0));
-    const thickness = roundMm(leaf.thickness ?? panelThickness);
+    const thickness = roundMm(thicknessOf(leaf));
     return {
       leafId: leaf.id,
       x,

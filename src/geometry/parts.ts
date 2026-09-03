@@ -3,14 +3,16 @@ import type {
   EdgeSizingPolicy,
   FurnitureId,
   MaterialId,
+  MaterialKind,
   MaterialLibrary,
+  Mm,
   NodeId,
   Part,
   PartOrientation,
   PartRole,
   Vec3,
 } from '../domain/index.js';
-import { buildPartId, buildQuantityGroupKey, roundMm, vec3 } from '../domain/index.js';
+import { DEFAULT_EDGE, STRUCTURAL_ROLES, buildPartId, buildQuantityGroupKey, roundMm, vec3 } from '../domain/index.js';
 
 /**
  * Соответствие локальных сторон детали её габариту.
@@ -73,6 +75,107 @@ export function resolveMaterial(
   if (assigned !== undefined) return { materialId: assigned, resolved: true };
   const first = Object.keys(materials.items)[0];
   return { materialId: (first ?? '') as MaterialId, resolved: false };
+}
+
+/**
+ * Единая точка входа «эффективный материал + эффективная толщина» для
+ * ЛЮБОЙ детали (полка, перегородка, дверная створка, фасад ящика) —
+ * PROMPT 13 §2/§9. Место, где раньше расходились два источника толщины:
+ * `Part.size` брал `Shelf.thickness ?? panelThickness` (корпус), а
+ * `Material.thickness` того же материала при этом мог быть другим числом
+ * и нигде не читался. Стеклянная полка 4 мм назначенным материалом
+ * стекла получала бы толщину детали 16 мм (толщину корпуса) — материал
+ * был декорацией, а не источником геометрии.
+ *
+ * Единый приоритет толщины (`docs/GEOMETRY_RULES.md`, новый раздел
+ * «ЭФФЕКТИВНАЯ ТОЛЩИНА»):
+ *   1. явный override поля детали (`Shelf.thickness`, `FacadeLeaf.thickness`,
+ *      `DrawerFacadeSpec.thickness`, `DividerSpec.thickness` — последнее
+ *      обязательное поле, поэтому по факту всегда уровень 1);
+ *   2. `Material.thickness` уже назначенного материала;
+ *   3. толщина корпуса (`Dimensions.panelThickness`) — аварийный запасной
+ *      вариант на случай, если материал определить не удалось (пустая
+ *      библиотека).
+ * `ASSUMPTION(T-MAT-03)`: точный порядок референсом не подтверждён,
+ * выбран как единственный, не противоречащий уже реализованным
+ * `Shelf.thickness ?? panelThickness`/`leaf.thickness ?? panelThickness`
+ * (уровень 1 не меняется — меняется только то, что раньше было
+ * безусловным «низом» приоритета).
+ *
+ * Материал по ссылке (`materialId` на детали), которого нет в
+ * `materials.items`, — не тихий откат на роль-материал в обход
+ * диагностики: `danglingMaterialId` сообщает об этом вызывающей стороне,
+ * которая обязана поднять `error`-диагностику (PROMPT 13 §15/§20 —
+ * «отсутствующий материал не приводит к тихому fallback»). Деталь при
+ * этом всё равно строится (на роль-материале) — иначе один битый
+ * `materialId` в старом проекте останавливал бы весь расчёт целиком, что
+ * хуже, чем видимая ошибка на конкретной детали.
+ */
+export interface EffectiveMaterial {
+  readonly materialId: MaterialId;
+  readonly thickness: Mm;
+  readonly edge: EdgeSpec;
+  /** `undefined`, только если материал не найден совсем (пустая библиотека). */
+  readonly kind?: MaterialKind;
+  readonly roleNotAssigned: boolean;
+  readonly danglingMaterialId: boolean;
+  readonly danglingEdgeMaterialId: boolean;
+  /** Стекло/зеркало на несущей роли (PROMPT 13 §15, `T-MAT-04`) — предупреждение, не запрет. */
+  readonly structuralGlassOrMirror: boolean;
+}
+
+export interface ResolveEffectiveMaterialArgs {
+  readonly materials: MaterialLibrary;
+  readonly role: PartRole;
+  /** Явная ссылка на материал детали (`Shelf.materialId` и аналоги), если задана. */
+  readonly explicitMaterialId?: MaterialId | undefined;
+  /** Явная кромка детали (`Shelf.edge` и аналоги), если задана. */
+  readonly explicitEdge?: EdgeSpec | undefined;
+  /** Явный override толщины детали (`Shelf.thickness` и аналоги), если задан. */
+  readonly thicknessOverride?: Mm | undefined;
+  /** Толщина корпуса (`Dimensions.panelThickness`) — уровень 3 приоритета. */
+  readonly corpusThickness: Mm;
+}
+
+export function resolveEffectiveMaterial(args: ResolveEffectiveMaterialArgs): EffectiveMaterial {
+  let materialId: MaterialId;
+  let roleNotAssigned = false;
+  let danglingMaterialId = false;
+
+  if (args.explicitMaterialId !== undefined) {
+    if (args.materials.items[args.explicitMaterialId] !== undefined) {
+      materialId = args.explicitMaterialId;
+    } else {
+      danglingMaterialId = true;
+      const fallback = resolveMaterial(args.materials, args.role);
+      materialId = fallback.materialId;
+      roleNotAssigned = !fallback.resolved;
+    }
+  } else {
+    const resolved = resolveMaterial(args.materials, args.role);
+    materialId = resolved.materialId;
+    roleNotAssigned = !resolved.resolved;
+  }
+
+  const material = args.materials.items[materialId];
+  const thickness = roundMm(args.thicknessOverride ?? material?.thickness ?? args.corpusThickness);
+  const edge = args.explicitEdge ?? DEFAULT_EDGE;
+  const danglingEdgeMaterialId =
+    edge.materialId !== undefined && args.materials.items[edge.materialId] === undefined;
+  const structuralGlassOrMirror =
+    (material?.kind === 'glass' || material?.kind === 'mirror') &&
+    (STRUCTURAL_ROLES as readonly PartRole[]).includes(args.role);
+
+  return {
+    materialId,
+    thickness,
+    edge,
+    ...(material === undefined ? {} : { kind: material.kind }),
+    roleNotAssigned,
+    danglingMaterialId,
+    danglingEdgeMaterialId,
+    structuralGlassOrMirror,
+  };
 }
 
 export interface MakePartArgs {

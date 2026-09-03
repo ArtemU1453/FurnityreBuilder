@@ -7,8 +7,8 @@ import {
   createPushToOpenSystem,
   createShelvesLeaf,
 } from '../domain/furniture/defaults.js';
-import { asId, createRandomIdFactory, findNode, formatMm, isSplit } from '../domain/index.js';
-import type { HingeSide, LeafFill, MaterialId, NodeId, OpeningSystem } from '../domain/index.js';
+import { DEFAULT_EDGE, NO_EDGE, asId, createRandomIdFactory, findNode, formatMm, isSplit } from '../domain/index.js';
+import type { HingeSide, LeafFill, MaterialId, NodeId, OpeningSystem, PartRole } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
 import { buildDebugView, DebugSchema } from '../render/index.js';
@@ -94,8 +94,8 @@ export function App(): React.JSX.Element {
   // проверка искала имена (`DebugSchema`, `buildDebugView`), которые
   // минификация стирает, и потому давала ложное «чисто».
   const debugView = useMemo(
-    () => (!import.meta.env.DEV || geometry === undefined ? undefined : buildDebugView(geometry)),
-    [geometry],
+    () => (!import.meta.env.DEV || geometry === undefined ? undefined : buildDebugView(geometry, project.materials)),
+    [geometry, project.materials],
   );
 
   if (furniture === undefined || geometry === undefined) {
@@ -264,6 +264,41 @@ export function App(): React.JSX.Element {
       return { ...drawer, facade: { ...drawer.facade, opening } };
     });
     execute({ type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill: { kind: 'drawers', drawers } }, 'Способ открывания ящиков');
+  };
+
+  // Технические элементы управления материалами (PROMPT 13 §23): реестр,
+  // толщина материала, назначение по ролям и кромка. НЕ Material Editor —
+  // минимум, нужный, чтобы пройти конвейер
+  // Material → Thickness → Part → Geometry руками и увидеть, что
+  // изменение толщины материала пересчитывает всю зависимую геометрию.
+  const materialList = Object.values(project.materials.items);
+
+  const setMaterialThickness = (materialId: MaterialId, thickness: number): void => {
+    const material = project.materials.items[materialId];
+    if (material === undefined || !Number.isFinite(thickness) || thickness <= 0) return;
+    execute({ type: 'UpsertMaterial', material: { ...material, thickness } }, `Толщина материала: ${material.name}`);
+  };
+
+  /** Назначение материала группе ролей — одна транзакция, один шаг истории. */
+  const assignMaterial = (roles: readonly PartRole[], materialId: MaterialId, label: string): void => {
+    beginTransaction(label);
+    for (const role of roles) execute({ type: 'SetMaterialAssignment', role, materialId });
+    endTransaction();
+  };
+
+  const CARCASS_ROLES: readonly PartRole[] = ['side', 'top', 'bottom', 'partition'];
+  const SHELF_ROLES: readonly PartRole[] = ['shelf-fixed', 'shelf-adjustable'];
+
+  // Кромка створки: три варианта — по умолчанию (2/0/0.4/0.4), без кромки
+  // и снять переопределение (`null`, `removePartEdge` из §18).
+  const setDoorEdge = (mode: 'default' | 'none' | 'inherit'): void => {
+    const leaf = selectedFacade?.leaves[0];
+    if (selectedFacade === undefined || leaf === undefined) return;
+    const edge = mode === 'default' ? DEFAULT_EDGE : mode === 'none' ? NO_EDGE : null;
+    execute(
+      { type: 'UpdateFacadeLeaf', furnitureIndex: 0, facadeId: selectedFacade.id, leafId: leaf.id, patch: { edge } },
+      'Кромка двери',
+    );
   };
 
   // Дверь и фасад ящика используют одну и ту же роль `facade` (переиспользована,
@@ -505,6 +540,28 @@ export function App(): React.JSX.Element {
                     </select>
                   )}
                 </Field>
+                <Field label="Кромка">
+                  {({ id }) => (
+                    <select
+                      id={id}
+                      className={styles.numberInput}
+                      value={
+                        selectedFacade.leaves[0]?.edge === undefined
+                          ? 'inherit'
+                          : selectedFacade.leaves[0]?.edge?.front === 0
+                            ? 'none'
+                            : 'default'
+                      }
+                      onChange={(event) => {
+                        setDoorEdge(event.target.value as 'default' | 'none' | 'inherit');
+                      }}
+                    >
+                      <option value="inherit">по умолчанию</option>
+                      <option value="default">2/0/0.4/0.4 мм</option>
+                      <option value="none">без кромки</option>
+                    </select>
+                  )}
+                </Field>
                 <Field label="Открывание">
                   {({ id }) => (
                     <select
@@ -575,6 +632,129 @@ export function App(): React.JSX.Element {
           <Button onClick={removeDrawer} disabled={selectedDrawers.length === 0} style={{ marginTop: 'var(--sp-2)' }}>
             Убрать ящик
           </Button>
+        </section>
+
+        {/*
+          Материалы (PROMPT 13 §23). Технический минимум: реестр материалов
+          с их толщинами и назначение материала по ролям. Полноценный
+          Material Editor (декоры, форматы листа, кромочные материалы,
+          создание и удаление материалов) — НЕ этот этап, см.
+          docs/FEATURE_MATRIX.md.
+        */}
+        <section className={styles.panel} aria-labelledby="materials-title">
+          <h2 id="materials-title" className={styles.panelTitle}>
+            Материалы
+          </h2>
+          <p className={styles.pending}>
+            Толщина материала — источник геометрии: у детали без своего переопределения толщина берётся отсюда.
+          </p>
+          <div className={styles.grid}>
+            {materialList.map((material) => (
+              <Field key={material.id} label={`${material.name}, мм`}>
+                {({ id }) => (
+                  <input
+                    id={id}
+                    className={styles.numberInput}
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={material.thickness}
+                    onChange={(event) => {
+                      setMaterialThickness(material.id, event.target.valueAsNumber);
+                    }}
+                  />
+                )}
+              </Field>
+            ))}
+          </div>
+          <div className={styles.grid} style={{ marginTop: 'var(--sp-3)' }}>
+            <Field label="Материал корпуса">
+              {({ id }) => (
+                <select
+                  id={id}
+                  className={styles.numberInput}
+                  value={project.materials.assignment.side ?? ''}
+                  onChange={(event) => {
+                    if (event.target.value !== '') {
+                      assignMaterial(CARCASS_ROLES, asId<'Material'>(event.target.value), 'Материал корпуса');
+                    }
+                  }}
+                >
+                  <option value="">— не назначен —</option>
+                  {materialList.map((material) => (
+                    <option key={material.id} value={material.id}>
+                      {material.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field label="Материал полок">
+              {({ id }) => (
+                <select
+                  id={id}
+                  className={styles.numberInput}
+                  value={project.materials.assignment['shelf-adjustable'] ?? ''}
+                  onChange={(event) => {
+                    if (event.target.value !== '') {
+                      assignMaterial(SHELF_ROLES, asId<'Material'>(event.target.value), 'Материал полок');
+                    }
+                  }}
+                >
+                  <option value="">— не назначен —</option>
+                  {materialList.map((material) => (
+                    <option key={material.id} value={material.id}>
+                      {material.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field label="Материал фасадов">
+              {({ id }) => (
+                <select
+                  id={id}
+                  className={styles.numberInput}
+                  value={project.materials.assignment.facade ?? ''}
+                  onChange={(event) => {
+                    if (event.target.value !== '') {
+                      assignMaterial(['facade'], asId<'Material'>(event.target.value), 'Материал фасадов');
+                    }
+                  }}
+                >
+                  <option value="">— не назначен —</option>
+                  {materialList.map((material) => (
+                    <option key={material.id} value={material.id}>
+                      {material.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field label="Материал проекта по умолчанию">
+              {({ id }) => (
+                <select
+                  id={id}
+                  className={styles.numberInput}
+                  value={project.settings.defaultMaterialId}
+                  onChange={(event) => {
+                    if (event.target.value !== '') {
+                      execute(
+                        { type: 'SetDefaultMaterial', materialId: asId<'Material'>(event.target.value) },
+                        'Материал проекта',
+                      );
+                    }
+                  }}
+                >
+                  {materialList.map((material) => (
+                    <option key={material.id} value={material.id}>
+                      {material.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          </div>
         </section>
 
         <aside className={styles.panel} aria-labelledby="result-title">

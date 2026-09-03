@@ -9,6 +9,15 @@ import type { GeometryInput } from '../../../src/geometry/types.js';
 import { makeGeometryInput, makeGeometryInputWithRoot } from '../geometry/helpers.js';
 
 /**
+ * Материалы по умолчанию (PROMPT 13 §22): все геометрии в этом файле
+ * строятся через `makeGeometryInput`/`makeGeometryInputWithRoot`, обе
+ * используют один и тот же стартовый `createDefaultMaterials()` — та же
+ * библиотека, что и в геометрии, поэтому безопасно переиспользуется для
+ * всех вызовов `buildDebugView` в файле.
+ */
+const DEFAULT_MATERIALS = makeGeometryInput().materials;
+
+/**
  * `buildDebugView` — чистая проекция уже посчитанной геометрии. Тесты
  * проверяют, что она НЕ вычисляет собственную математику (PROMPT 4 §20):
  * каждое число здесь должно быть прослеживаемо к конкретному полю
@@ -17,7 +26,7 @@ import { makeGeometryInput, makeGeometryInputWithRoot } from '../geometry/helper
 
 describe('buildDebugView: базовый корпус', () => {
   const geometry = buildGeometry(makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 }));
-  const view = buildDebugView(geometry);
+  const view = buildDebugView(geometry, DEFAULT_MATERIALS);
 
   it('общие размеры совпадают с boundingBox геометрии, а не пересчитаны заново', () => {
     expect(view.totalWidth).toBe(geometry.boundingBox.totalWidth);
@@ -55,7 +64,7 @@ describe('buildDebugView: несколько секций', () => {
       panelThickness: 16,
     }),
   );
-  const view = buildDebugView(geometry);
+  const view = buildDebugView(geometry, DEFAULT_MATERIALS);
 
   it('по одной размерной линии на секцию', () => {
     const sectionDims = view.dimensions.filter((d) => d.id.startsWith('dim-section-'));
@@ -82,7 +91,7 @@ describe('buildDebugView: полки (PROMPT 6 §26–27)', () => {
       panelThickness: 16,
     }),
   );
-  const view = buildDebugView(geometry);
+  const view = buildDebugView(geometry, DEFAULT_MATERIALS);
 
   it('полка попадает в схему как деталь со своей ролью — рендерер отличит её от пустого пространства ячейки', () => {
     const shelfRects = view.rects.filter((r) => r.role === 'shelf-adjustable');
@@ -114,7 +123,7 @@ describe('buildDebugView: подписи секций (PROMPT 7 §22)', () => {
       panelThickness: 16,
     }),
   );
-  const view = buildDebugView(geometry);
+  const view = buildDebugView(geometry, DEFAULT_MATERIALS);
 
   it('по одной подписи SECTION N на секцию, нумерация с единицы', () => {
     expect(view.sectionLabels.map((s) => s.title)).toEqual(['SECTION 1', 'SECTION 2', 'SECTION 3']);
@@ -150,7 +159,7 @@ describe('buildDebugView: подписи объектов в debug-инфо (PRO
       { width, height: 2000, depth: 500, panelThickness: 16 },
     ),
   );
-  const view = buildDebugView(geometry);
+  const view = buildDebugView(geometry, DEFAULT_MATERIALS);
   const detailOf = (role: string) => view.rects.find((r) => r.role === role)?.detail ?? '';
 
   it('перегородка: id, X, толщина, высота', () => {
@@ -210,7 +219,7 @@ describe('buildDebugView: сценарии визуальной проверки
           panelThickness: T,
         }),
       );
-      const view = buildDebugView(geometry);
+      const view = buildDebugView(geometry, DEFAULT_MATERIALS);
 
       expect(geometry.sections.map((s) => s.box.size.x)).toEqual(widths);
       const cellRects = view.rects.filter((r) => r.kind === 'cell').sort((a, b) => a.x - b.x);
@@ -233,7 +242,7 @@ describe('buildDebugView: сценарии визуальной проверки
           panelThickness: T,
         }),
       );
-      const view = buildDebugView(geometry);
+      const view = buildDebugView(geometry, DEFAULT_MATERIALS);
       const cellRects = view.rects.filter((r) => r.kind === 'cell').sort((a, b) => a.y - b.y);
       expect(cellRects.map((r) => r.height)).toEqual(heights);
     },
@@ -243,7 +252,7 @@ describe('buildDebugView: сценарии визуальной проверки
 describe('buildDebugView: наполнение ячейки (PROMPT 9 §15)', () => {
   it('пустая ячейка подписана как CONTENT: ПУСТО', () => {
     const geometry = buildGeometry(makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 }));
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     const cell = view.rects.find((r) => r.kind === 'cell');
     expect(cell?.content).toBe('CONTENT: ПУСТО');
   });
@@ -257,7 +266,7 @@ describe('buildDebugView: наполнение ячейки (PROMPT 9 §15)', ()
         panelThickness: 16,
       }),
     );
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     const cell = view.rects.find((r) => r.kind === 'cell');
     expect(cell?.content).toBe('CONTENT: ПОЛКИ');
   });
@@ -271,7 +280,7 @@ describe('buildDebugView: наполнение ячейки (PROMPT 9 §15)', ()
         panelThickness: 16,
       }),
     );
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     const cell = view.rects.find((r) => r.kind === 'cell')!;
     expect(cell.detail).toContain(geometry.cells[0]!.nodeId);
     expect(cell.detail).toContain('shelves');
@@ -293,7 +302,7 @@ describe('buildDebugView: наполнение ячейки (PROMPT 9 §15)', ()
         { width: 1200, height: 2000, depth: 500, panelThickness: 16 },
       ),
     );
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     const cells = view.rects.filter((r) => r.kind === 'cell').sort((a, b) => a.x - b.x);
     expect(cells.map((c) => c.content)).toEqual(['CONTENT: ПОЛКИ', 'CONTENT: ПУСТО']);
     expect(cells.map((c) => c.id)).toEqual(geometry.cells.map((c) => c.nodeId));
@@ -315,7 +324,7 @@ describe('buildDebugView: дверь на ячейке (PROMPT 10 §18)', () => 
 
   it('дверь становится прямоугольником-деталью со своей ролью', () => {
     const { geometry } = buildWithDoor();
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     const door = view.rects.find((r) => r.role === 'facade');
     expect(door).toBeDefined();
     expect(door?.kind).toBe('part');
@@ -323,7 +332,7 @@ describe('buildDebugView: дверь на ячейке (PROMPT 10 §18)', () => 
 
   it('подпись двери содержит id, координаты, ширину/высоту/толщину и сторону петель', () => {
     const { geometry } = buildWithDoor();
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     const door = view.rects.find((r) => r.role === 'facade')!;
     expect(door.detail).toContain(door.id);
     expect(door.detail).toContain('петли слева');
@@ -334,7 +343,7 @@ describe('buildDebugView: дверь на ячейке (PROMPT 10 §18)', () => 
 
   it('ячейка с дверью показывает её в CONTENT и в подробной подписи', () => {
     const { geometry, cellId } = buildWithDoor();
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     const cell = view.rects.find((r) => r.kind === 'cell' && r.id === cellId)!;
     expect(cell.content).toContain('ДВЕРЬ');
     expect(cell.detail).toContain('дверь');
@@ -342,7 +351,7 @@ describe('buildDebugView: дверь на ячейке (PROMPT 10 §18)', () => 
 
   it('ячейка без двери не упоминает её в подписи', () => {
     const geometry = buildGeometry(makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 }));
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     const cell = view.rects.find((r) => r.kind === 'cell')!;
     expect(cell.content).not.toContain('ДВЕРЬ');
     expect(cell.detail).not.toContain('дверь');
@@ -359,7 +368,7 @@ describe('buildDebugView: фасады ящиков на ячейке (PROMPT 11
         panelThickness: 16,
       }),
     );
-    const facadeRects = buildDebugView(geometry).rects.filter((r) => r.role === 'facade');
+    const facadeRects = buildDebugView(geometry, DEFAULT_MATERIALS).rects.filter((r) => r.role === 'facade');
     expect(facadeRects).toHaveLength(2);
     expect(facadeRects.every((r) => r.kind === 'part')).toBe(true);
   });
@@ -373,7 +382,7 @@ describe('buildDebugView: фасады ящиков на ячейке (PROMPT 11
         panelThickness: 16,
       }),
     );
-    const cell = buildDebugView(geometry).rects.find((r) => r.kind === 'cell')!;
+    const cell = buildDebugView(geometry, DEFAULT_MATERIALS).rects.find((r) => r.kind === 'cell')!;
     expect(cell.content).toBe('CONTENT: ЯЩИКИ');
     expect(cell.content).not.toContain('ДВЕРЬ');
     expect(cell.detail).not.toContain('дверь');
@@ -383,7 +392,7 @@ describe('buildDebugView: фасады ящиков на ячейке (PROMPT 11
 describe('buildDebugView: пустой результат (фатальная ошибка входа)', () => {
   it('не падает, отдаёт вырожденный вид без прямоугольников и линий', () => {
     const geometry = buildGeometry(makeGeometryInput({ width: -100 }));
-    const view = buildDebugView(geometry);
+    const view = buildDebugView(geometry, DEFAULT_MATERIALS);
     expect(view.rects).toHaveLength(0);
     expect(view.dimensions).toHaveLength(0);
     expect(view.sectionLabels).toHaveLength(0);

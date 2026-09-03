@@ -180,7 +180,7 @@ describe('Test 14: недопустимая геометрия отклоняе�
     const ids = createSequentialIdFactory('d');
     const drawer = createDrawer(ids);
     const cell = { nodeId: asId<'Node'>('c'), box: { min: { x: 0, y: 0, z: 0 }, size: { x: 500, y: 3, z: 500 } }, sectionId: asId<'Node'>('s'), row: 0, column: 0, fill: { kind: 'empty' as const } };
-    const resolution = resolveDrawerFacadeGeometry([drawer], cell, T);
+    const resolution = resolveDrawerFacadeGeometry([drawer], cell, () => T);
     expect(resolution.status).toBe('invalid');
     expect(resolution.facades).toHaveLength(0);
   });

@@ -137,9 +137,17 @@ export type Command =
       readonly leafId: NodeId;
       readonly patch: {
         readonly hingeSide?: HingeSide;
-        readonly materialId?: MaterialId;
-        readonly edge?: EdgeSpec;
-        readonly thickness?: Mm;
+        /**
+         * `null` — СНЯТЬ переопределение (вернуться к материалу роли);
+         * то же и у `edge`/`thickness`. Это покрывает `removePartEdge`
+         * из PROMPT 13 §18 без второй команды: отсутствие ключа в патче
+         * («не трогай») и `null` («сбрось») — разные вещи, и различить их
+         * иначе, чем явным значением, при `exactOptionalPropertyTypes`
+         * нельзя.
+         */
+        readonly materialId?: MaterialId | null;
+        readonly edge?: EdgeSpec | null;
+        readonly thickness?: Mm | null;
         readonly size?: SizeSpec;
         readonly opening?: OpeningSystem;
       };
@@ -148,6 +156,16 @@ export type Command =
   | { readonly type: 'SetTolerances'; readonly tolerances: Tolerances }
   | { readonly type: 'SetEdgeSizingPolicy'; readonly policy: EdgeSizingPolicy }
   | { readonly type: 'SetMaterialAssignment'; readonly role: PartRole; readonly materialId: MaterialId }
+  | {
+      /**
+       * Материал проекта по умолчанию (`setProjectMaterial`, PROMPT 13 §18).
+       * `settings.defaultMaterialId` существовал с PROMPT 1 и проверялся
+       * валидацией, но изменить его было нечем — команда закрывает именно
+       * этот пробел, а не заводит второе поле «материал проекта».
+       */
+      readonly type: 'SetDefaultMaterial';
+      readonly materialId: MaterialId;
+    }
   | { readonly type: 'UpsertMaterial'; readonly material: Material }
   | { readonly type: 'RemoveMaterial'; readonly materialId: MaterialId };
 
@@ -413,9 +431,26 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
       if (leaf === undefined) return;
       const { patch } = command;
       if (patch.hingeSide !== undefined) leaf.hingeSide = patch.hingeSide;
-      if (patch.materialId !== undefined) leaf.materialId = patch.materialId;
-      if (patch.edge !== undefined) leaf.edge = patch.edge;
-      if (patch.thickness !== undefined) leaf.thickness = patch.thickness;
+      if (patch.materialId !== undefined) {
+        // Битую ссылку команда не создаёт (PROMPT 13 §15): материал должен
+        // существовать в библиотеке. Появиться такая ссылка может только
+        // из файла проекта, где команда не выполнялась, — там её ловит
+        // диагностика движка `MATERIAL_REFERENCE_BROKEN`.
+        if (patch.materialId === null) delete leaf.materialId;
+        else if (draft.materials.items[patch.materialId] !== undefined) leaf.materialId = patch.materialId;
+      }
+      if (patch.edge !== undefined) {
+        if (patch.edge === null) delete leaf.edge;
+        else if (patch.edge.materialId === undefined || draft.materials.items[patch.edge.materialId] !== undefined) {
+          leaf.edge = patch.edge;
+        }
+      }
+      if (patch.thickness !== undefined) {
+        // Толщина-переопределение обязана быть положительной (§15/§21):
+        // ноль или отрицательное значение дали бы деталь нулевого объёма.
+        if (patch.thickness === null) delete leaf.thickness;
+        else if (patch.thickness > 0) leaf.thickness = patch.thickness;
+      }
       if (patch.size !== undefined) leaf.size = patch.size;
       if (patch.opening !== undefined) leaf.opening = patch.opening;
       return;
@@ -437,11 +472,25 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
     }
 
     case 'SetMaterialAssignment': {
+      // Назначить роли материал, которого нет в библиотеке, нельзя
+      // (PROMPT 13 §15): иначе команда сама создавала бы битую ссылку,
+      // которую потом ловит диагностика.
+      if (draft.materials.items[command.materialId] === undefined) return;
       draft.materials.assignment[command.role] = command.materialId;
       return;
     }
 
+    case 'SetDefaultMaterial': {
+      if (draft.materials.items[command.materialId] === undefined) return;
+      draft.settings.defaultMaterialId = command.materialId;
+      return;
+    }
+
     case 'UpsertMaterial': {
+      // Толщина материала — источник геометрии (PROMPT 13 §4/§15), поэтому
+      // неположительная толщина не принимается: она дала бы детали нулевого
+      // или отрицательного объёма при первом же пересчёте.
+      if (!(command.material.thickness > 0) || !Number.isFinite(command.material.thickness)) return;
       draft.materials.items[command.material.id] = command.material;
       return;
     }

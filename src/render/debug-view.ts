@@ -1,5 +1,5 @@
 import type { GeometryResult } from '../geometry/index.js';
-import { formatMm, type Mm, type PartRole } from '../domain/index.js';
+import { formatMm, type EdgeSpec, type MaterialLibrary, type Mm, type PartRole } from '../domain/index.js';
 import { contentKindOf, contentLabel } from '../geometry/index.js';
 
 /**
@@ -82,36 +82,56 @@ export interface DebugSchemaView {
   readonly sectionLabels: readonly DebugSectionLabel[];
 }
 
+/** Кромка по четырём сторонам одной строкой: «перед/зад/лево/право». */
+function edgeSummary(edge: EdgeSpec): string {
+  return `${String(edge.front)}/${String(edge.back)}/${String(edge.left)}/${String(edge.right)}`;
+}
+
+/**
+ * Материал/толщина/кромка детали одной подстрокой (PROMPT 13 §22): имя
+ * материала — из `MaterialLibrary` по `part.materialId`, толщина — уже
+ * посчитанная `part.cut.thickness` (не пересчитывается здесь заново, тот
+ * же принцип «рендерер не знает мебельных формул»), кромка — `edgeSummary`.
+ * Показывается для ЛЮБОЙ физической детали, включая двери и фасады ящиков.
+ */
+function materialSuffix(part: GeometryResult['parts'][number], materials: MaterialLibrary): string {
+  const material = materials.items[part.materialId];
+  const materialName = material?.name ?? `? (${part.materialId})`;
+  return ` · Материал: ${materialName} · Т ${formatMm(part.cut.thickness)} мм · Кромка ${edgeSummary(part.edge)}`;
+}
+
 /**
  * Состав подписи детали в режиме debug-инфо (PROMPT 8 §24). У каждого вида
  * детали свой набор: у перегородки важна толщина, у полки — глубина, у
  * остальных достаточно координаты. Роль стоит первой, чтобы подпись
- * оставалась узнаваемой с одного взгляда.
+ * оставалась узнаваемой с одного взгляда. Материал/толщина/кромка (PROMPT
+ * 13 §22) добавлены суффиксом ко всем веткам одинаково.
  */
-function partDetail(part: GeometryResult['parts'][number]): string {
+function partDetail(part: GeometryResult['parts'][number], materials: MaterialLibrary): string {
   const role = part.role;
   const at = `X ${formatMm(part.position.x)} Y ${formatMm(part.position.y)}`;
+  const mat = materialSuffix(part, materials);
   if (role === 'partition') {
-    return `${role} · ${part.id} · ${at} · Т ${formatMm(part.size.x)} × В ${formatMm(part.size.y)}`;
+    return `${role} · ${part.id} · ${at} · Т ${formatMm(part.size.x)} × В ${formatMm(part.size.y)}${mat}`;
   }
   if (role === 'shelf-fixed' || role === 'shelf-adjustable') {
-    return `${role} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × Г ${formatMm(part.size.z)} × Т ${formatMm(part.size.y)}`;
+    return `${role} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × Г ${formatMm(part.size.z)} × Т ${formatMm(part.size.y)}${mat}`;
   }
   if (role === 'facade') {
     // Дверь (PROMPT 10 §18): та же геометрия, что и у остальных деталей,
     // плюс сторона петель — она уже закодирована в `part.label`
     // (`stages/facades.ts`), здесь не пересчитывается и не дублируется.
-    return `${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Т ${formatMm(part.size.z)}`;
+    return `${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Т ${formatMm(part.size.z)}${mat}`;
   }
   if (role === 'handle' || role === 'push-to-open') {
     // Ручка/push-to-open (PROMPT 12 §18): та же геометрия, что и у
     // остальных деталей — ширина/высота/вынос от плоскости фасада.
-    return `${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × вынос ${formatMm(part.size.z)}`;
+    return `${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × вынос ${formatMm(part.size.z)}${mat}`;
   }
-  return `${role} · ${part.id} · ${at}`;
+  return `${role} · ${part.id} · ${at}${mat}`;
 }
 
-export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
+export function buildDebugView(geometry: GeometryResult, materials: MaterialLibrary): DebugSchemaView {
   const { totalWidth, totalHeight } = geometry.boundingBox;
 
   const sectionIdByCellNodeId = new Map(geometry.cells.map((cell) => [cell.nodeId, cell.sectionId]));
@@ -128,7 +148,7 @@ export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
       width: part.size.x,
       height: part.size.y,
       depth: part.size.z,
-      detail: partDetail(part),
+      detail: partDetail(part, materials),
       ...(sectionId === undefined ? {} : { sectionId }),
     };
   });

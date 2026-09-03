@@ -75,7 +75,12 @@ export interface DrawerFacadeGeometryResolution {
  *   иначе `DEFAULT_OVERLAY` (`ASSUMPTION T-DRW-04` — второй тип зазоров
  *   для ящиков не заводится, переиспользован тот же `OverlaySpec`, что
  *   и у дверей);
- * - `thickness = drawer.facade.thickness ?? panelThickness`;
+ * - `thickness = thicknessOf(drawer)` — с PROMPT 13 вызывающая сторона
+ *   (`stages/fill.ts`) вычисляет её через `resolveEffectiveMaterial`:
+ *   `drawer.facade.thickness ?? material.thickness ?? panelThickness`, а
+ *   не голый `drawer.facade.thickness ?? panelThickness`, как было раньше —
+ *   резолвер остаётся чистым и не импортирует `MaterialLibrary` напрямую,
+ *   только принимает уже вычисленное число через callback (PROMPT 13 §9);
  * - `z` — передняя грань ячейки, та же формула и то же обоснование
  *   отсутствия пересечений с наполнением, что у двери (§18.3): фасад
  *   ящика начинается ровно на границе `cell.box` и уходит только вперёд.
@@ -88,7 +93,7 @@ export interface DrawerFacadeGeometryResolution {
 export function resolveDrawerFacadeGeometry(
   drawers: readonly Drawer[],
   cell: CellBox,
-  panelThickness: Mm,
+  thicknessOf: (drawer: Drawer) => Mm,
 ): DrawerFacadeGeometryResolution {
   if (drawers.length === 0) {
     return { cellId: cell.nodeId, status: 'built', facades: [] };
@@ -136,7 +141,7 @@ export function resolveDrawerFacadeGeometry(
     const span = layout.spans[i];
     const height = roundMm(span?.length ?? 0);
     const y = roundMm(cell.box.min.y + gapBottom + (span?.offset ?? 0));
-    const thickness = roundMm(drawer.facade.thickness ?? panelThickness);
+    const thickness = roundMm(thicknessOf(drawer));
     return {
       drawerId: drawer.id,
       x,

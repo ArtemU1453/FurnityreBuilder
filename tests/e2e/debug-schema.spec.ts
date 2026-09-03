@@ -236,3 +236,47 @@ test('изменение габарита в поле обновляет схе�
 
   await expect(schema.getByText('1400 мм').first()).toBeVisible();
 });
+
+test('материал и толщина детали подписаны в схеме, смена толщины материала видна сразу (PROMPT 13 §22–23)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await page.getByLabel('Полок в ячейке').fill('1');
+  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await page.getByLabel('Показывать ID и координаты').check();
+
+  // Подпись детали несёт имя материала, толщину и кромку (§22).
+  const shelfLabel = schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first();
+  await expect(shelfLabel).toBeVisible();
+  await expect(shelfLabel).toContainText('Материал: Корпусная плита 16 мм');
+  await expect(shelfLabel).toContainText('Т 16 мм');
+  await expect(shelfLabel).toContainText('Кромка 2/0/0.4/0.4');
+
+  // Смена ТОЛЩИНЫ МАТЕРИАЛА (а не толщины корпуса) пересчитывает толщину
+  // полки: до PROMPT 13 материал на геометрию не влиял вообще (§17).
+  await page.getByLabel('Корпусная плита 16 мм, мм').fill('18');
+  await expect(schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first()).toContainText('Т 18 мм');
+});
+
+test('назначение материала роли меняет материал уже построенных деталей (PROMPT 13 §23)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await page.getByLabel('Полок в ячейке').fill('1');
+  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await page.getByLabel('Показывать ID и координаты').check();
+
+  const shelfLabel = () => schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first();
+  await expect(shelfLabel()).toContainText('Корпусная плита 16 мм');
+
+  // Полке назначается материал задней стенки (3 мм) — единственный второй
+  // материал стартового реестра: и имя, и толщина детали меняются вместе.
+  await page.getByLabel('Материал полок').selectOption({ label: 'Задняя стенка 3 мм' });
+  await expect(shelfLabel()).toContainText('Задняя стенка 3 мм');
+  await expect(shelfLabel()).toContainText('Т 3 мм');
+
+  // Один шаг истории на назначение: отмена возвращает и материал, и толщину.
+  await page.getByRole('button', { name: 'Отменить' }).click();
+  await expect(shelfLabel()).toContainText('Корпусная плита 16 мм');
+  await expect(shelfLabel()).toContainText('Т 16 мм');
+});

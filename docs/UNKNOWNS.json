@@ -311,6 +311,52 @@
         "src/domain/furniture/types.ts",
         "src/geometry/content.ts"
       ]
+    },
+    {
+      "id": "T-MAT-01",
+      "area": "materials",
+      "question": "Список декоров и состав пользовательской библиотеки материалов референса",
+      "status": "unknown",
+      "defaultAssumption": "брендовых каталогов декоров в продукте нет: материал целиком задаёт пользователь (имя, категория, толщина, цвет, лист)",
+      "test": "Перечислить доступные материалы в UI референса и зафиксировать состав полей материала",
+      "blocks": [
+        "src/domain/materials/defaults.ts"
+      ]
+    },
+    {
+      "id": "T-MAT-02",
+      "area": "materials",
+      "question": "Раздельный материал корпуса / фасада / полок / задней стенки: какие группы деталей референс разделяет",
+      "status": "unknown",
+      "defaultAssumption": "назначение по ролям детали (MaterialLibrary.assignment) плюс переопределение materialId на самой детали",
+      "test": "Проверить, есть ли в референсе отдельные селекторы материала для групп деталей",
+      "blocks": [
+        "src/domain/materials/types.ts",
+        "src/geometry/parts.ts"
+      ]
+    },
+    {
+      "id": "T-MAT-03",
+      "area": "materials",
+      "question": "Точный приоритет эффективной толщины детали между явным override поля, толщиной назначенного материала и толщиной корпуса",
+      "status": "unknown",
+      "defaultAssumption": "explicit override поля детали → Material.thickness назначенного материала → Dimensions.panelThickness (только если материал не определён совсем)",
+      "test": "Назначить полке материал 18 мм при корпусе 16 мм без override Shelf.thickness, замерить толщину построенной детали",
+      "blocks": [
+        "src/geometry/parts.ts"
+      ]
+    },
+    {
+      "id": "T-MAT-04",
+      "area": "materials",
+      "question": "Считается ли назначение стекла/зеркала на несущую роль (боковина/верх/низ/перегородка/полка) production-ошибкой или допустимым, но необычным выбором",
+      "status": "unknown",
+      "defaultAssumption": "допустимый, но необычный выбор: движок строит деталь и выдаёт предупреждение GLASS_MIRROR_STRUCTURAL_ROLE, а не ошибку",
+      "test": "Назначить материал типа glass роли side в референсе, зафиксировать реакцию: отказ, предупреждение или тихое построение",
+      "blocks": [
+        "src/geometry/parts.ts",
+        "src/domain/materials/types.ts"
+      ]
     }
   ]
 }

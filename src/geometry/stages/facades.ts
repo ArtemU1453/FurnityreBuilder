@@ -1,8 +1,8 @@
 import type { CellBox } from '../types.js';
-import type { HingeSide, MaterialLibrary, NodeId, OpeningSystem, PartRole } from '../../domain/index.js';
+import type { HingeSide, NodeId, OpeningSystem, PartRole } from '../../domain/index.js';
 import { DEFAULT_EDGE, findNode, isLeaf, roundMm } from '../../domain/index.js';
 import type { GeometryContext, GeometryStage } from '../context.js';
-import { makePart, resolveMaterial } from '../parts.js';
+import { makePart, resolveEffectiveMaterial, resolveMaterial } from '../parts.js';
 import { resolveDoorGeometry } from '../doors.js';
 import { resolveOpeningSystemGeometry } from '../opening-system.js';
 
@@ -39,6 +39,30 @@ function openingLabel(kind: OpeningSystem['kind']): string {
       return 'ручка';
     case 'push-to-open':
       return 'push-to-open';
+  }
+}
+
+/**
+ * Единые диагностики результата `resolveEffectiveMaterial` (PROMPT 13
+ * §15/§20) — тот же приём, что в `stages/fill.ts`: битая ссылка на материал
+ * двери — явная `error`, а не тихий откат на материал роли.
+ */
+function reportMaterialIssues(
+  ctx: GeometryContext,
+  nodeId: NodeId,
+  label: string,
+  resolved: { readonly danglingMaterialId: boolean; readonly danglingEdgeMaterialId: boolean },
+): void {
+  if (resolved.danglingMaterialId) {
+    ctx.report(
+      'MATERIAL_REFERENCE_BROKEN',
+      'error',
+      `${label}: указанный материал не найден в библиотеке, взят материал роли.`,
+      { nodeId },
+    );
+  }
+  if (resolved.danglingEdgeMaterialId) {
+    ctx.report('MATERIAL_REFERENCE_BROKEN', 'error', `${label}: материал кромки не найден в библиотеке.`, { nodeId });
   }
 }
 
@@ -158,7 +182,26 @@ export const facadesStage: GeometryStage = {
         continue;
       }
 
-      const resolution = resolveDoorGeometry(facade, cell, T);
+      // Материал/толщина каждой створки считаются ОДИН раз (PROMPT 13 §9)
+      // и переиспользуются и для формулы толщины (`thicknessOf`), и для
+      // самой детали ниже — вместо того, чтобы резолвер повторно спрашивал
+      // библиотеку материалов, а материал детали расходился с материалом,
+      // по которому посчитана её же толщина.
+      const leafMaterials = new Map(
+        facade.leaves.map((leaf) => [
+          leaf.id,
+          resolveEffectiveMaterial({
+            materials,
+            role: DOOR_ROLE,
+            explicitMaterialId: leaf.materialId,
+            explicitEdge: leaf.edge,
+            thicknessOverride: leaf.thickness,
+            corpusThickness: T,
+          }),
+        ]),
+      );
+
+      const resolution = resolveDoorGeometry(facade, cell, (leaf) => leafMaterials.get(leaf.id)?.thickness ?? T);
 
       if (resolution.status === 'invalid') {
         // В отличие от «not-implemented» (вид фасада или охват ещё не
@@ -183,13 +226,13 @@ export const facadesStage: GeometryStage = {
       claimedCells.add(cell.nodeId);
 
       resolution.leaves.forEach((leaf, i) => {
-        const materialId = leaf.materialId;
-        const edge = leaf.edge ?? DEFAULT_EDGE;
-        const resolvedMaterial =
-          materialId === undefined ? resolveMaterialWithFallback(materials, reportMaterialFallback) : { materialId, resolved: true };
+        const resolvedMaterial = leafMaterials.get(leaf.leafId);
+        if (resolvedMaterial?.roleNotAssigned === true) reportMaterialFallback();
 
         const label =
           (resolution.leaves.length > 1 ? `Дверь ${String(i + 1)}` : 'Дверь') + ` · петли ${hingeLabel(leaf.hingeSide)}`;
+
+        if (resolvedMaterial !== undefined) reportMaterialIssues(ctx, cell.nodeId, label, resolvedMaterial);
 
         ctx.addPart(
           makePart({
@@ -200,8 +243,8 @@ export const facadesStage: GeometryStage = {
             position: { x: leaf.x, y: leaf.y, z: leaf.z },
             size: { x: leaf.width, y: leaf.height, z: leaf.thickness },
             orientation: 'frontal-xy',
-            materialId: resolvedMaterial.materialId,
-            edge,
+            materialId: resolvedMaterial?.materialId ?? resolveMaterial(materials, DOOR_ROLE).materialId,
+            edge: resolvedMaterial?.edge ?? DEFAULT_EDGE,
             edgeSizing,
             nodeId: cell.nodeId,
           }),
@@ -253,12 +296,3 @@ export const facadesStage: GeometryStage = {
     }
   },
 };
-
-function resolveMaterialWithFallback(
-  materials: MaterialLibrary,
-  onFallback: () => void,
-): { materialId: ReturnType<typeof resolveMaterial>['materialId']; resolved: boolean } {
-  const resolved = resolveMaterial(materials, DOOR_ROLE);
-  if (!resolved.resolved) onFallback();
-  return resolved;
-}

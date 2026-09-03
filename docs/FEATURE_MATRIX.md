@@ -46,7 +46,7 @@ P2 — расширенная · P3 — дополнительные возмо�
 | GEO-11 | Штанга для одежды | UNKNOWN T-HW-05 | `HangingRod`; модель и точка расширения готовы, геометрия — нет (`not-implemented`) | P1 | S | NOT_STARTED (геометрия) |
 | GEO-12 | Цоколь / ножки | UNKNOWN T-CAR-05 | `BaseSpec` | P1 | M | NOT_STARTED |
 | GEO-13 | Столешница со свесами | UNKNOWN T-CAR-06 | `CountertopSpec` | P2 | M | NOT_STARTED |
-| GEO-14 | Кромка и коррекция размера раскроя | UNKNOWN T-EDG-03 | `EdgeSpec` + `EdgeSizingPolicy` | P1 | M | NOT_STARTED |
+| GEO-14 | Кромка и коррекция размера раскроя | UNKNOWN T-EDG-03 | `EdgeSpec` + `EdgeSizingPolicy`: кромка не меняет `Part.size` никогда, размеры раскроя — только при `subtractFromPartSize` (`docs/GEOMETRY_RULES.md` §8.2, §21.5) | P1 | M | IMPLEMENTED |
 | GEO-15 | Присадка (координаты отверстий) | CONFIRMED (формат есть) | `DrillHole[]`, система 32 | P2 | XL | NOT_STARTED |
 | GEO-16 | Фасады купе | UNKNOWN T-DOOR-01 | `SlidingDoorConfig` — типизированный контракт (PROMPT 10 §9), геометрией не читается | P2 | XL | NOT_STARTED (геометрия; контракт типизирован) |
 | GEO-17 | Фасады складные | UNKNOWN T-DOOR-01 | — | P3 | L | NOT_STARTED |
@@ -109,12 +109,15 @@ P2 — расширенная · P3 — дополнительные возмо�
 
 | ID | Функция | Референс | Наша реализация | Приоритет | Сложность | Статус |
 | --- | --- | --- | --- | --- | --- | --- |
-| MAT-01 | Пользовательская библиотека материалов | UNKNOWN T-MAT-01 | имя, толщина, цвет, текстура, лист | P1 | M | NOT_STARTED |
-| MAT-02 | Назначение материала по ролям | UNKNOWN T-MAT-02 | корпус / фасад / полки / зад / ящики | P1 | M | NOT_STARTED |
+| MAT-01 | Material Registry (реестр материалов) | UNKNOWN T-MAT-01 | `MaterialLibrary.items`: id, имя, категория, толщина, цвет, текстура, лист; команды `UpsertMaterial`/`RemoveMaterial`/`SetDefaultMaterial` | P1 | M | IMPLEMENTED |
+| MAT-02 | Назначение материала (роли и переопределение на детали) | UNKNOWN T-MAT-02 | `materials.assignment[role]` + `materialId?` на `Shelf`/`DividerSpec`/`FacadeLeaf`/`DrawerFacadeSpec`/`DrawerBoxSpec`; `resolveEffectiveMaterial()` | P1 | M | IMPLEMENTED |
+| MAT-07 | Распространение толщины материала в геометрию | UNKNOWN T-MAT-03 | `effectiveThickness = override ?? material.thickness ?? panelThickness` для полок, перегородок, дверей и фасадов ящиков (`docs/GEOMETRY_RULES.md` §21) | P0 | M | IMPLEMENTED |
 | MAT-03 | Направление текстуры | N/A | `grain`, влияет на раскрой | P2 | M | NOT_STARTED |
-| MAT-04 | Правила кромки по умолчанию | UNKNOWN T-EDG-02 | видимые 2 мм / внутренние 0.4 | P1 | M | NOT_STARTED |
-| MAT-05 | Ручная кромка по сторонам детали | UNKNOWN | редактор четырёх сторон | P2 | M | NOT_STARTED |
+| MAT-04 | Модель кромки (EdgeBand) | UNKNOWN T-EDG-02 | `EdgeSpec` (4 стороны + материал кромки) как параметр детали, `DEFAULT_EDGE`: видимые 2 мм / внутренние 0.4; назначение по ролям — только умолчание | P1 | M | IMPLEMENTED |
+| MAT-05 | Ручная кромка по сторонам детали | UNKNOWN | редактор четырёх сторон; сейчас — только выбор пресета для створки в техническом UI | P2 | M | PARTIAL |
 | MAT-06 | Итог по погонным метрам кромки | N/A | сводка в приложении | P1 | S | NOT_STARTED |
+| MAT-08 | Material Editor (полноценный редактор материалов) | UNKNOWN T-MAT-01 | создание/удаление материалов, декоры, форматы листа, кромочные материалы, предпросмотр | P2 | L | NOT IMPLEMENTED |
+| MAT-09 | Расчёт материала фурнитуры | N/A | материал фурнитуры (ручки, механизмы) в спецификации | P3 | M | NOT IMPLEMENTED |
 | HW-01 | Крепёж корпуса и правило количества | UNKNOWN T-HW-03 | таблица по глубине стыка | P1 | M | NOT_STARTED |
 | HW-02 | Петли | UNKNOWN T-HW-01 | тип, накладность, количество | P1 | M | NOT_STARTED |
 | HW-03 | Направляющие | UNKNOWN T-DRW-01 | тип, ряд длин | P1 | M | NOT_STARTED |
@@ -264,6 +267,24 @@ PARTIAL: архитектура и геометрия положения реа�
 (координаты крепёжных отверстий) и сам механизм push-to-open — нет.
 `HW-02` (петли) и `HW-03` (направляющие) остаются NOT_STARTED — вне
 объёма PROMPT 12 (§25: полный расчёт фурнитуры не реализуется).
+
+На этапе PROMPT 13 материалы перестали быть справочной пометкой и стали
+источником геометрии. `MAT-01` (Material Registry) и `MAT-02` (назначение
+материала) перешли в IMPLEMENTED: реестр `MaterialLibrary` существовал с
+PROMPT 1, но менять его было нечем и на расчёт он не влиял — теперь есть
+команды (`UpsertMaterial`/`RemoveMaterial`/`SetMaterialAssignment`/
+`SetDefaultMaterial`) и единственная функция `resolveEffectiveMaterial()`,
+через которую материал детали получают все этапы движка. Добавлены строки
+`MAT-07` (распространение толщины — IMPLEMENTED), `MAT-08` (полноценный
+Material Editor — NOT IMPLEMENTED) и `MAT-09` (расчёт материала фурнитуры —
+NOT IMPLEMENTED): последние две прямо вне объёма PROMPT 13 §29.
+`MAT-04` (модель кромки) и `GEO-14` (кромка и размеры раскроя) перешли в
+IMPLEMENTED — `EdgeSpec`/`EdgeSizingPolicy` были написаны ещё на PROMPT 2,
+но до сих пор числились NOT_STARTED, хотя код и тесты существовали;
+PROMPT 13 привёл статус в соответствие с фактом и задокументировал
+правило «кромка не меняет размер детали» (`docs/GEOMETRY_RULES.md` §21.5).
+`MAT-05` — PARTIAL: модель четырёх сторон полная, редактора сторон нет,
+в техническом UI только выбор пресета кромки для створки.
 
 На этапе PROMPT 7 `VAL-05` перешёл в PARTIAL: геометрический предикат
 пересечения деталей (`overlaps`, отличающий касание от наложения) написан
