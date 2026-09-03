@@ -88,7 +88,7 @@ Engine» (PROMPT 3) — прирост этого этапа: пять новы�
 ## 3. РАСПРЕДЕЛЕНИЕ
 
 ```
-  8  architecture/boundaries               границы слоёв (+ чистота слоя фурнитуры, PROMPT 16)
+ 10  architecture/boundaries               границы слоёв (+ чистота слоёв фурнитуры и раскроя, PROMPT 16–17)
  10  domain/coordinates                    система координат, пересечение против касания (PROMPT 7)
   7  domain/layout                         раскладка деления, 3 property-теста
   5  domain/project                        создание проекта, детерминизм
@@ -102,6 +102,11 @@ Engine» (PROMPT 3) — прирост этого этапа: пять новы�
   9  geometry/engine                       контракт движка, размеры раскроя
  34  geometry/fill                         полки: 15 сценариев §PROMPT6 + коллизии (PROMPT 6)
   3  geometry/fill-properties              property: полки на случайных W/H/D/числе полок (PROMPT 6)
+ 26  production/parts                      деталь → производственная позиция, группы, текстура (PROMPT 17)
+ 27  production/layout                     раскладка: пропил, кромка листа, поворот, несколько листов (PROMPT 17)
+  7  production/cutting-properties         property: границы листа, пересечения, количество, детерминизм (PROMPT 17)
+  4  production/persistence                раскрой не хранится, старый файл читается (PROMPT 17)
+  5  state/cutting-commands                параметры раскроя: одна patch-команда (PROMPT 17)
  37  hardware/engine                       правила фурнитуры: 30 сценариев §PROMPT16 (PROMPT 16)
   5  hardware/hardware-properties          property: количество, источники, детерминизм, сериализация (PROMPT 16)
   6  hardware/persistence                  спецификация не хранится, старый файл считается новым движком (PROMPT 16)
@@ -278,6 +283,8 @@ PROMPT 2 и не замеченное до этого этапа.)
 | React в `src/geometry` | `no-restricted-imports` |
 | React в `src/hardware` | `no-restricted-imports` |
 | `hardware` импортирует `state` | `boundaries/element-types` |
+| React в `src/production` | `no-restricted-imports` |
+| `production` импортирует `state` | `boundaries/element-types` |
 | React в `src/domain` | `no-restricted-imports` |
 | `geometry` импортирует `state` | `boundaries/element-types` |
 | `domain` обращается к `window` | `no-restricted-globals` |

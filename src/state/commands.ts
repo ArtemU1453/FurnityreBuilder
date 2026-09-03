@@ -26,6 +26,8 @@ import type {
   Tolerances,
   TopSectionSpec,
   WallMountSpec,
+  RotationPolicy,
+  TrimSpec,
 } from '../domain/index.js';
 import { createDividerSpec } from '../domain/index.js';
 
@@ -249,6 +251,27 @@ export type Command =
   | { readonly type: 'SetConstructionScheme'; readonly scheme: ConstructionScheme }
   | { readonly type: 'SetTolerances'; readonly tolerances: Tolerances }
   | { readonly type: 'SetEdgeSizingPolicy'; readonly policy: EdgeSizingPolicy }
+  | {
+      /**
+       * Параметры раскроя (PROMPT 17 §26). Одна patch-команда на весь
+       * `CuttingSettings`, а не отдельные `setKerf`/`setTrim`/
+       * `setRotationPolicy`: все три пишут в один и тот же объект настроек,
+       * и три пути записи в одно поле означали бы три источника истины —
+       * тот же довод, по которому PROMPT 15 обошёлся одной
+       * `SetStructuralModifiers`.
+       *
+       * Команд ручного перемещения деталей по листу здесь нет намеренно
+       * (§26, §36): интерактивного редактора раскроя на этом этапе не
+       * существует, а координата, записанная пользователем в производную
+       * раскладку, немедленно потерялась бы при первом пересчёте.
+       */
+      readonly type: 'SetCuttingSettings';
+      readonly patch: {
+        readonly kerf?: Mm;
+        readonly trim?: TrimSpec | null;
+        readonly rotationPolicy?: RotationPolicy;
+      };
+    }
   | { readonly type: 'SetMaterialAssignment'; readonly role: PartRole; readonly materialId: MaterialId }
   | {
       /**
@@ -729,6 +752,27 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
 
     case 'SetEdgeSizingPolicy': {
       draft.settings.edgeSizing = command.policy;
+      return;
+    }
+
+    case 'SetCuttingSettings': {
+      const { patch } = command;
+      // Отрицательный пропил и отрицательная обрезная кромка физически
+      // невозможны: команда не применяется целиком, чтобы половина патча
+      // не оседала в проекте (как и во всех остальных командах — ранний
+      // return означает отсутствие записи в историю).
+      if (patch.kerf !== undefined && !(patch.kerf >= 0)) return;
+      if (patch.trim !== undefined && patch.trim !== null) {
+        const t = patch.trim;
+        if (t.left < 0 || t.right < 0 || t.top < 0 || t.bottom < 0) return;
+      }
+
+      if (patch.kerf !== undefined) draft.settings.cutting.kerf = patch.kerf;
+      if (patch.trim !== undefined) {
+        if (patch.trim === null) delete draft.settings.cutting.trim;
+        else draft.settings.cutting.trim = { ...patch.trim };
+      }
+      if (patch.rotationPolicy !== undefined) draft.settings.cutting.rotationPolicy = patch.rotationPolicy;
       return;
     }
 

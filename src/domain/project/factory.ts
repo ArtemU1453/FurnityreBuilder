@@ -1,6 +1,7 @@
 import { createRandomIdFactory } from '../ids.js';
 import { createDefaultMaterials, DEFAULT_EDGE, DEFAULT_EDGE_SIZING_POLICY } from '../materials/defaults.js';
 import { EMPTY_HARDWARE_LIBRARY } from '../hardware/types.js';
+import { DEFAULT_CUTTING_SETTINGS } from '../cutting/types.js';
 import {
   DEFAULT_SCHEME,
   DEFAULT_TOLERANCES,
@@ -39,6 +40,7 @@ export function createProject(options: Partial<CreateProjectOptions> = {}): Proj
       construction: DEFAULT_SCHEME,
       tolerances: DEFAULT_TOLERANCES,
       edgeSizing: DEFAULT_EDGE_SIZING_POLICY,
+      cutting: DEFAULT_CUTTING_SETTINGS,
     },
   };
 }

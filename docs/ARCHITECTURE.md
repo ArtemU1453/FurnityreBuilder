@@ -200,6 +200,13 @@ src/
     rules/                   одно правило — один файл: петли, направляющие, держатели, крепёж, ручки
     engine.ts                calculateHardware: правила → проверки → агрегация
     debug.ts                 технический вывод спецификации
+  production/                Parts → ProductionPart[] → CuttingLayout[], чистые функции
+    types.ts                 ProductionPart, CuttingStock, CuttingLayout, CuttingPlacement
+    parts.ts                 классификация ролей, Part → ProductionPart, поворот
+    grouping.ts              группы «материал + толщина»
+    stock.ts                 лист из Material.sheet, рабочая область после trim
+    layout.ts                гильотинная раскладка best-fit decreasing
+    engine.ts                calculateCutting: детали → группы → листы → раскладка
   validation/                правила → Issue[]
     rules/{values,references,structure}.ts
   persistence/               схема Zod, сериализация, миграции, репозитории

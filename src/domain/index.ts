@@ -14,6 +14,7 @@ export * from './materials/types.js';
 export * from './materials/defaults.js';
 
 export * from './hardware/types.js';
+export * from './cutting/types.js';
 
 export * from './part/types.js';
 export * from './part/id.js';

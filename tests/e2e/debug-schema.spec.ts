@@ -413,3 +413,31 @@ test('спецификация фурнитуры пересчитывается
   await page.getByRole('button', { name: 'Убрать ящик' }).click();
   await expect(list.getByText(/hw-slide/)).toHaveCount(0);
 });
+
+test('карта раскроя строится из деталей и пересчитывается вместе с ними (PROMPT 17 §30)', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: 'Карта раскроя (debug)' })).toBeVisible();
+
+  // Пустой корпус: два материала — корпусная плита 16 мм и задняя стенка
+  // 3 мм. Объединиться в один лист они не могут: у них разная толщина.
+  await expect(page.getByRole('img', { name: /^ЛИСТ / })).toHaveCount(2);
+  await expect(page.getByRole('img', { name: /Корпусная плита 16 мм/ })).toHaveCount(1);
+  await expect(page.getByRole('img', { name: /Задняя стенка 3 мм/ })).toHaveCount(1);
+
+  // Полок в раскрое пока нет.
+  const shelvesOnSheets = page.locator('svg[aria-label^="ЛИСТ "] text').filter({ hasText: /^Полка$/ });
+  await expect(shelvesOnSheets).toHaveCount(0);
+
+  // Добавление полок добавляет детали в раскрой само — без команды
+  // «пересчитать»: карта производна от геометрии.
+  await page.getByLabel('Полок в ячейке').fill('3');
+  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  // Три полки одинакового размера — одна позиция количеством 3, то есть
+  // три отдельных размещения (§22), а не одно на троих.
+  await expect(shelvesOnSheets).toHaveCount(3);
+});
+
+
+
+

@@ -15,8 +15,9 @@ import { DEFAULT_EDGE, NO_EDGE, asId, createRandomIdFactory, findNode, formatMm,
 import type { HingeSide, LeafFill, MaterialId, NodeId, OpeningSystem, PartRole } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
-import { buildDebugView, DebugSchema } from '../render/index.js';
+import { buildCuttingView, buildDebugView, CuttingMap, DebugSchema } from '../render/index.js';
 import { calculateHardware, formatHardwareDebug } from '../hardware/index.js';
+import { calculateCutting } from '../production/index.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import { Button, Field } from '../design-system/index.js';
@@ -94,6 +95,15 @@ export function App(): React.JSX.Element {
   const hardwareDebug = useMemo(() => {
     if (!import.meta.env.DEV || furniture === undefined || geometry === undefined) return undefined;
     return formatHardwareDebug(calculateHardware(project, { geometry: new Map([[furniture.id, geometry]]) }));
+  }, [project, furniture, geometry]);
+
+  // Карта раскроя (PROMPT 17). Как и фурнитура, производная величина:
+  // пересчитывается из проекта и готовой геометрии, нигде не хранится и не
+  // требует инвалидации — устареть нечему (§29).
+  const cuttingView = useMemo(() => {
+    if (!import.meta.env.DEV || furniture === undefined || geometry === undefined) return undefined;
+    const result = calculateCutting(project, { geometry: new Map([[furniture.id, geometry]]) });
+    return buildCuttingView(result, project.materials);
   }, [project, furniture, geometry]);
 
   const report = useMemo(() => validateProject(project), [project]);
@@ -1244,6 +1254,22 @@ export function App(): React.JSX.Element {
               источник, правило и причина. Строки собирает
               `formatHardwareDebug` — здесь они только размещаются.
             */}
+            {/*
+              Карта раскроя (PROMPT 17 §30): лист, рабочая область,
+              размещённые детали с id, размерами и поворотом, а рядом —
+              неразмещённые детали с причиной. Технический вывод, не
+              редактор: перетаскивание деталей здесь отсутствует
+              намеренно (§36).
+            */}
+            {cuttingView === undefined ? null : (
+              <>
+                <h3 className={styles.panelTitle} style={{ marginTop: 'var(--sp-4)' }}>
+                  Карта раскроя (debug)
+                </h3>
+                <CuttingMap view={cuttingView} />
+              </>
+            )}
+
             {hardwareDebug === undefined ? null : (
               <>
                 <h3 className={styles.panelTitle} style={{ marginTop: 'var(--sp-4)' }}>

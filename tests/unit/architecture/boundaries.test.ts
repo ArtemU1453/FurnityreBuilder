@@ -73,6 +73,29 @@ describe('архитектурные границы', () => {
     expect(rules).toContain('boundaries/element-types');
   });
 
+  it('запрещает React в расчёте раскроя', { timeout: 60_000 }, async () => {
+    // PROMPT 17 §35: расчёт раскроя детерминирован и не знает об
+    // интерфейсе — иначе карту нельзя ни сравнить снапшотом, ни вынести
+    // в Worker, а именно раскрой из всех расчётов самый тяжёлый.
+    const rules = await lintSource(
+      'production',
+      'probe.ts',
+      "import { useMemo } from 'react';\nexport const probe = useMemo;\n",
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('запрещает раскрою менять геометрию: production → state', { timeout: 60_000 }, async () => {
+    // PROMPT 17 §25: зависимость строго односторонняя. Раскрой читает
+    // геометрию, но не имеет права дотянуться до команд и что-то изменить.
+    const rules = await lintSource(
+      'production',
+      'probe.ts',
+      "import { PLANNED_COMMANDS } from '../../state/commands.js';\nexport const probe = PLANNED_COMMANDS;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
   it('запрещает импорт вверх по слоям: geometry → state', { timeout: 60_000 }, async () => {
     const rules = await lintSource(
       'geometry',

@@ -121,7 +121,7 @@ P2 — расширенная · P3 — дополнительные возмо�
 | MAT-01 | Material Registry (реестр материалов) | UNKNOWN T-MAT-01 | `MaterialLibrary.items`: id, имя, категория, толщина, цвет, текстура, лист; команды `UpsertMaterial`/`RemoveMaterial`/`SetDefaultMaterial` | P1 | M | IMPLEMENTED |
 | MAT-02 | Назначение материала (роли и переопределение на детали) | UNKNOWN T-MAT-02 | `materials.assignment[role]` + `materialId?` на `Shelf`/`DividerSpec`/`FacadeLeaf`/`DrawerFacadeSpec`/`DrawerBoxSpec`; `resolveEffectiveMaterial()` | P1 | M | IMPLEMENTED |
 | MAT-07 | Распространение толщины материала в геометрию | UNKNOWN T-MAT-03 | `effectiveThickness = override ?? material.thickness ?? panelThickness` для полок, перегородок, дверей и фасадов ящиков (`docs/GEOMETRY_RULES.md` §21) | P0 | M | IMPLEMENTED |
-| MAT-03 | Направление текстуры | N/A | `grain`, влияет на раскрой | P2 | M | NOT_STARTED |
+| MAT-03 | Направление текстуры | N/A | `Material.grain`; на раскрое запрещает поворот детали на 90° (`rotationAllowedFor`, `docs/PRODUCTION_PARTS.md` §7) | P2 | M | IMPLEMENTED (правило поворота); визуализация текстуры — NOT_STARTED |
 | MAT-04 | Модель кромки (EdgeBand) | UNKNOWN T-EDG-02 | `EdgeSpec` (4 стороны + материал кромки) как параметр детали, `DEFAULT_EDGE`: видимые 2 мм / внутренние 0.4; назначение по ролям — только умолчание | P1 | M | IMPLEMENTED |
 | MAT-05 | Ручная кромка по сторонам детали | UNKNOWN | редактор четырёх сторон; сейчас — только выбор пресета для створки в техническом UI | P2 | M | PARTIAL |
 | MAT-06 | Итог по погонным метрам кромки | N/A | сводка в приложении | P1 | S | NOT_STARTED |
@@ -137,6 +137,10 @@ P2 — расширенная · P3 — дополнительные возмо�
 | HW-08 | Сводная спецификация фурнитуры | CONFIRMED (есть в выгрузке) | `calculateHardware(project)` → `HardwareBOM`: агрегация по определению с сохранением источников, производная величина, в файл не пишется | P1 | M | IMPLEMENTED (расчёт; экспорт — `EXP-02`, NOT_STARTED) |
 | HW-09 | Крепёж задней стенки | UNKNOWN T-HW-03 | `backWallFastenerRule`: периметр сегментов считается, шаг крепления не подтверждён — вместо числа предупреждение | P1 | S | PARTIAL (правило и вход — IMPLEMENTED; шаг — NEEDS_CONFIRMATION) |
 | HW-10 | Крепёж ручек | UNKNOWN T-HW-08 | `handleFastenerRule`: отдельная позиция от самой ручки, число точек крепления по типу не подтверждено | P2 | S | PARTIAL (правило — IMPLEMENTED; количество — NEEDS_CONFIRMATION) |
+| PRD-01 | Производственная деталь (ProductionPart) | N/A | позиция «что изготовить»: материал, толщина, размеры заготовки, кромка, текстура, количество, поворот; отделена от физического `Part` (`docs/PRODUCTION_PARTS.md`) | P1 | L | IMPLEMENTED |
+| PRD-02 | Правило попадания детали в раскрой | N/A | `classifyPart` по `PartRole`, исчерпывающий разбор; фурнитура и служебные объекты исключены | P1 | S | IMPLEMENTED |
+| PRD-03 | Детали короба ящика | UNKNOWN T-DRW-02 | архитектура готова (роли `drawer-*`, тип `drawer-box`), геометрия деталей короба не строит: конструкция не подтверждена | P2 | M | NOT_STARTED (намеренно) |
+| PRD-04 | Параметры раскроя (пропил, кромка листа, поворот) | UNKNOWN T-CUT-01, T-CUT-03 | `CuttingSettings` в настройках проекта, команда `SetCuttingSettings`; пропил 4 мм помечен как временное техническое значение | P1 | S | IMPLEMENTED (модель); значения — NEEDS_CONFIRMATION |
 
 ## 7. ХРАНЕНИЕ И ОБМЕН
 
@@ -159,7 +163,7 @@ P2 — расширенная · P3 — дополнительные возмо�
 | EXP-02 | Деталировка XLSX (листы: детали, кромка, фурнитура) | **CONFIRMED** | `exceljs` | P1 | M | NOT_STARTED |
 | EXP-03 | PDF: чертёж с размерами | **CONFIRMED** | `pdf-lib` + локальный шрифт | P1 | L | NOT_STARTED |
 | EXP-04 | PDF: деталировка таблицей | **CONFIRMED** | `pdf-lib` | P1 | M | NOT_STARTED |
-| EXP-05 | Карта раскроя | **CONFIRMED** | свой гильотинный алгоритм | P2 | XL | NOT_STARTED |
+| EXP-05 | Карта раскроя | **CONFIRMED** | свой гильотинный алгоритм: `calculateCutting` (`src/production/`), группы «материал + толщина», пропил, обрезная кромка, поворот по текстуре, неразмещённые детали с причиной, процент использования; технический рендерер `CuttingMap`. Экспорт карты в PDF — `EXP-03`, не начат | P2 | XL | IMPLEMENTED (расчёт и технический рендерер); экспорт — NOT_STARTED |
 | EXP-06 | Схема присадки | **CONFIRMED** | по детали, с координатами | P2 | XL | NOT_STARTED |
 | EXP-07 | Сборочная схема / порядок сборки | UNKNOWN | пошаговые виды | P3 | XL | NOT_STARTED |
 | EXP-08 | SVG-чертёж | N/A | сериализация слоя | P2 | S | NOT_STARTED |

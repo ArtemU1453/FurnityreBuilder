@@ -1,6 +1,7 @@
 import type { IdFactory, ProjectId, WallId } from '../ids.js';
 import type { Mm } from '../units.js';
 import type { EdgeSpec, EdgeSizingPolicy, MaterialLibrary } from '../materials/types.js';
+import type { CuttingSettings } from '../cutting/types.js';
 import type { HardwareLibrary } from '../hardware/types.js';
 import type { ConstructionScheme, Furniture, Tolerances } from '../furniture/types.js';
 
@@ -32,6 +33,11 @@ export interface ProjectSettings {
   readonly construction: ConstructionScheme;
   readonly tolerances: Tolerances;
   readonly edgeSizing: EdgeSizingPolicy;
+  /**
+   * Параметры раскроя (PROMPT 17). Ввод пользователя, а не производная
+   * величина: сам раскрой не хранится и пересчитывается из деталей.
+   */
+  readonly cutting: CuttingSettings;
 }
 
 /**

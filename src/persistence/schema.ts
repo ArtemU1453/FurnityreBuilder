@@ -382,6 +382,19 @@ export const projectSchema = z.object({
       heightIncludesBase: z.boolean(),
     }),
     edgeSizing: z.object({ subtractFromPartSize: z.boolean() }),
+    // Параметры раскроя появились на PROMPT 17. `.default()` вместо новой
+    // версии схемы: старый файл просто не содержит поля, и подстановка
+    // умолчания читает его без потерь — тот же приём, что у `unit`
+    // определения фурнитуры (PROMPT 16).
+    cutting: z
+      .object({
+        kerf: mm,
+        trim: z
+          .object({ left: mm, right: mm, top: mm, bottom: mm })
+          .optional(),
+        rotationPolicy: z.enum(['by-material', 'never']),
+      })
+      .default({ kerf: 4, rotationPolicy: 'by-material' }),
   }),
 });
 

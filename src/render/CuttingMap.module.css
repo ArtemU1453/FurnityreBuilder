@@ -1,0 +1,100 @@
+/*
+ * Технический рендерер карты раскроя (PROMPT 17 §30).
+ *
+ * Оформление намеренно скупое: это инструмент проверки алгоритма, а не
+ * интерфейс. Цвета берутся из тех же токенов, что и схема изделия, поэтому
+ * тёмная тема и контраст работают без отдельной настройки.
+ */
+
+.sheet {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg-canvas);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-md);
+  margin-top: var(--sp-3);
+}
+
+.stockRect {
+  fill: none;
+  stroke: var(--dim-line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Рабочая область: пунктир, как у ячейки на схеме изделия — граница
+   области, а не край материала. */
+.usableRect {
+  fill: none;
+  stroke: var(--cell-outline);
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.partRect {
+  fill: var(--part-fill);
+  stroke: var(--part-stroke);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Повёрнутая деталь заливается иначе: на карте раскроя поворот — главное,
+   что нужно заметить глазом, потому что распилить его нельзя «почти». */
+.rotatedRect {
+  fill: var(--shelf-fill);
+  stroke: var(--part-stroke);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.partLabel {
+  fill: var(--text-secondary);
+  font-family: var(--font-num);
+  font-size: 26px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.partDetail {
+  fill: var(--text-tertiary);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.title {
+  fill: var(--text-tertiary);
+  font-family: var(--font-num);
+  font-size: 30px;
+  letter-spacing: 0.06em;
+  dominant-baseline: middle;
+}
+
+.textList {
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  overflow-x: auto;
+}
+
+.textList > li {
+  white-space: pre;
+}
+
+.summary {
+  margin: var(--sp-2) 0 0;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
