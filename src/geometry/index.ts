@@ -1,6 +1,8 @@
 export * from './types.js';
 export { computeBoundingBox, EMPTY_BOUNDING_BOX } from './bounding-box.js';
 export type { BoundingBox } from './bounding-box.js';
+export { resolveContentGeometry, contentKindOf, contentLabel } from './content.js';
+export type { ContentKind, ContentStatus, ContentResolution } from './content.js';
 export { findPartOverlaps } from './overlaps.js';
 export type { PartOverlap } from './overlaps.js';
 export { GeometryContext } from './context.js';

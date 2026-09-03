@@ -351,3 +351,116 @@ describe('стор документа: SetChildSize по идентификат�
     expect(ids.map((id) => sizeOf(s, id))).toEqual(before);
   });
 });
+
+/**
+ * Наполнение ячейки через команды (PROMPT 9 §13, тесты 3, 4, 10).
+ *
+ * Отдельных команд `setCellContent`/`clearCellContent`/`updateContentConfig`
+ * не заводится: все три — это одна операция «положить в ячейку такое
+ * наполнение», и `SetFill` её уже выражает. Очистка — наполнение `empty`,
+ * правка конфигурации — новое значение того же вида: `LeafFill` неизменяем,
+ * поэтому «изменить поле внутри» и «положить обновлённое наполнение» —
+ * одно и то же действие.
+ */
+describe('стор документа: наполнение ячейки', () => {
+  const cellId = (s: ReturnType<typeof store>) => s.getState().project.furniture[0]!.root.id;
+  const fillOf = (s: ReturnType<typeof store>) => {
+    const root = s.getState().project.furniture[0]!.root;
+    return isLeaf(root) ? root.fill : undefined;
+  };
+
+  const shelvesFill = (id: string) =>
+    ({
+      kind: 'shelves' as const,
+      shelves: [{ id: asId<'Node'>(id), placement: { mode: 'auto' as const, index: 0, count: 1 }, mounting: 'adjustable' as const }],
+    });
+
+  it('Test 3: SetFill кладёт наполнение в существующую ячейку', () => {
+    const s = store();
+    expect(fillOf(s)?.kind).toBe('empty');
+
+    s.getState().execute({ type: 'SetFill', furnitureIndex: 0, nodeId: asId<'Node'>(cellId(s)), fill: shelvesFill('sh-1') });
+
+    const fill = fillOf(s);
+    expect(fill?.kind).toBe('shelves');
+    expect(fill?.kind === 'shelves' ? fill.shelves[0]?.id : undefined).toBe('sh-1');
+  });
+
+  it('Test 4: очистка — это наполнение empty, а не удаление ячейки', () => {
+    const s = store();
+    const target = asId<'Node'>(cellId(s));
+    s.getState().execute({ type: 'SetFill', furnitureIndex: 0, nodeId: target, fill: shelvesFill('sh-1') });
+
+    s.getState().execute({ type: 'SetFill', furnitureIndex: 0, nodeId: target, fill: { kind: 'empty' } });
+
+    expect(fillOf(s)?.kind).toBe('empty');
+    // Ячейка на месте: очистили наполнение, а не структуру.
+    expect(cellId(s)).toBe(target);
+  });
+
+  it('Test 10: undo и redo восстанавливают наполнение', () => {
+    const s = store();
+    const target = asId<'Node'>(cellId(s));
+
+    s.getState().execute({ type: 'SetFill', furnitureIndex: 0, nodeId: target, fill: shelvesFill('sh-1') });
+    expect(fillOf(s)?.kind).toBe('shelves');
+
+    s.getState().undo();
+    expect(fillOf(s)?.kind).toBe('empty');
+
+    s.getState().redo();
+    expect(fillOf(s)?.kind).toBe('shelves');
+    const fill = fillOf(s);
+    expect(fill?.kind === 'shelves' ? fill.shelves[0]?.id : undefined).toBe('sh-1');
+  });
+
+  it('правка конфигурации наполнения — то же SetFill с новым значением', () => {
+    const s = store();
+    const target = asId<'Node'>(cellId(s));
+    s.getState().execute({ type: 'SetFill', furnitureIndex: 0, nodeId: target, fill: shelvesFill('sh-1') });
+
+    const updated = {
+      kind: 'shelves' as const,
+      shelves: [
+        { id: asId<'Node'>('sh-1'), placement: { mode: 'auto' as const, index: 0, count: 2 }, mounting: 'fixed' as const },
+        { id: asId<'Node'>('sh-2'), placement: { mode: 'auto' as const, index: 1, count: 2 }, mounting: 'fixed' as const },
+      ],
+    };
+    s.getState().execute({ type: 'SetFill', furnitureIndex: 0, nodeId: target, fill: updated });
+
+    const fill = fillOf(s);
+    expect(fill?.kind === 'shelves' ? fill.shelves.map((sh) => sh.id) : []).toEqual(['sh-1', 'sh-2']);
+    // Идентичность первой полки сохранена: обновление конфигурации не
+    // пересоздаёт то, что пользователь не трогал.
+    s.getState().undo();
+    const back = fillOf(s);
+    expect(back?.kind === 'shelves' ? back.shelves.map((sh) => sh.id) : []).toEqual(['sh-1']);
+  });
+
+  it('наполнение нельзя положить в узел деления — только в ячейку', () => {
+    const s = store();
+    s.getState().execute({
+      type: 'SetSectionCount',
+      furnitureIndex: 0,
+      count: 2,
+      splitId: asId<'Node'>('split'),
+      newSectionIds: [asId<'Node'>('s2')],
+      dividerThickness: 16,
+    });
+    const root = s.getState().project.furniture[0]!.root;
+    expect(isSplit(root)).toBe(true);
+
+    s.getState().execute({ type: 'SetFill', furnitureIndex: 0, nodeId: asId<'Node'>(root.id), fill: shelvesFill('sh-1') });
+
+    // Узел деления остался делением: наполнение к нему не прилипло.
+    const after = s.getState().project.furniture[0]!.root;
+    expect(isSplit(after)).toBe(true);
+  });
+
+  it('наполнение несуществующей ячейки не меняет проект', () => {
+    const s = store();
+    const before = s.getState().project;
+    s.getState().execute({ type: 'SetFill', furnitureIndex: 0, nodeId: asId<'Node'>('нет-такой'), fill: shelvesFill('sh-1') });
+    expect(s.getState().project).toBe(before);
+  });
+});

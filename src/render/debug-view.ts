@@ -1,5 +1,6 @@
 import type { GeometryResult } from '../geometry/index.js';
 import { formatMm, type Mm, type PartRole } from '../domain/index.js';
+import { contentKindOf, contentLabel } from '../geometry/index.js';
 
 /**
  * Domain Geometry → Render Model.
@@ -33,6 +34,12 @@ export interface DebugRect {
   readonly depth?: Mm;
   /** Секция, к которой относится деталь — только если она принадлежит ровно одной ячейке. */
   readonly sectionId?: string;
+  /**
+   * Наполнение ячейки (PROMPT 9 §15) — только у прямоугольников-ячеек.
+   * Показывается всегда, а не только в debug-инфо: «что стоит в этой
+   * ячейке» — то, ради чего смотрят на схему, а не служебная подробность.
+   */
+  readonly content?: string;
   /**
    * Готовая строка для режима debug-инфо (PROMPT 8 §24): id, координаты и
    * размеры объекта. Собирается здесь, а не в компоненте, по той же причине,
@@ -123,8 +130,12 @@ export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
     y: cell.box.min.y,
     width: cell.box.size.x,
     height: cell.box.size.y,
-    // Ячейка: id, X, Y, ширина, высота (PROMPT 8 §24).
-    detail: `${cell.nodeId} · X ${formatMm(cell.box.min.x)} Y ${formatMm(cell.box.min.y)} · Ш ${formatMm(cell.box.size.x)} × В ${formatMm(cell.box.size.y)}`,
+    // Наполнение приходит из `GeometryResult.cells[].fill` — того же места,
+    // откуда его берёт движок. Разбирать `LeafFill` рендерер не умеет
+    // и не должен: вид наполнения отдаёт `contentKindOf`.
+    content: `CONTENT: ${contentLabel(contentKindOf(cell.fill)).toUpperCase()}`,
+    // Ячейка: id, X, Y, ширина, высота (PROMPT 8 §24) и вид наполнения (PROMPT 9 §15).
+    detail: `${cell.nodeId} · X ${formatMm(cell.box.min.x)} Y ${formatMm(cell.box.min.y)} · Ш ${formatMm(cell.box.size.x)} × В ${formatMm(cell.box.size.y)} · ${contentKindOf(cell.fill)}`,
   }));
 
   const dimensions: DebugDimensionLine[] = [];

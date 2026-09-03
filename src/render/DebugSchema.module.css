@@ -99,3 +99,15 @@
   dominant-baseline: middle;
   pointer-events: none;
 }
+
+/* Наполнение ячейки: тот же приглушённый цвет, что у остальных подписей
+   схемы, но меньшим кеглем — это пояснение к ячейке, а не её размер. */
+.cellContent {
+  fill: var(--text-tertiary);
+  font-family: var(--font-num);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}

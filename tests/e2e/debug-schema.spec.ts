@@ -135,6 +135,20 @@ test('индивидуальные ширины секций применяют�
   await expect(schema.getByText('Ш 500', { exact: false }).first()).toBeVisible();
 });
 
+test('наполнение ячейки подписано в схеме и меняется вместе с моделью', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  // Новая ячейка пуста — и это видно, а не подразумевается.
+  await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
+
+  await page.getByLabel('Полок в ячейке').fill('2');
+  await page.getByRole('button', { name: /Применить сетку/ }).click();
+
+  await expect(schema.getByText('CONTENT: ПОЛКИ')).toBeVisible();
+  await expect(schema.getByText('CONTENT: ПУСТО')).toHaveCount(0);
+});
+
 test('изменение габарита в поле обновляет схему сразу, без перезагрузки', async ({ page }) => {
   await page.goto('/');
 

@@ -36,11 +36,12 @@ P2 — расширенная · P3 — дополнительные возмо�
 | GEO-04 | Внутренний объём | UNKNOWN T-CAR-04 | по схеме + `Tolerances` | P0 | S | IMPLEMENTED |
 | GEO-05 | Дерево секций и раскладка | UNKNOWN T-GRID-01 | рекурсивный `SplitNode`, `fixed`/`flex`, стадия `layout`; секция как область — `GeometryResult.sections` | P0 | L | IMPLEMENTED |
 | GEO-06 | Перегородки (геометрия детали) | UNKNOWN T-CAR-02 | детали разделителей: позиция/размер/роль/материал в стадии `layout`; drag и магниты — отдельная задача, см. `INT-04` | P0 | M | IMPLEMENTED (геометрия; интерактив — `INT-04`) |
+| GEO-23 | Архитектура наполнения ячейки (Cell → Content → Parts) | N/A | `LeafFill` + `resolveContentGeometry`, статус `not-implemented` вместо тихого пропуска | P0 | M | IMPLEMENTED |
 | GEO-07 | Полки (равномерные и ручные) | UNKNOWN T-SHF-01 | `Shelf.placement`, этап `fill` движка | P0 | M | IMPLEMENTED (геометрия; полкодержатели — `HW-06`, перетаскивание — `INT-04`) |
 | GEO-08 | Задняя стенка (накладная / в паз) | UNKNOWN T-CAR-04 | `BackPanelMount` | P1 | M | NOT_STARTED |
-| GEO-09 | Ящики: короб, дно, направляющие | UNKNOWN T-DRW-02 | `SlideSpec` + `DrawerBoxSpec` | P1 | L | NOT_STARTED |
+| GEO-09 | Ящики: короб, дно, направляющие | UNKNOWN T-DRW-02 | `SlideSpec` + `DrawerBoxSpec`; модель и точка расширения готовы, геометрия — нет (`not-implemented`) | P1 | L | NOT_STARTED (геометрия) |
 | GEO-10 | Фасады распашные | UNKNOWN T-DOOR-02 | `OverlaySpec`, накладной/вкладной | P1 | L | NOT_STARTED |
-| GEO-11 | Штанга для одежды | UNKNOWN T-HW-05 | `HangingRod` | P1 | S | NOT_STARTED |
+| GEO-11 | Штанга для одежды | UNKNOWN T-HW-05 | `HangingRod`; модель и точка расширения готовы, геометрия — нет (`not-implemented`) | P1 | S | NOT_STARTED (геометрия) |
 | GEO-12 | Цоколь / ножки | UNKNOWN T-CAR-05 | `BaseSpec` | P1 | M | NOT_STARTED |
 | GEO-13 | Столешница со свесами | UNKNOWN T-CAR-06 | `CountertopSpec` | P2 | M | NOT_STARTED |
 | GEO-14 | Кромка и коррекция размера раскроя | UNKNOWN T-EDG-03 | `EdgeSpec` + `EdgeSizingPolicy` | P1 | M | NOT_STARTED |
@@ -50,6 +51,7 @@ P2 — расширенная · P3 — дополнительные возмо�
 | GEO-18 | Подъёмные фасады | UNKNOWN T-DOOR-01 | — | P3 | M | NOT_STARTED |
 | GEO-19 | Индивидуальная правка отдельной детали | UNKNOWN T-PART-01 | переопределения на уровне детали | P2 | L | NOT_STARTED |
 | GEO-20 | Скошенные / нестандартные формы | UNKNOWN | — | P3 | XL | NOT_STARTED |
+| GEO-24 | Обувной модуль | UNKNOWN T-FILL-01 | вариант `LeafFill` не заведён: конфигурация не подтверждена | P3 | M | NOT_STARTED |
 | GEO-21 | Инварианты движка и аварийная остановка при недопустимом входе | N/A | `GeometryContext`: уникальность ID, положительность размера, неотрицательность координаты, стоп конвейера при фатальной ошибке | P0 | S | IMPLEMENTED |
 | GEO-22 | Bounding box результата | N/A | `computeBoundingBox(parts)` → minX…maxZ, totalWidth/Height/Depth | P1 | S | IMPLEMENTED |
 
@@ -189,7 +191,7 @@ P2 — расширенная · P3 — дополнительные возмо�
 | P2 | 30 |
 | P3 | 8 |
 | OUT_OF_SCOPE | 1 |
-| **Всего** | **117** |
+| **Всего** | **119** |
 
 | Сложность | Количество |
 | --- | --- |
@@ -201,9 +203,9 @@ P2 — расширенная · P3 — дополнительные возмо�
 
 | Статус | Количество |
 | --- | --- |
-| IMPLEMENTED | 26 |
+| IMPLEMENTED | 27 |
 | PARTIAL | 2 |
-| NOT_STARTED | 88 |
+| NOT_STARTED | 89 |
 | OUT_OF_SCOPE | 1 |
 
 Две строки добавлены на этапе PROMPT 3 (`GEO-21`, `GEO-22`) — инварианты
@@ -216,6 +218,14 @@ P2 — расширенная · P3 — дополнительные возмо�
 (`src/render/`, только в режиме разработки), а не финальная схема с
 материалами и фасадами — это разные объёмы работы, и смешивать их в одной
 строке было бы неточно.
+
+На этапе PROMPT 9 добавлены две строки: `GEO-23` (архитектура наполнения —
+IMPLEMENTED: типизированная модель, контракт резолвера, явный статус
+нереализованных видов) и `GEO-24` (обувной модуль — NOT_STARTED, вариант
+модели не заведён, потому что конфигурация не подтверждена, `T-FILL-01`).
+Геометрия дверей (`GEO-10`), ящиков (`GEO-09`) и штанги (`GEO-11`)
+остаётся NOT_STARTED: у них есть модель и рабочая точка расширения,
+но ни одной детали они пока не строят.
 
 На этапе PROMPT 7 `VAL-05` перешёл в PARTIAL: геометрический предикат
 пересечения деталей (`overlaps`, отличающий касание от наложения) написан

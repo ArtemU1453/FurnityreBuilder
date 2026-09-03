@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDebugView } from '../../../src/render/debug-view.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
 import { createSections, createSizedSplit, createUniformGrid, fixedSizes } from '../../../src/domain/furniture/sections.js';
-import { createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
+import { createEmptyLeaf, createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
 import { makeGeometryInput, makeGeometryInputWithRoot } from '../geometry/helpers.js';
 
 /**
@@ -235,6 +235,66 @@ describe('buildDebugView: сценарии визуальной проверки
       expect(cellRects.map((r) => r.height)).toEqual(heights);
     },
   );
+});
+
+describe('buildDebugView: наполнение ячейки (PROMPT 9 §15)', () => {
+  it('пустая ячейка подписана как CONTENT: ПУСТО', () => {
+    const geometry = buildGeometry(makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 }));
+    const view = buildDebugView(geometry);
+    const cell = view.rects.find((r) => r.kind === 'cell');
+    expect(cell?.content).toBe('CONTENT: ПУСТО');
+  });
+
+  it('ячейка с полками подписана своим видом наполнения, а не «пусто»', () => {
+    const geometry = buildGeometry(
+      makeGeometryInputWithRoot((ids) => createShelvesLeaf(ids, 2, 'adjustable'), {
+        width: 1000,
+        height: 2000,
+        depth: 500,
+        panelThickness: 16,
+      }),
+    );
+    const view = buildDebugView(geometry);
+    const cell = view.rects.find((r) => r.kind === 'cell');
+    expect(cell?.content).toBe('CONTENT: ПОЛКИ');
+  });
+
+  it('вид наполнения виден и в подробной подписи, вместе с id ячейки', () => {
+    const geometry = buildGeometry(
+      makeGeometryInputWithRoot((ids) => createShelvesLeaf(ids, 1, 'adjustable'), {
+        width: 1000,
+        height: 2000,
+        depth: 500,
+        panelThickness: 16,
+      }),
+    );
+    const view = buildDebugView(geometry);
+    const cell = view.rects.find((r) => r.kind === 'cell')!;
+    expect(cell.detail).toContain(geometry.cells[0]!.nodeId);
+    expect(cell.detail).toContain('shelves');
+  });
+
+  it('каждая ячейка получает свою подпись наполнения — связь Content → Cell не теряется', () => {
+    const geometry = buildGeometry(
+      makeGeometryInputWithRoot(
+        (ids) => ({
+          id: ids.next<'Node'>(),
+          kind: 'split' as const,
+          axis: 'x' as const,
+          divider: { material: 'panel' as const, thickness: 16, mounting: 'fixed' as const, frontSetback: 0 },
+          children: [
+            { size: { mode: 'flex' as const, weight: 1 }, node: createShelvesLeaf(ids, 2, 'adjustable') },
+            { size: { mode: 'flex' as const, weight: 1 }, node: createEmptyLeaf(ids) },
+          ],
+        }),
+        { width: 1200, height: 2000, depth: 500, panelThickness: 16 },
+      ),
+    );
+    const view = buildDebugView(geometry);
+    const cells = view.rects.filter((r) => r.kind === 'cell').sort((a, b) => a.x - b.x);
+    expect(cells.map((c) => c.content)).toEqual(['CONTENT: ПОЛКИ', 'CONTENT: ПУСТО']);
+    expect(cells.map((c) => c.id)).toEqual(geometry.cells.map((c) => c.nodeId));
+  });
 });
 
 describe('buildDebugView: пустой результат (фатальная ошибка входа)', () => {

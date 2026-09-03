@@ -24,6 +24,8 @@ const TICK_SIZE: number = 6;
 const SECTION_LABEL_OFFSET: number = 18;
 /** Вторая строка подписи (ширина, X, id) — под первой. */
 const SECTION_DETAIL_OFFSET: number = 14;
+/** Строка наполнения — над размерами ячейки, чтобы читались обе. */
+const CONTENT_LABEL_OFFSET: number = 15;
 
 /** Горизонтальный разделитель (§9.5) и полка наполнения (PROMPT 6) — физически один
  * и тот же тип детали (`docs/GEOMETRY_RULES.md` §9.5: «горизонтальный разделитель
@@ -90,13 +92,24 @@ export function DebugSchema({ view, showDebugInfo = false }: DebugSchemaProps): 
               height={rect.height}
             />
             {rect.kind === 'cell' ? (
-              <text
-                className={styles.cellLabel}
-                x={rect.x + rect.width / 2}
-                y={flipY(rect.y, rect.height) + rect.height / 2}
-              >
-                {rect.label}
-              </text>
+              <>
+                <text
+                  className={styles.cellLabel}
+                  x={rect.x + rect.width / 2}
+                  y={flipY(rect.y, rect.height) + rect.height / 2}
+                >
+                  {rect.label}
+                </text>
+                {rect.content === undefined ? null : (
+                  <text
+                    className={styles.cellContent}
+                    x={rect.x + rect.width / 2}
+                    y={flipY(rect.y, rect.height) + rect.height / 2 - CONTENT_LABEL_OFFSET}
+                  >
+                    {rect.content}
+                  </text>
+                )}
+              </>
             ) : null}
             {showDebugInfo ? (
               <text

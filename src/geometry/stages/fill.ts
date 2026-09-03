@@ -1,4 +1,4 @@
-import type { Box3, EdgeSpec, LeafFill, MaterialLibrary, Mm, NodeId, PartRole, Shelf } from '../../domain/index.js';
+import type { Box3, EdgeSpec, MaterialLibrary, Mm, NodeId, PartRole, Shelf } from '../../domain/index.js';
 import {
   DEFAULT_EDGE,
   dividerOffset,
@@ -12,12 +12,18 @@ import {
 } from '../../domain/index.js';
 import type { GeometryContext, GeometryStage } from '../context.js';
 import { makePart, resolveMaterial } from '../parts.js';
+import { contentLabel, resolveContentGeometry } from '../content.js';
 
 /**
  * Наполнение ячеек: полки (PROMPT 6). Первая часть этапа `fill`
  * (`docs/GEOMETRY_RULES.md` §10) — ящики и штанга остаются `LeafFill`-видами
- * без геометрии до своих этапов плана (21, 23); эта функция их просто
- * пропускает, не считая отсутствие геометрии ошибкой.
+ * без геометрии до своих этапов плана (21, 23).
+ *
+ * Что означает наполнение ячейки, решает резолвер `../content.ts`; этот
+ * этап только размещает то, что резолвер вернул. Виды без геометрии
+ * получают статус `not-implemented` и попадают в диагностику: до PROMPT 9
+ * они пропускались молча, и «ящики есть в модели, но деталей нет» ничем
+ * не отличалось от «ячейка пуста».
  *
  * Источник истины — `LeafNode.fill`, как и раньше: полка не хранит своих
  * X/Y/Z/width/height/depth — они вычисляются здесь из объёма ячейки,
@@ -28,13 +34,6 @@ import { makePart, resolveMaterial } from '../parts.js';
 
 function shelfRole(mounting: Shelf['mounting']): PartRole {
   return mounting === 'adjustable' ? 'shelf-adjustable' : 'shelf-fixed';
-}
-
-/** Полки одной ячейки, независимо от того, в каком `LeafFill.kind` они лежат. */
-function shelvesOf(fill: LeafFill): readonly Shelf[] {
-  if (fill.kind === 'shelves') return fill.shelves;
-  if (fill.kind === 'rod+shelf') return [fill.shelfAbove];
-  return [];
 }
 
 interface ResolvedShelfMaterial {
@@ -189,11 +188,32 @@ export const fillStage: GeometryStage = {
       ctx.report('MATERIAL_NOT_ASSIGNED', 'warning', 'Материал для полки не назначен, взят первый из библиотеки.');
     };
 
+    // Виды наполнения, о которых уже сообщили: одна диагностика на вид,
+    // а не по одной на каждую ячейку — иначе шкаф с шестью ящичными
+    // секциями выдал бы шесть одинаковых сообщений.
+    const reportedKinds = new Set<string>();
+
     for (const cell of ctx.getCells()) {
       const node = findNode(furniture.root, cell.nodeId);
       if (node === undefined || !isLeaf(node)) continue;
 
-      const allShelves = shelvesOf(node.fill);
+      // Что означает наполнение этой ячейки — решает резолвер
+      // (`src/geometry/content.ts`), а не разбор `fill.kind` здесь.
+      const content = resolveContentGeometry(node.fill, cell.nodeId);
+
+      if (content.status === 'not-implemented' && !reportedKinds.has(content.kind)) {
+        reportedKinds.add(content.kind);
+        // Явный статус вместо тихого пропуска (PROMPT 9 §9): наполнение
+        // в модели есть, деталей для него пока нет — и об этом видно.
+        ctx.report(
+          'CONTENT_NOT_IMPLEMENTED',
+          'info',
+          `Наполнение «${contentLabel(content.kind)}» пока не строится геометрией: ${content.missing ?? 'нет реализации'}.`,
+          { nodeId: cell.nodeId },
+        );
+      }
+
+      const allShelves = content.shelves;
       if (allShelves.length === 0) continue;
 
       const autoShelves = allShelves.filter((s) => s.placement.mode === 'auto');
