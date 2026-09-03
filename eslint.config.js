@@ -20,6 +20,7 @@ const LAYERS = [
   { type: 'hardware', pattern: 'src/hardware/**/*' },
   { type: 'production', pattern: 'src/production/**/*' },
   { type: 'drilling', pattern: 'src/drilling/**/*' },
+  { type: 'bom', pattern: 'src/bom/**/*' },
   { type: 'validation', pattern: 'src/validation/**/*' },
   { type: 'persistence', pattern: 'src/persistence/**/*' },
   { type: 'state', pattern: 'src/state/**/*' },
@@ -42,6 +43,8 @@ const PURE_LAYERS = [
   'src/production/**/*.ts',
   // PROMPT 18 §33: расчёт присадки — тоже чистый детерминированный расчёт.
   'src/drilling/**/*.ts',
+  // PROMPT 19 §24: спецификация не привязана к React, DOM и экрану.
+  'src/bom/**/*.ts',
 ];
 
 const UI_FRAMEWORK_IMPORTS = {
@@ -119,16 +122,20 @@ export default tseslint.config(
             // Присадка — производная от геометрии, деталей и фурнитуры
             // (PROMPT 18 §2). Она читает все три и не пишет ни в один.
             { from: 'drilling', allow: ['drilling', 'production', 'hardware', 'geometry', 'domain'] },
-            { from: 'validation', allow: ['validation', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
+            // Производственная спецификация — агрегат всех расчётных слоёв
+            // (PROMPT 19 §2). Она читает их результаты и ничего не считает
+            // заново; вверх — к state и UI — не смотрит.
+            { from: 'bom', allow: ['bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
+            { from: 'validation', allow: ['validation', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'persistence', allow: ['persistence', 'domain'] },
-            { from: 'state', allow: ['state', 'persistence', 'validation', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
+            { from: 'state', allow: ['state', 'persistence', 'validation', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'motion', allow: ['motion'] },
             { from: 'interaction', allow: ['interaction', 'motion', 'state', 'domain'] },
             { from: 'design-system', allow: ['design-system', 'motion'] },
             // render — презентационный слой: получает уже посчитанную
             // геометрию и рисует её. Не видит state/interaction — команды
             // и хранилище остаются заботой app, render только показывает.
-            { from: 'render', allow: ['render', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'design-system'] },
+            { from: 'render', allow: ['render', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'bom', 'design-system'] },
             { from: 'app', allow: ['*'] },
             { from: 'entry', allow: ['*'] },
           ],

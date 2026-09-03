@@ -213,6 +213,12 @@ src/
     rules/                   петли, направляющие, полкодержатели, крепёж, ручки, push
     validate.ts              границы, глубина, пересечения, технологические отступы
     engine.ts                calculateDrilling: правила → проверки → порядок
+  bom/                       агрегат всех расчётов → ProductionBOM, чистые функции
+    types.ts                 PartBOMItem, ProductionBOM, ProductionCalculationResult
+    parts.ts                 деталировка, разделы, метраж кромки
+    summaries.ts             сводки присадки и раскроя
+    confirmations.ts         централизованный список неподтверждённых правил
+    engine.ts                calculateProduction: единый конвейер расчёта
   validation/                правила → Issue[]
     rules/{values,references,structure}.ts
   persistence/               схема Zod, сериализация, миграции, репозитории
@@ -735,8 +741,8 @@ const migrations: Record<number, (doc: unknown) => unknown> = { 1: v1_to_v2, ...
 | Формат | Назначение | Источник | Реализация | Сложность |
 | --- | --- | --- | --- | --- |
 | **JSON** | проект, обмен, резерв | `Project` | нативно | тривиально |
-| **CSV** | деталировка в любую программу | `Part[]` | своя сериализация, разделитель `;`, BOM для кириллицы в Excel | низкая |
-| **XLSX** | деталировка + фурнитура + кромка, листами | `Part[]`, `HardwareLine[]` | `exceljs` | средняя |
+| **CSV** | деталировка в любую программу | `ProductionBOM.parts` | своя сериализация, разделитель `;`, BOM для кириллицы в Excel | низкая |
+| **XLSX** | деталировка + фурнитура + кромка, листами | `ProductionBOM` (PROMPT 19) | `exceljs` | средняя |
 | **PDF — чертёж** | схема с размерами | `Part[]` + SVG-слой | `pdf-lib` + встроенный шрифт | средняя |
 | **PDF — деталировка** | таблица деталей | `Part[]` | `pdf-lib` | средняя |
 | **PDF — карта раскроя** | раскладка на листах | результат nesting | `pdf-lib` | высокая |

@@ -209,6 +209,27 @@ function aggregate(
   return lines;
 }
 
+/**
+ * Слияние спецификаций нескольких изделий в одну (PROMPT 19 §20).
+ *
+ * Нужно единому конвейеру: расчёту присадки спецификация требуется ПО
+ * ИЗДЕЛИЮ, а спецификации проекта — целиком. Считать её дважды (по
+ * изделию и потом заново по проекту) значило бы прогнать все правила
+ * лишний раз; слияние переиспользует ту же агрегацию, что и основной
+ * расчёт, поэтому второго способа сложить строки не появляется.
+ */
+export function mergeHardwareBoms(project: Project, boms: readonly HardwareBOM[]): HardwareBOM {
+  const registry = resolveRegistry(project);
+  const items = boms.flatMap((bom) => [...bom.items]);
+  items.sort((a, b) => a.id.localeCompare(b.id));
+  return {
+    items,
+    lines: aggregate(items, registry),
+    warnings: boms.flatMap((bom) => [...bom.warnings]),
+    errors: boms.flatMap((bom) => [...bom.errors]),
+  };
+}
+
 export function calculateHardware(project: Project, options: CalculateHardwareOptions = {}): HardwareBOM {
   const rules = options.rules ?? HARDWARE_RULES;
   const registry = resolveRegistry(project);

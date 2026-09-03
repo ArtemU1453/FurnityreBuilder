@@ -116,6 +116,26 @@ describe('архитектурные границы', () => {
     expect(rules).toContain('boundaries/element-types');
   });
 
+  it('запрещает React в производственной спецификации', { timeout: 60_000 }, async () => {
+    // PROMPT 19 §24: `calculateProduction` не привязана к React, DOM и
+    // конкретному экрану — иначе её нельзя вызвать из экспорта.
+    const rules = await lintSource(
+      'bom',
+      'probe.ts',
+      "import { useMemo } from 'react';\nexport const probe = useMemo;\n",
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('запрещает спецификации менять модель: bom → state', { timeout: 60_000 }, async () => {
+    const rules = await lintSource(
+      'bom',
+      'probe.ts',
+      "import { PLANNED_COMMANDS } from '../../state/commands.js';\nexport const probe = PLANNED_COMMANDS;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
   it('запрещает импорт вверх по слоям: geometry → state', { timeout: 60_000 }, async () => {
     const rules = await lintSource(
       'geometry',

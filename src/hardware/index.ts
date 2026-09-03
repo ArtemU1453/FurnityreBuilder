@@ -12,7 +12,7 @@ export {
   HW_HANDLE_FASTENER,
   HW_PUSH_LATCH,
 } from './registry.js';
-export { calculateHardware, HARDWARE_RULES } from './engine.js';
+export { calculateHardware, mergeHardwareBoms, HARDWARE_RULES } from './engine.js';
 export { formatHardwareDebug, formatHardwareItem } from './debug.js';
 export type { CalculateHardwareOptions } from './engine.js';
 export { hingeRule, hingeFastenerRule, hingeCountForHeight, HINGE_COUNT_TABLE } from './rules/hinges.js';

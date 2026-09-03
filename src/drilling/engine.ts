@@ -5,6 +5,7 @@ import { issue } from '../domain/index.js';
 import type { FurnitureId, Issue, PartId, Project } from '../domain/index.js';
 import type { GeometryResult } from '../geometry/index.js';
 import type { ProductionPart } from '../production/index.js';
+import type { HardwareBOM } from '../hardware/index.js';
 import type { DrillingOperation, DrillingParameters, DrillingPlan, DrillingRule } from './types.js';
 import { EMPTY_DRILLING_PARAMETERS } from './types.js';
 import { validateCollisions, validateOperation } from './validate.js';
@@ -55,6 +56,16 @@ export interface CalculateDrillingOptions {
   readonly parameters?: DrillingParameters;
   /** Уже посчитанная геометрия по id изделия: не считать её второй раз. */
   readonly geometry?: ReadonlyMap<FurnitureId, GeometryResult>;
+  /**
+   * Уже посчитанные производственные детали и спецификация фурнитуры.
+   *
+   * Нужны единому конвейеру расчёта (PROMPT 19 §20): без них присадка
+   * считала бы их заново, и один прогон конвейера строил бы одни и те же
+   * детали дважды. Результат от этого не зависит — при отсутствии карт
+   * движок считает всё сам, как и раньше.
+   */
+  readonly productionParts?: ReadonlyMap<FurnitureId, readonly ProductionPart[]>;
+  readonly hardware?: ReadonlyMap<FurnitureId, HardwareBOM>;
 }
 
 /** Порядок граней в сортировке: сначала пласти, потом торцы (§24). */
@@ -118,13 +129,17 @@ export function calculateDrilling(project: Project, options: CalculateDrillingOp
       continue;
     }
 
-    const production = toProductionParts(geometry, project.materials, project.settings.cutting);
-    const hardware = calculateHardware(project, { geometry: new Map([[furniture.id, geometry]]) });
+    const productionParts =
+      options.productionParts?.get(furniture.id) ??
+      toProductionParts(geometry, project.materials, project.settings.cutting).parts;
+    const hardware =
+      options.hardware?.get(furniture.id) ??
+      calculateHardware(project, { geometry: new Map([[furniture.id, geometry]]) });
 
     // Производственная позиция по физической детали: у позиции количество,
     // и одна и та же деталь принадлежит ровно одной позиции (PROMPT 17 §22).
     const productionByPart = new Map<PartId, ProductionPart>();
-    for (const part of production.parts) {
+    for (const part of productionParts) {
       productionById.set(part.id, part);
       for (const sourceId of part.sourcePartIds) productionByPart.set(sourceId, part);
     }
@@ -133,7 +148,7 @@ export function calculateDrilling(project: Project, options: CalculateDrillingOp
     const ctx = {
       furniture,
       geometry,
-      productionParts: production.parts,
+      productionParts,
       hardware,
       materials: project.materials,
       parameters,

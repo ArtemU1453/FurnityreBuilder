@@ -130,7 +130,10 @@ test('индивидуальные ширины секций применяют�
   // Несходящаяся сумма не строит геометрию молча, а объясняется текстом.
   await page.getByLabel('Ширины секций, мм').fill('200, 200, 200');
   await page.getByRole('button', { name: 'Применить ширины' }).click();
-  await expect(page.getByText(/не заполняют доступное пространство/)).toBeVisible();
+  // Локатор сужен до панели проблем: с PROMPT 19 тот же текст ошибки
+  // встречается ещё и в техническом выводе спецификации, и без сужения
+  // локатор находит два элемента.
+  await expect(page.getByLabel('Результат расчёта').getByText(/не заполняют доступное пространство/)).toBeVisible();
 
   // Одна отмена возвращает предыдущий набор ширин целиком.
   await page.getByRole('button', { name: 'Отменить' }).click();
@@ -459,4 +462,27 @@ test('карта присадки объясняет, чего не хватае
   await page.getByRole('button', { name: /Применить сетку/ }).click();
   await expect(list.getByText(/какая боковина или перегородка держит полку/)).toBeVisible();
   await expect(list.getByText('— ни одной операции не рассчитано —')).toBeVisible();
+});
+
+test('спецификация собирается из всех расчётов и не прячет ограничений (PROMPT 19 §25)', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: 'Спецификация (расчёт)' })).toBeVisible();
+  const list = page.locator('h3:has-text("Спецификация (расчёт)") + ul');
+
+  // Все четыре раздела на месте, статус честный: подтверждены не все правила.
+  await expect(list.getByText(/^СТАТУС: NEEDS_CONFIRMATION/)).toBeVisible();
+  await expect(list.getByText(/^ДЕТАЛИ · ID · NAME/)).toBeVisible();
+  await expect(list.getByText(/^ФУРНИТУРА · DEFINITION/)).toBeVisible();
+  await expect(list.getByText(/^ПРИСАДКА · операций:/)).toBeVisible();
+  await expect(list.getByText(/^РАСКРОЙ · листов:/)).toBeVisible();
+  await expect(list.getByText(/^ТРЕБУЕТ ПОДТВЕРЖДЕНИЯ · \d+/)).toBeVisible();
+
+  // Две одинаковые боковины — одна строка количеством 2, а не две строки.
+  await expect(list.getByText(/Боковина · side · Корпусная плита 16 мм · 16 · 2000 · 497 · 2 ·/)).toBeVisible();
+
+  // Полки появляются в деталировке сами, одной строкой на три штуки.
+  await page.getByLabel('Полок в ячейке').fill('3');
+  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await expect(list.getByText(/Полка · shelf · Корпусная плита 16 мм · 16 · \d+ · \d+ · 3 ·/)).toBeVisible();
 });

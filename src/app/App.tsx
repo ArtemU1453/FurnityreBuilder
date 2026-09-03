@@ -19,6 +19,7 @@ import { buildCuttingView, buildDebugView, CuttingMap, DebugSchema } from '../re
 import { calculateHardware, formatHardwareDebug } from '../hardware/index.js';
 import { calculateCutting, toProductionParts } from '../production/index.js';
 import { calculateDrilling, formatDrillingDebug } from '../drilling/index.js';
+import { calculateProduction, formatProductionDebug } from '../bom/index.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import { Button, Field } from '../design-system/index.js';
@@ -120,6 +121,15 @@ export function App(): React.JSX.Element {
       partsById: new Map(geometry.parts.map((p) => [p.id, p])),
       productionById: new Map(production.map((p) => [p.id, p])),
     });
+  }, [project, furniture, geometry]);
+
+  // Производственная спецификация (PROMPT 19). Единый конвейер: он сам
+  // вызывает геометрию, детали, фурнитуру, присадку и раскрой ровно по
+  // одному разу и агрегирует результат. Готовая геометрия передаётся, чтобы
+  // не строить её второй раз — та же, что уже показана на схеме.
+  const productionDebug = useMemo(() => {
+    if (!import.meta.env.DEV || furniture === undefined || geometry === undefined) return undefined;
+    return formatProductionDebug(calculateProduction(project, { geometry: new Map([[furniture.id, geometry]]) }));
   }, [project, furniture, geometry]);
 
   const report = useMemo(() => validateProject(project), [project]);
@@ -1283,6 +1293,25 @@ export function App(): React.JSX.Element {
                   Карта раскроя (debug)
                 </h3>
                 <CuttingMap view={cuttingView} />
+              </>
+            )}
+
+            {/*
+              Производственная спецификация (PROMPT 19 §25): детали,
+              кромка, фурнитура, присадка, раскрой и централизованный
+              список неподтверждённых правил. Технический вывод, не
+              производственный интерфейс (§33).
+            */}
+            {productionDebug === undefined ? null : (
+              <>
+                <h3 className={styles.panelTitle} style={{ marginTop: 'var(--sp-4)' }}>
+                  Спецификация (расчёт)
+                </h3>
+                <ul className={styles.hardwareDebug}>
+                  {productionDebug.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
               </>
             )}
 

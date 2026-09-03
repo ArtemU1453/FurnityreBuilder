@@ -1,4 +1,4 @@
-import type { HardwareId, PartId } from '../ids.js';
+import type { HardwareId } from '../ids.js';
 
 /**
  * Категория фурнитуры (PROMPT 16 §3).
@@ -55,17 +55,6 @@ export interface HardwareDefinition {
 /** Реестр фурнитуры — тот же Registry-паттерн, что и `MaterialLibrary`. */
 export interface HardwareLibrary {
   readonly items: Readonly<Record<string, HardwareDefinition>>;
-}
-
-/**
- * Строка итоговой спецификации.
- * `sourcePartIds` даёт трассируемость: по любой позиции видно, какие детали
- * её породили, и её можно подсветить на схеме.
- */
-export interface HardwareLine {
-  readonly hardwareId: HardwareId;
-  readonly quantity: number;
-  readonly sourcePartIds: readonly PartId[];
 }
 
 export const EMPTY_HARDWARE_LIBRARY: HardwareLibrary = { items: {} };
