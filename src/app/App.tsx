@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { createEmptyLeaf } from '../domain/furniture/defaults.js';
+import { createEmptyLeaf, createShelvesLeaf } from '../domain/furniture/defaults.js';
 import { createRandomIdFactory, formatMm } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
 import { buildGeometry } from '../geometry/index.js';
@@ -40,6 +40,7 @@ export function App(): React.JSX.Element {
   // разграничение «черновое значение / коммит», что и у транзакций drag).
   const [rowsDraft, setRowsDraft] = useState(1);
   const [columnsDraft, setColumnsDraft] = useState(1);
+  const [shelvesDraft, setShelvesDraft] = useState(0);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
 
   const furniture = project.furniture[0];
@@ -71,11 +72,25 @@ export function App(): React.JSX.Element {
   // пересчитывает перегородки, ячейки и bounding box за один шаг истории.
   const applyGrid = (): void => {
     const ids = createRandomIdFactory();
+    // Наполнение ячейки (полки, PROMPT 6) задаётся фабрикой листа: структура
+    // сетки и содержимое ячейки — разные решения, см. `LeafFactory`.
+    const createLeaf = (factoryIds: typeof ids) =>
+      shelvesDraft <= 0 ? createEmptyLeaf(factoryIds) : createShelvesLeaf(factoryIds, shelvesDraft, 'adjustable');
     const root =
       rowsDraft <= 1 && columnsDraft <= 1
-        ? createEmptyLeaf(ids)
-        : createUniformGrid(ids, rowsDraft, columnsDraft, furniture.dimensions.panelThickness, furniture.dimensions.panelThickness);
-    execute({ type: 'SetRoot', furnitureIndex: 0, root }, `Сетка ${String(rowsDraft)}×${String(columnsDraft)}`);
+        ? createLeaf(ids)
+        : createUniformGrid(
+            ids,
+            rowsDraft,
+            columnsDraft,
+            furniture.dimensions.panelThickness,
+            furniture.dimensions.panelThickness,
+            createLeaf,
+          );
+    execute(
+      { type: 'SetRoot', furnitureIndex: 0, root },
+      `Сетка ${String(rowsDraft)}×${String(columnsDraft)}, полок в ячейке: ${String(shelvesDraft)}`,
+    );
   };
 
   return (
@@ -173,6 +188,22 @@ export function App(): React.JSX.Element {
                 />
               )}
             </Field>
+            <Field label="Полок в ячейке">
+              {({ id }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={shelvesDraft}
+                  onChange={(event) => {
+                    const next = event.target.valueAsNumber;
+                    if (Number.isFinite(next) && next >= 0) setShelvesDraft(Math.round(next));
+                  }}
+                />
+              )}
+            </Field>
           </div>
           <Button onClick={applyGrid} style={{ marginTop: 'var(--sp-3)' }}>
             Применить сетку {rowsDraft}×{columnsDraft}
@@ -191,6 +222,12 @@ export function App(): React.JSX.Element {
             <li className={styles.stat}>
               <span className={styles.statLabel}>Ячеек</span>
               <span className={styles.statValue}>{geometry.cells.length}</span>
+            </li>
+            <li className={styles.stat}>
+              <span className={styles.statLabel}>Полок</span>
+              <span className={styles.statValue}>
+                {geometry.parts.filter((p) => p.role === 'shelf-fixed' || p.role === 'shelf-adjustable').length}
+              </span>
             </li>
             <li className={styles.stat}>
               <span className={styles.statLabel}>Внутренняя ширина</span>

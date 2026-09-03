@@ -12,11 +12,18 @@ import type { PartRole } from './types.js';
  *
  * Формат: `part:{furnitureId}/{nodeId|-}/{role}/{index}`
  * См. docs/INTERACTION_MODEL.md §9.
+ *
+ * `index` обычно порядковый номер среди деталей одной роли на одном узле
+ * (перегородки, горизонтали). Для деталей, у которых УЖЕ есть собственный
+ * стабильный `NodeId` из дерева модели (полка — `Shelf.id`, PROMPT 6),
+ * сюда передаётся этот id строкой, а не позиция в массиве: позиция меняется
+ * при добавлении/удалении соседней полки, `Shelf.id` — нет
+ * (`docs/GEOMETRY_RULES.md`, раздел «Shelf Calculation Rules»).
  */
 export function buildPartId(args: {
   furnitureId: FurnitureId;
   role: PartRole;
-  index: number;
+  index: number | string;
   nodeId?: NodeId;
 }): PartId {
   const node = args.nodeId ?? '-';

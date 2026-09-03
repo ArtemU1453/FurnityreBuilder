@@ -1,6 +1,6 @@
 import type { IdFactory } from '../ids.js';
 import { createDividerSpec, createEmptyLeaf } from './defaults.js';
-import type { SectionChild, SectionNode, SplitNode } from './types.js';
+import type { LeafNode, SectionChild, SectionNode, SplitNode } from './types.js';
 
 /**
  * Фабрики, строящие дерево секций программно, а не только последовательными
@@ -11,10 +11,19 @@ import type { SectionChild, SectionNode, SplitNode } from './types.js';
  * раз, дальше во всём проекте достаточно одного источника истины.
  */
 
-function equalChildren(ids: IdFactory, count: number): SectionChild[] {
+/**
+ * Как построить лист (ячейку). По умолчанию — пустая ячейка; наполнение
+ * (полки, PROMPT 6) передаётся вызывающей стороной, чтобы фабрики структуры
+ * не начали ЗНАТЬ про виды наполнения: строение дерева и содержимое ячейки —
+ * разные решения, и смешивать их в одной функции значило бы заводить по
+ * фабрике на каждое сочетание «сетка × вид наполнения».
+ */
+export type LeafFactory = (ids: IdFactory) => LeafNode;
+
+function equalChildren(ids: IdFactory, count: number, createLeaf: LeafFactory): SectionChild[] {
   return Array.from({ length: count }, () => ({
     size: { mode: 'flex' as const, weight: 1 },
-    node: createEmptyLeaf(ids),
+    node: createLeaf(ids),
   }));
 }
 
@@ -23,13 +32,18 @@ function equalChildren(ids: IdFactory, count: number): SectionChild[] {
  * `count < 2` не имеет смысла как деление — вызывающая сторона должна
  * проверить это до вызова; функция ожидает `count ≥ 2`.
  */
-export function createSections(ids: IdFactory, count: number, dividerThickness: number): SplitNode {
+export function createSections(
+  ids: IdFactory,
+  count: number,
+  dividerThickness: number,
+  createLeaf: LeafFactory = createEmptyLeaf,
+): SplitNode {
   return {
     id: ids.next<'Node'>(),
     kind: 'split',
     axis: 'x',
     divider: createDividerSpec(dividerThickness),
-    children: equalChildren(ids, count),
+    children: equalChildren(ids, count, createLeaf),
   };
 }
 
@@ -52,16 +66,17 @@ export function createUniformGrid(
   columns: number,
   rowDividerThickness: number,
   columnDividerThickness: number,
+  createLeaf: LeafFactory = createEmptyLeaf,
 ): SectionNode {
   const buildRow = (): SectionNode =>
     columns <= 1
-      ? createEmptyLeaf(ids)
+      ? createLeaf(ids)
       : {
           id: ids.next<'Node'>(),
           kind: 'split',
           axis: 'x',
           divider: createDividerSpec(columnDividerThickness),
-          children: equalChildren(ids, columns),
+          children: equalChildren(ids, columns, createLeaf),
         };
 
   if (rows <= 1) return buildRow();

@@ -2,6 +2,7 @@ import { box3, vec3 } from '../domain/index.js';
 import { GeometryContext } from './context.js';
 import type { GeometryStage } from './context.js';
 import { carcassStage } from './stages/carcass.js';
+import { fillStage } from './stages/fill.js';
 import { layoutStage } from './stages/layout.js';
 import { normalizeStage } from './stages/normalize.js';
 import type { GeometryInput, GeometryResult, StageDescriptor } from './types.js';
@@ -22,7 +23,12 @@ export const PIPELINE: readonly StageDescriptor[] = [
   // из одного resolveSizes() на каждом делении дерева. Обоснование —
   // docs/GEOMETRY_RULES.md §10, история решения — docs/ARCHITECTURE.md §5.2.
   { name: 'layout', status: 'implemented' },
-  { name: 'fill', status: 'planned', plannedAt: '11' },
+  // 'fill' реализован на PROMPT 6 только для LeafFill.kind === 'shelves'
+  // (и shelfAbove у 'rod+shelf') — полки. 'drawers' и 'rod' остаются
+  // непостроенными видами того же fill: geometry для них появится на
+  // этапах 21 и 23 соответственно, расширяя тот же файл, а не заменяя его.
+  // docs/GEOMETRY_RULES.md, раздел «Shelf Calculation Rules».
+  { name: 'fill', status: 'implemented' },
   { name: 'back', status: 'planned', plannedAt: '13' },
   { name: 'base', status: 'planned', plannedAt: '23' },
   { name: 'countertop', status: 'planned', plannedAt: '23' },
@@ -35,6 +41,7 @@ const IMPLEMENTED: Readonly<Record<string, GeometryStage>> = {
   normalize: normalizeStage,
   carcass: carcassStage,
   layout: layoutStage,
+  fill: fillStage,
 };
 
 /**

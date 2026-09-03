@@ -9,6 +9,7 @@ import type {
   Furniture,
   LeafNode,
   OverlaySpec,
+  Shelf,
   SlideSpec,
   Tolerances,
 } from './types.js';
@@ -83,6 +84,32 @@ export function createDividerSpec(thickness: number, materialId?: MaterialId): D
 
 export function createEmptyLeaf(ids: IdFactory): LeafNode {
   return { id: ids.next<'Node'>(), kind: 'leaf', fill: { kind: 'empty' } };
+}
+
+/**
+ * Лист с `count` равномерно распределёнными полками (PROMPT 6).
+ *
+ * Аналог `createDividerSpec`/`createSections`: чистая фабрика домена, а не
+ * формула геометрического движка. `frontSetback: 0` — то же значение по
+ * умолчанию, что и у `createDividerSpec` (ASSUMPTION T-SHF-01: «полка
+ * встаёт впритык, отступ от фасада 0», `docs/UNKNOWNS.json`).
+ * `thickness`/`materialId` не заданы намеренно — движок берёт толщину
+ * корпуса и материал по роли, как и для перегородок (§9.5
+ * `docs/GEOMETRY_RULES.md`); задавать их здесь означало бы второй,
+ * независимый параметр толщины при уже существующем.
+ */
+export function createShelvesLeaf(
+  ids: IdFactory,
+  count: number,
+  mounting: Shelf['mounting'] = 'adjustable',
+): LeafNode {
+  const shelves: Shelf[] = Array.from({ length: count }, (_, index) => ({
+    id: ids.next<'Node'>(),
+    placement: { mode: 'auto', index, count },
+    mounting,
+    frontSetback: 0,
+  }));
+  return { id: ids.next<'Node'>(), kind: 'leaf', fill: { kind: 'shelves', shelves } };
 }
 
 export function createDefaultCarcass(backMaterialId: MaterialId): CarcassSpec {

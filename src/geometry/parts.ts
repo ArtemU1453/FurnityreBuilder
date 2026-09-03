@@ -79,7 +79,9 @@ export interface MakePartArgs {
   readonly furnitureId: FurnitureId;
   readonly role: PartRole;
   readonly label: string;
-  readonly index: number;
+  /** Обычно порядковый номер; для деталей со своим стабильным id в дереве
+   * модели (полка — `Shelf.id`) — этот id строкой. См. `buildPartId`. */
+  readonly index: number | string;
   readonly position: Vec3;
   readonly size: Vec3;
   readonly orientation: PartOrientation;

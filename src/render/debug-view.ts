@@ -25,6 +25,14 @@ export interface DebugRect {
   readonly y: Mm;
   readonly width: Mm;
   readonly height: Mm;
+  /**
+   * Третий размер детали (глубина, ось Z), отброшенный видом спереди —
+   * нужен только для подписи в режиме debug-инфо (PROMPT 6 §27: «для
+   * полки — ширину, глубину, толщину, Y»), саму проекцию не меняет.
+   */
+  readonly depth?: Mm;
+  /** Секция, к которой относится деталь — только если она принадлежит ровно одной ячейке. */
+  readonly sectionId?: string;
 }
 
 export interface DebugDimensionLine {
@@ -77,16 +85,23 @@ function collectSectionSpans(geometry: GeometryResult): SectionSpan[] {
 export function buildDebugView(geometry: GeometryResult): DebugSchemaView {
   const { totalWidth, totalHeight } = geometry.boundingBox;
 
-  const partRects: DebugRect[] = geometry.parts.map((part) => ({
-    id: part.id,
-    label: part.label,
-    kind: 'part',
-    role: part.role,
-    x: part.position.x,
-    y: part.position.y,
-    width: part.size.x,
-    height: part.size.y,
-  }));
+  const sectionIdByCellNodeId = new Map(geometry.cells.map((cell) => [cell.nodeId, cell.sectionId]));
+
+  const partRects: DebugRect[] = geometry.parts.map((part) => {
+    const sectionId = part.origin.nodeId === undefined ? undefined : sectionIdByCellNodeId.get(part.origin.nodeId);
+    return {
+      id: part.id,
+      label: part.label,
+      kind: 'part',
+      role: part.role,
+      x: part.position.x,
+      y: part.position.y,
+      width: part.size.x,
+      height: part.size.y,
+      depth: part.size.z,
+      ...(sectionId === undefined ? {} : { sectionId }),
+    };
+  });
 
   const cellRects: DebugRect[] = geometry.cells.map((cell) => ({
     id: cell.nodeId,

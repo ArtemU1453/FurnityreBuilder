@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDebugView } from '../../../src/render/debug-view.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
 import { createUniformGrid } from '../../../src/domain/furniture/sections.js';
+import { createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
 import { makeGeometryInput, makeGeometryInputWithRoot } from '../geometry/helpers.js';
 
 /**
@@ -66,6 +67,38 @@ describe('buildDebugView: несколько секций', () => {
       expect(matchingCell).toBeDefined();
       expect(width).toBeCloseTo(matchingCell?.box.size.x ?? -1, 1);
     }
+  });
+});
+
+describe('buildDebugView: полки (PROMPT 6 §26–27)', () => {
+  const geometry = buildGeometry(
+    makeGeometryInputWithRoot((ids) => createShelvesLeaf(ids, 3, 'adjustable'), {
+      width: 1000,
+      height: 2000,
+      depth: 500,
+      panelThickness: 16,
+    }),
+  );
+  const view = buildDebugView(geometry);
+
+  it('полка попадает в схему как деталь со своей ролью — рендерер отличит её от пустого пространства ячейки', () => {
+    const shelfRects = view.rects.filter((r) => r.role === 'shelf-adjustable');
+    expect(shelfRects).toHaveLength(3);
+    expect(shelfRects.every((r) => r.kind === 'part')).toBe(true);
+  });
+
+  it('подпись полки берёт глубину и секцию из GeometryResult, а не пересчитывает их', () => {
+    const shelf = view.rects.find((r) => r.role === 'shelf-adjustable');
+    const geometryShelf = geometry.parts.find((p) => p.role === 'shelf-adjustable');
+    expect(shelf?.depth).toBe(geometryShelf?.size.z);
+    // Толщина полки — это её размер по Y, то есть height прямоугольника.
+    expect(shelf?.height).toBe(geometryShelf?.size.y);
+    expect(shelf?.sectionId).toBe(geometry.cells[0]?.sectionId);
+  });
+
+  it('у деталей корпуса секции нет: они не принадлежат ни одной ячейке', () => {
+    const side = view.rects.find((r) => r.role === 'side');
+    expect(side?.sectionId).toBeUndefined();
   });
 });
 

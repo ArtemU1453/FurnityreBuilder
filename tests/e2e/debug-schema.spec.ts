@@ -57,6 +57,27 @@ test('переключатель debug-инфо показывает и скры
   await expect(schema.locator('text').filter({ hasText: 'side ·' })).toHaveCount(0);
 });
 
+test('полки появляются в схеме как отдельные детали и подписываются в debug-инфо', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await expect(schema.locator('rect')).toHaveCount(5);
+
+  await page.getByLabel('Полок в ячейке').fill('3');
+  await page.getByRole('button', { name: /Применить сетку/ }).click();
+
+  // 4 детали каркаса + 3 полки + 1 ячейка = 8 прямоугольников.
+  await expect(schema.locator('rect')).toHaveCount(8);
+  // Счётчик «Полок» в панели результата — точное совпадение текста, иначе
+  // локатор поймал бы и подпись поля «Полок в ячейке».
+  await expect(page.getByText('Полок', { exact: true }).locator('..')).toContainText('3');
+
+  // Подпись полки в debug-инфо несёт ширину, глубину, толщину и Y
+  // (PROMPT 6 §27) — и берёт их из GeometryResult, а не считает заново.
+  await page.getByLabel('Показывать ID и координаты').check();
+  await expect(schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first()).toBeVisible();
+});
+
 test('изменение габарита в поле обновляет схему сразу, без перезагрузки', async ({ page }) => {
   await page.goto('/');
 

@@ -122,10 +122,11 @@ describe('вырожденный результат при фатальной о
     // Пропущенные из-за ошибки implemented-этапы НЕ должны попадать в
     // pendingStages: это ввело бы в заблуждение при появлении новых этапов.
     const result = buildGeometry(makeGeometryInput({ width: -100 }));
-    expect(result.pendingStages).toContain('fill');
+    expect(result.pendingStages).toContain('back');
     expect(result.pendingStages).not.toContain('carcass');
     expect(result.pendingStages).not.toContain('normalize');
     expect(result.pendingStages).not.toContain('layout');
+    expect(result.pendingStages).not.toContain('fill');
   });
 
   it('layout пропускается вместе с carcass: ячеек и перегородок тоже нет', () => {

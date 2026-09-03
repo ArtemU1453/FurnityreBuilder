@@ -133,6 +133,11 @@
   --cell-outline: var(--border-default);
   --dim-line: var(--text-tertiary);
   --dim-text: var(--text-secondary);
+  /* Полка (PROMPT 6) — деталь наполнения, а не корпуса: отдельный оттенок
+     заливки при том же контуре, что и у остальных деталей (--part-stroke),
+     чтобы полка отличалась от боковин/перегородок на глаз, но не выглядела
+     отдельной системой обводки. */
+  --shelf-fill: rgb(200 130 14 / 0.22);
 
   color-scheme: light dark;
 }
