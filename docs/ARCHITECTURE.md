@@ -280,7 +280,11 @@ export function buildGeometry(input: GeometryInput): GeometryResult;
                      высота смещает корпус (resolveBasePlacement);          РЕАЛИЗОВАН
                      ножки деталей не дают — это фурнитура                 (PROMPT 14);
                      (docs/GEOMETRY_RULES.md §23)                          ножки: этап 24
-7. countertop     — столешница со свесами                                 план: этап 23
+7. countertop     — столешница со свесами и фальшпанели:                  РЕАЛИЗОВАНО
+                     конструктивные модификаторы поверх уже                (PROMPT 15)
+                     посчитанного корпуса
+                     (docs/GEOMETRY_RULES.md §26,
+                      docs/STRUCTURAL_MODIFIERS.md)
 8. facades        — Cell → FacadeGroup → resolveDoorGeometry → Part,       БАЗОВЫЙ СЛУЧАЙ
                      Facade → OpeningSystem →                             РЕАЛИЗОВАН
                      resolveOpeningSystemGeometry → Part                  (PROMPT 10, 12);
@@ -319,6 +323,26 @@ Carcass (CarcassSpec)
 `back` и `base` их ПЕРЕЧИТЫВАЮТ, а не считают заново, поэтому деталь
 задней стенки не может разойтись с глубиной корпуса, а царги цоколя — с
 его высотой.
+
+На PROMPT 15 вертикальная функция выросла до полного бюджета высоты
+(`resolveVerticalLayout`), а конструктивные модификаторы встали в ту же
+схему — без второго верхнеуровневого объекта: их держит всё тот же
+`CarcassSpec` (`docs/DATA_MODEL.md` §8.1, `docs/STRUCTURAL_MODIFIERS.md`):
+
+```
+CarcassSpec ─┬─ back ────────► stages/back      → Part 'back'
+             ├─ base ────────► stages/base      → Parts 'plinth'
+             ├─ overhang ────► stages/carcass   (расширяет 'top'/'bottom')
+             ├─ topSection ──► stages/carcass   (вторая оболочка: buildShell)
+             ├─ ceilingGap ──► resolveVerticalLayout (полоса без деталей)
+             ├─ countertop ──► stages/modifiers → Part 'countertop'
+             ├─ wallMount ───► GeometryResult.structure (состояние без деталей)
+             └─ falsePanels ► stages/modifiers → Parts 'filler'
+```
+
+Основной корпус и антресоль строит ОДНА функция `buildShell`: формулы
+каркаса существуют в единственном экземпляре, а не копией на каждую
+оболочку.
 
 **Материал — вход этапов, а не отдельный этап** (PROMPT 13). Библиотека
 материалов приходит в движок вместе с изделием (`GeometryInput.materials`),

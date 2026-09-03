@@ -816,10 +816,21 @@ export interface CountertopSpec {
 Furniture
  └── carcass: CarcassSpec           ← и есть Structural Configuration
       ├── hasTop / hasBottom
-      ├── back: BackPanelSpec       → Part role 'back'      (stages/back.ts)
-      ├── base: BaseSpec?           → Part role 'plinth'    (stages/base.ts)
-      └── countertop: CountertopSpec?  (этап 23 плана)
+      ├── back:        BackPanelSpec   → Part role 'back'       (stages/back.ts)
+      ├── base:        BaseSpec?       → Part role 'plinth'     (stages/base.ts)
+      ├── overhang:    OverhangSpec?   → расширяет 'top'/'bottom'/'countertop'
+      ├── topSection:  TopSectionSpec? → вторая оболочка того же каркаса
+      ├── ceilingGap:  Mm?             → полоса высоты без деталей
+      ├── countertop:  CountertopSpec? → Part role 'countertop' (stages/modifiers.ts)
+      ├── wallMount:   WallMountSpec?  → состояние без деталей
+      └── falsePanels: FalsePanel[]?   → Parts role 'filler'    (stages/modifiers.ts)
 ```
+
+Модификаторы PROMPT 15 (последние шесть полей) описаны отдельно —
+`docs/STRUCTURAL_MODIFIERS.md`. Отдельного типа `StructuralModifier` там
+тоже нет и по той же причине: список `{id, type, config}` рядом с уже
+типизированными полями означал бы два описания одного и того же и потерю
+типизации.
 
 Граф зависимостей (PROMPT 14 §17):
 

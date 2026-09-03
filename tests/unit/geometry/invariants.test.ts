@@ -124,7 +124,10 @@ describe('вырожденный результат при фатальной о
     const result = buildGeometry(makeGeometryInput({ width: -100 }));
     // 'back' и 'base' реализованы на PROMPT 14 и из списка ушли —
     // нереализованными остались этапы 'countertop', 'edges', 'drilling'.
-    expect(result.pendingStages).toContain('countertop');
+    // 'countertop' реализован на PROMPT 15; нереализованными остались
+    // 'edges' (назначение кромки по ролям) и 'drilling' (присадка).
+    expect(result.pendingStages).toContain('drilling');
+    expect(result.pendingStages).not.toContain('countertop');
     expect(result.pendingStages).not.toContain('back');
     expect(result.pendingStages).not.toContain('base');
     expect(result.pendingStages).not.toContain('carcass');

@@ -41,7 +41,7 @@ export interface DebugSchemaProps {
 }
 
 export function DebugSchema({ view, showDebugInfo = false }: DebugSchemaProps): React.JSX.Element {
-  const { totalWidth, totalHeight, rects, dimensions, sectionLabels } = view;
+  const { totalWidth, totalHeight, rects, dimensions, sectionLabels, structure } = view;
 
   // Экранная Y растёт вниз; доменная — вверх. Переворот — единственное
   // место во всём компоненте, где это учитывается.
@@ -63,6 +63,17 @@ export function DebugSchema({ view, showDebugInfo = false }: DebugSchemaProps): 
     <svg className={styles.frame} viewBox={viewBox} role="img" aria-label="Техническая схема изделия">
       {/* Подписи секций идут ПЕРВЫМИ, под прямоугольниками: секция —
           область, а не деталь, и не должна перекрывать то, что в ней стоит. */}
+      {/*
+        Конструктивная сводка (PROMPT 15 §16): показывается только в режиме
+        debug-инфо, как и остальные технические подписи. Строку собирает
+        `buildDebugView` — здесь она только размещается.
+      */}
+      {showDebugInfo ? (
+        <text className={styles.debugLabel} x={0} y={flipY(totalHeight) - SECTION_LABEL_OFFSET * 2}>
+          {structure}
+        </text>
+      ) : null}
+
       {sectionLabels.map((section) => (
         <Fragment key={`section-${section.id}`}>
           <text className={styles.sectionTitle} x={section.centerX} y={flipY(section.bottomY) - SECTION_LABEL_OFFSET}>

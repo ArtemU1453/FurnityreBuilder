@@ -80,6 +80,14 @@ export interface DebugSchemaView {
   readonly rects: readonly DebugRect[];
   readonly dimensions: readonly DebugDimensionLine[];
   readonly sectionLabels: readonly DebugSectionLabel[];
+  /**
+   * Конструктивная сводка одной строкой (PROMPT 15 §16): габарит, полосы
+   * вертикального бюджета и режим установки. Величины без собственных
+   * деталей — зазор до потолка, антресоль, крепление — иначе на схеме
+   * не видны вовсе. Ни одно число здесь не вычисляется: все приходят из
+   * `GeometryResult.structure` и `boundingBox`.
+   */
+  readonly structure: string;
 }
 
 /** Кромка по четырём сторонам одной строкой: «перед/зад/лево/право». */
@@ -135,10 +143,26 @@ function partDetail(part: GeometryResult['parts'][number], materials: MaterialLi
     // боковая), высоту и глубину — отступ и вырез видны через саму геометрию.
     return `PLINTH · ${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Г ${formatMm(part.size.z)}${mat}`;
   }
+  if (role === 'countertop') {
+    // Столешница (PROMPT 15 §16): ширина и глубина уже включают свесы —
+    // они не пересчитываются здесь, а приходят готовыми из движка.
+    return `COUNTERTOP · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × Т ${formatMm(part.size.y)} × Г ${formatMm(part.size.z)}${mat}`;
+  }
+  if (role === 'filler') {
+    return `FALSE PANEL · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Г ${formatMm(part.size.z)}${mat}`;
+  }
   if (role === 'handle' || role === 'push-to-open') {
     // Ручка/push-to-open (PROMPT 12 §18): та же геометрия, что и у
     // остальных деталей — ширина/высота/вынос от плоскости фасада.
     return `${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × вынос ${formatMm(part.size.z)}${mat}`;
+  }
+  if (role === 'side' || role === 'top' || role === 'bottom') {
+    // Подпись несёт принадлежность оболочке: у антресоли она с суффиксом
+    // « (антресоль)» (`buildShell`, PROMPT 15 §5) — по роли их не различить.
+    // Роль остаётся первой, как у всех остальных подписей; подпись детали
+    // добавлена рядом, потому что принадлежность оболочке (у антресоли —
+    // суффикс « (антресоль)», `buildShell`, PROMPT 15 §5) по роли неразличима.
+    return `${role} · ${part.label} · ${part.id} · ${at} · Ш ${formatMm(part.size.x)} × В ${formatMm(part.size.y)} × Г ${formatMm(part.size.z)}${mat}`;
   }
   return `${role} · ${part.id} · ${at}${mat}`;
 }
@@ -280,12 +304,25 @@ export function buildDebugView(geometry: GeometryResult, materials: MaterialLibr
     bottomY: section.box.min.y,
   }));
 
+  const s = geometry.structure;
+  const bb = geometry.boundingBox;
+  const structure = [
+    `BBOX ${formatMm(bb.totalWidth)} × ${formatMm(bb.totalHeight)} × ${formatMm(bb.totalDepth)}`,
+    `Цоколь ${formatMm(s.plinthHeight)}`,
+    `Корпус ${formatMm(s.carcassHeight)} (Y ${formatMm(s.carcassY0)})`,
+    `Столешница ${formatMm(s.countertopThickness)}`,
+    `Антресоль ${formatMm(s.topSectionHeight)} (зазор ${formatMm(s.topSectionGap)})`,
+    `До потолка ${formatMm(s.ceilingGap)}`,
+    `Установка ${s.wallMount}`,
+  ].join(' · ');
+
   return {
     totalWidth,
     totalHeight,
     rects: [...partRects, ...cellRects],
     dimensions,
     sectionLabels,
+    structure,
   };
 }
 

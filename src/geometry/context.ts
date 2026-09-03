@@ -1,7 +1,7 @@
 import type { Box3, Issue, NodeId, Part, PartId, Severity } from '../domain/index.js';
 import { hasErrors, isFiniteBox3, issue } from '../domain/index.js';
 import { computeBoundingBox } from './bounding-box.js';
-import type { CellBox, GeometryInput, GeometryResult, SectionBox } from './types.js';
+import type { CellBox, GeometryInput, GeometryResult, SectionBox, StructureSummary } from './types.js';
 
 /** Причина отказа геометрического тела (детали или ячейки) финальной проверкой. */
 type SanityFailure = 'size' | 'position';
@@ -30,6 +30,22 @@ export class GeometryContext {
 
   bounds: Box3;
   innerVolume: Box3;
+  /**
+   * Конструктивная сводка (PROMPT 15 §16). Заполняет её `carcass` — тот же
+   * этап, который считает вертикальный бюджет; здесь лежит её вырожденное
+   * значение на случай, если этап не отработал (фатальная ошибка входа).
+   */
+  structure: StructureSummary = {
+    plinthHeight: 0,
+    carcassY0: 0,
+    carcassHeight: 0,
+    countertopThickness: 0,
+    topSectionHeight: 0,
+    topSectionGap: 0,
+    ceilingGap: 0,
+    totalTop: 0,
+    wallMount: 'floor-standing',
+  };
 
   constructor(input: GeometryInput, bounds: Box3) {
     this.input = input;
@@ -277,6 +293,7 @@ export class GeometryContext {
       bounds: this.bounds,
       innerVolume: this.innerVolume,
       boundingBox: computeBoundingBox(validParts),
+      structure: this.structure,
       diagnostics: Object.freeze([...this.diagnostics]),
       pendingStages: Object.freeze([...pendingStages]),
     });

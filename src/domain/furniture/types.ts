@@ -1,5 +1,5 @@
 import type { SplitAxis } from '../coordinates.js';
-import type { FurnitureId, MaterialId, NodeId } from '../ids.js';
+import type { FurnitureId, MaterialId, NodeId, WallId } from '../ids.js';
 import type { Mm } from '../units.js';
 import type { EdgeSpec } from '../materials/types.js';
 
@@ -125,12 +125,116 @@ export interface CountertopSpec {
   readonly edge: EdgeSpec;
 }
 
+/**
+ * Куда применяется конструктивный свес (PROMPT 15 §4).
+ *
+ * Свес НЕ распространяется на все детали автоматически: `appliesTo`
+ * перечисляет цели явно. `ASSUMPTION(T-MOD-01)` — применимость референсом
+ * не подтверждена, поэтому угадывать её за пользователя нельзя.
+ */
+export type OverhangTarget = 'top' | 'bottom' | 'countertop';
+
+/**
+ * Свес детали за габарит корпуса, по четырём сторонам (PROMPT 15 §4).
+ *
+ * Четыре стороны, а не шесть: «свес вверх» и «свес вниз» у горизонтальной
+ * детали — это её толщина и положение, которые уже заданы в другом месте
+ * (`Dimensions.panelThickness`, вертикальная раскладка §23.1). Заводить их
+ * ещё и здесь означало бы два источника одного размера.
+ *
+ * Значения неотрицательные и отсчитываются НАРУЖУ от габарита корпуса:
+ * отрицательный свес (утопление) референсом не подтверждён и не заводится.
+ */
+export interface OverhangSpec {
+  readonly front: Mm;
+  readonly back: Mm;
+  readonly left: Mm;
+  readonly right: Mm;
+  readonly appliesTo: readonly OverhangTarget[];
+}
+
+/**
+ * Верхняя секция (антресоль) — вторая оболочка НАД основным корпусом
+ * (PROMPT 15 §5), а не отдельное изделие: ширину и глубину она берёт у
+ * того же `Furniture`, строится теми же формулами каркаса и входит в тот
+ * же вертикальный бюджет высоты.
+ *
+ * `ASSUMPTION(T-MOD-02)`: собственные ли у неё дно и боковины — не
+ * подтверждено; реализована как полноценная оболочка с необязательным
+ * зазором до основного корпуса.
+ */
+export interface TopSectionSpec {
+  readonly height: Mm;
+  /** Зазор между верхом основного корпуса и низом антресоли. */
+  readonly gap: Mm;
+  readonly materialId?: MaterialId;
+  readonly hasTop: boolean;
+  readonly hasBottom: boolean;
+}
+
+/** Как изделие установлено (PROMPT 15 §8). `ASSUMPTION(T-MOD-04)`. */
+export type WallMountMode = 'floor-standing' | 'wall-mounted' | 'suspended';
+
+/**
+ * Крепление к стене — конструктивное СОСТОЯНИЕ модели (PROMPT 15 §8).
+ * Собственной геометрии не даёт: точки крепления, планки и крепёж — это
+ * фурнитура, которая на этом этапе не реализуется. Стена, к которой
+ * привязано изделие, указывается уже существующим `WallId` из `Room`,
+ * второй системы помещения не заводится.
+ */
+export interface WallMountSpec {
+  readonly mode: WallMountMode;
+  readonly wallId?: WallId;
+  /** Высота низа изделия над полом для подвесного режима. */
+  readonly elevation?: Mm;
+}
+
+/** Где стоит фальшпанель относительно корпуса. `ASSUMPTION(T-MOD-05)`. */
+export type FalsePanelPosition = 'left' | 'right' | 'top' | 'bottom';
+
+/**
+ * Фальшпанель — физическая деталь, закрывающая зазор между корпусом и
+ * стеной или потолком (PROMPT 15 §9). Собственных мировых координат не
+ * хранит: положение выводится из `position` и габарита корпуса, размеры —
+ * из `width`/`height`/`depth`, если заданы, иначе из габарита корпуса.
+ */
+export interface FalsePanel {
+  readonly id: NodeId;
+  readonly position: FalsePanelPosition;
+  /** Ширина панели вдоль её длинной стороны. Не задана — габарит корпуса. */
+  readonly width?: Mm;
+  readonly height?: Mm;
+  readonly depth?: Mm;
+  readonly materialId?: MaterialId;
+  readonly thickness?: Mm;
+  readonly edge?: EdgeSpec;
+  /** Отступ от края корпуса вдоль оси установки. */
+  readonly offset?: Mm;
+}
+
+/**
+ * Конструктивная конфигурация корпуса.
+ *
+ * Отдельного типа `StructuralModifier` не заведено (PROMPT 15 §3): им уже
+ * является сам `CarcassSpec` — он держит все конструктивные параметры
+ * изделия вместе с PROMPT 1 и был назван конструктивной конфигурацией ещё
+ * на PROMPT 14 (`docs/DATA_MODEL.md` §8.1). Список модификаторов с
+ * `{id, type, config}` рядом с уже типизированными полями означал бы два
+ * способа описать одно и то же и потерю типизации: `config` пришлось бы
+ * делать нетипизированным union'ом.
+ */
 export interface CarcassSpec {
   readonly hasTop: boolean;
   readonly hasBottom: boolean;
   readonly back: BackPanelSpec;
   readonly base?: BaseSpec;
   readonly countertop?: CountertopSpec;
+  readonly overhang?: OverhangSpec;
+  readonly topSection?: TopSectionSpec;
+  /** Пустое место между верхом изделия и потолком, внутри габарита H. */
+  readonly ceilingGap?: Mm;
+  readonly wallMount?: WallMountSpec;
+  readonly falsePanels?: readonly FalsePanel[];
 }
 
 // ── Внутреннее пространство: дерево секций ───────────────────────────────────

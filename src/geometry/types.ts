@@ -6,6 +6,7 @@ import type {
   Issue,
   LeafFill,
   MaterialLibrary,
+  Mm,
   NodeId,
   Part,
   Tolerances,
@@ -83,6 +84,28 @@ export interface SectionBox {
 }
 
 /**
+ * Конструктивная сводка изделия (PROMPT 15 §16): полосы вертикального
+ * бюджета и режим установки.
+ *
+ * Существует ради debug-схемы, которой нужно показать зазор до потолка,
+ * антресоль и режим крепления — величины, у которых нет собственных
+ * деталей. Рендерер при этом остаётся чистым: он читает уже посчитанное
+ * движком, а не лезет в `Furniture` мимо геометрии
+ * (`docs/ARCHITECTURE.md` §1).
+ */
+export interface StructureSummary {
+  readonly plinthHeight: Mm;
+  readonly carcassY0: Mm;
+  readonly carcassHeight: Mm;
+  readonly countertopThickness: Mm;
+  readonly topSectionHeight: Mm;
+  readonly topSectionGap: Mm;
+  readonly ceilingGap: Mm;
+  readonly totalTop: Mm;
+  readonly wallMount: 'floor-standing' | 'wall-mounted' | 'suspended';
+}
+
+/**
  * Результат расчёта.
  *
  * `pendingStages` — честная отметка о том, что часть конвейера ещё не
@@ -111,6 +134,8 @@ export interface GeometryResult {
   readonly innerVolume: Box3;
   /** Измеренный охват реально построенных деталей. См. bounding-box.ts. */
   readonly boundingBox: BoundingBox;
+  /** Конструктивная сводка: полосы по вертикали и режим установки. */
+  readonly structure: StructureSummary;
   readonly diagnostics: readonly Issue[];
   readonly pendingStages: readonly string[];
 }

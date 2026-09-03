@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import {
   createDrawer,
   createEmptyLeaf,
+  createCountertop,
+  createFalsePanel,
   createPlinthBase,
+  createTopSection,
   createHandleOpeningSystem,
   createHingedFacade,
   createPushToOpenSystem,
@@ -316,6 +319,74 @@ export function App(): React.JSX.Element {
       { type: 'UpdateBase', furnitureIndex: 0, patch: { parts: withSides ? ['front', 'left', 'right'] : ['front'] } },
       'Состав царг цоколя',
     );
+  };
+
+  // Конструктивные модификаторы (PROMPT 15 §21): свес, антресоль, зазор до
+  // потолка, столешница, крепление и фальшпанели. Технический минимум —
+  // полноценная панель конструкции не этот этап.
+  const modifiers = furniture.carcass;
+
+  const setCeilingGap = (value: number): void => {
+    if (!Number.isFinite(value) || value < 0) return;
+    execute(
+      { type: 'SetStructuralModifiers', furnitureIndex: 0, patch: { ceilingGap: value === 0 ? null : value } },
+      'Зазор до потолка',
+    );
+  };
+
+  const setTopSectionHeight = (value: number): void => {
+    if (!Number.isFinite(value) || value < 0) return;
+    execute(
+      {
+        type: 'SetStructuralModifiers',
+        furnitureIndex: 0,
+        patch: { topSection: value === 0 ? null : createTopSection(value, modifiers.topSection?.gap ?? 0) },
+      },
+      'Высота антресоли',
+    );
+  };
+
+  const setCountertopThickness = (value: number): void => {
+    if (!Number.isFinite(value) || value < 0) return;
+    if (value === 0) {
+      execute({ type: 'SetStructuralModifiers', furnitureIndex: 0, patch: { countertop: null } }, 'Убрать столешницу');
+      return;
+    }
+    const materialId = modifiers.countertop?.materialId ?? asId<'Material'>(project.settings.defaultMaterialId);
+    const countertop = modifiers.countertop === undefined
+      ? createCountertop(value, materialId)
+      : { ...modifiers.countertop, thickness: value };
+    execute({ type: 'SetStructuralModifiers', furnitureIndex: 0, patch: { countertop } }, 'Толщина столешницы');
+  };
+
+  const setCountertopOverhang = (value: number): void => {
+    const current = modifiers.countertop;
+    if (current === undefined || !Number.isFinite(value) || value < 0) return;
+    execute(
+      {
+        type: 'SetStructuralModifiers',
+        furnitureIndex: 0,
+        patch: { countertop: { ...current, overhangFront: value, overhangLeft: value, overhangRight: value } },
+      },
+      'Свес столешницы',
+    );
+  };
+
+  const setWallMount = (mode: 'floor-standing' | 'wall-mounted' | 'suspended'): void => {
+    execute({ type: 'SetStructuralModifiers', furnitureIndex: 0, patch: { wallMount: { mode } } }, 'Установка изделия');
+  };
+
+  const addFalsePanel = (position: 'left' | 'right' | 'top' | 'bottom'): void => {
+    execute(
+      { type: 'AddFalsePanel', furnitureIndex: 0, panel: createFalsePanel(createRandomIdFactory(), position) },
+      'Добавить фальшпанель',
+    );
+  };
+
+  const removeLastFalsePanel = (): void => {
+    const last = (modifiers.falsePanels ?? []).at(-1);
+    if (last === undefined) return;
+    execute({ type: 'RemoveFalsePanel', furnitureIndex: 0, panelId: last.id }, 'Убрать фальшпанель');
   };
 
   // Технические элементы управления материалами (PROMPT 13 §23): реестр,
@@ -796,6 +867,119 @@ export function App(): React.JSX.Element {
               </>
             )}
           </div>
+        </section>
+
+        {/*
+          Конструктивные модификаторы (PROMPT 15 §21). Технический минимум:
+          зазор до потолка, антресоль, столешница, крепление и фальшпанели.
+        */}
+        <section className={styles.panel} aria-labelledby="modifiers-title">
+          <h2 id="modifiers-title" className={styles.panelTitle}>
+            Модификаторы
+          </h2>
+          <p className={styles.pending}>
+            Габарит H делится между цоколем, корпусом, столешницей, антресолью и зазором до потолка.
+          </p>
+          <div className={styles.grid}>
+            <Field label="Зазор до потолка, мм">
+              {({ id }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={modifiers.ceilingGap ?? 0}
+                  onChange={(event) => {
+                    setCeilingGap(event.target.valueAsNumber);
+                  }}
+                />
+              )}
+            </Field>
+            <Field label="Высота антресоли, мм" message="0 — антресоли нет.">
+              {({ id, describedBy }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={modifiers.topSection?.height ?? 0}
+                  {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
+                  onChange={(event) => {
+                    setTopSectionHeight(event.target.valueAsNumber);
+                  }}
+                />
+              )}
+            </Field>
+            <Field label="Толщина столешницы, мм" message="0 — столешницы нет.">
+              {({ id, describedBy }) => (
+                <input
+                  id={id}
+                  className={styles.numberInput}
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={modifiers.countertop?.thickness ?? 0}
+                  {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
+                  onChange={(event) => {
+                    setCountertopThickness(event.target.valueAsNumber);
+                  }}
+                />
+              )}
+            </Field>
+            {modifiers.countertop === undefined ? null : (
+              <Field label="Свес столешницы, мм">
+                {({ id }) => (
+                  <input
+                    id={id}
+                    className={styles.numberInput}
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={modifiers.countertop?.overhangFront ?? 0}
+                    onChange={(event) => {
+                      setCountertopOverhang(event.target.valueAsNumber);
+                    }}
+                  />
+                )}
+              </Field>
+            )}
+            <Field label="Установка">
+              {({ id }) => (
+                <select
+                  id={id}
+                  className={styles.numberInput}
+                  value={modifiers.wallMount?.mode ?? 'floor-standing'}
+                  onChange={(event) => {
+                    setWallMount(event.target.value as 'floor-standing' | 'wall-mounted' | 'suspended');
+                  }}
+                >
+                  <option value="floor-standing">Напольная</option>
+                  <option value="wall-mounted">Настенная</option>
+                  <option value="suspended">Подвесная</option>
+                </select>
+              )}
+            </Field>
+            <Field label="Фальшпанелей">
+              {({ id }) => (
+                <input id={id} className={styles.numberInput} type="number" readOnly value={(modifiers.falsePanels ?? []).length} />
+              )}
+            </Field>
+          </div>
+          <Button onClick={() => { addFalsePanel('left'); }} style={{ marginTop: 'var(--sp-3)' }}>
+            Фальшпанель слева
+          </Button>
+          <Button onClick={() => { addFalsePanel('right'); }} style={{ marginTop: 'var(--sp-2)' }}>
+            Фальшпанель справа
+          </Button>
+          <Button
+            onClick={removeLastFalsePanel}
+            disabled={(modifiers.falsePanels ?? []).length === 0}
+            style={{ marginTop: 'var(--sp-2)' }}
+          >
+            Убрать фальшпанель
+          </Button>
         </section>
 
         {/*

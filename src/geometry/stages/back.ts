@@ -2,7 +2,7 @@ import { NO_EDGE, roundMm, vec3 } from '../../domain/index.js';
 import type { GeometryContext, GeometryStage } from '../context.js';
 import { makePart, resolveEffectiveMaterial } from '../parts.js';
 import { resolveBackWallGeometry } from '../back-wall.js';
-import { resolveBackGeometry, resolveBasePlacement } from './carcass.js';
+import { resolveBackGeometry, resolveVerticalLayout } from './carcass.js';
 
 /**
  * Задняя стенка как деталь (PROMPT 14, этап 5 конвейера).
@@ -22,10 +22,22 @@ export const backStage: GeometryStage = {
   name: 'back',
   run(ctx: GeometryContext): void {
     const { furniture, tolerances, edgeSizing, materials } = ctx.input;
-    const { back, base } = furniture.carcass;
+    const { back, base, countertop, topSection, ceilingGap } = furniture.carcass;
 
     const backGeom = resolveBackGeometry(back.mount, roundMm(furniture.dimensions.depth), tolerances.depthIncludesBackPanel);
-    const baseGeom = resolveBasePlacement(base, roundMm(furniture.dimensions.height), tolerances.heightIncludesBase);
+    // Полосу по Y задняя стенка берёт из ТОГО ЖЕ вертикального бюджета, что
+    // и корпус (PROMPT 15 §6). Раньше здесь стоял `resolveBasePlacement`,
+    // знавший только про цоколь, — и при зазоре до потолка или антресоли
+    // стенка оставалась высотой во весь габарит, перекрывая и то и другое.
+    // Найдено тестом «положительный зазор ужимает корпус и остаётся пустым».
+    const layout = resolveVerticalLayout({
+      base,
+      height: roundMm(furniture.dimensions.height),
+      heightIncludesBase: tolerances.heightIncludesBase,
+      countertop,
+      topSection,
+      ceilingGap,
+    });
 
     // Материал и толщина — через тот же `resolveEffectiveMaterial`, что и у
     // остальных деталей (PROMPT 13 §9): отдельного справочника у задней
@@ -70,8 +82,8 @@ export const backStage: GeometryStage = {
       sections: ctx.getSections(),
       frame: {
         carcassWidth: roundMm(furniture.dimensions.width),
-        carcassY0: baseGeom.carcassY0,
-        carcassY1: roundMm(baseGeom.carcassY0 + baseGeom.carcassHeight),
+        carcassY0: layout.carcassY0,
+        carcassY1: roundMm(layout.carcassY0 + layout.carcassHeight),
         inner: ctx.innerVolume,
         innerZ0: backGeom.innerZ0,
       },

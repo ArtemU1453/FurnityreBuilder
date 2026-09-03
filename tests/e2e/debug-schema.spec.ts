@@ -331,3 +331,52 @@ test('разделение задней стенки по секциям даё�
   await expect(schema.locator('rect')).toHaveCount(12);
   await expect(schema.locator('text').filter({ hasText: 'BACK WALL' }).first()).toContainText('Секция:');
 });
+
+test('модификаторы корпуса пересчитывают геометрию и видны в схеме (PROMPT 15 §16, §21)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await page.getByLabel('Показывать ID и координаты').check();
+
+  // Конструктивная сводка показывает полосы вертикального бюджета.
+  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('Установка floor-standing');
+
+  // Антресоль: вторая оболочка, +4 детали (2 боковины, крышка, дно).
+  await expect(schema.locator('rect')).toHaveCount(6);
+  await page.getByLabel('Высота антресоли, мм').fill('400');
+  await expect(schema.locator('rect')).toHaveCount(10);
+  await expect(schema.locator('text').filter({ hasText: '(антресоль)' }).first()).toBeVisible();
+
+  // Столешница: ещё одна деталь и другая полоса бюджета.
+  await page.getByLabel('Толщина столешницы, мм').fill('38');
+  await expect(schema.locator('rect')).toHaveCount(11);
+  await expect(schema.locator('text').filter({ hasText: 'COUNTERTOP' }).first()).toBeVisible();
+
+  // Зазор до потолка деталей не даёт, но виден в сводке.
+  await page.getByLabel('Зазор до потолка, мм').fill('100');
+  await expect(schema.locator('rect')).toHaveCount(11);
+  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('До потолка 100');
+
+  // Отмена возвращает предыдущий шаг: зазор снят, деталей столько же.
+  await page.getByRole('button', { name: 'Отменить' }).click();
+  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('До потолка 0');
+});
+
+test('фальшпанель и режим установки проходят через команды (PROMPT 15 §13, §21)', async ({ page }) => {
+  await page.goto('/');
+
+  const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
+  await page.getByLabel('Показывать ID и координаты').check();
+  await expect(schema.locator('rect')).toHaveCount(6);
+
+  await page.getByRole('button', { name: 'Фальшпанель справа' }).click();
+  await expect(schema.locator('rect')).toHaveCount(7);
+  await expect(schema.locator('text').filter({ hasText: 'FALSE PANEL' }).first()).toBeVisible();
+
+  await page.getByLabel('Установка').selectOption('wall-mounted');
+  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('Установка wall-mounted');
+
+  await page.getByRole('button', { name: 'Убрать фальшпанель' }).click();
+  await expect(schema.locator('rect')).toHaveCount(6);
+  await expect(schema.locator('text').filter({ hasText: 'FALSE PANEL' })).toHaveCount(0);
+});

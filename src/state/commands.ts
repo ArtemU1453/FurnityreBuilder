@@ -3,9 +3,11 @@ import type {
   BackPanelMount,
   BaseSpec,
   ConstructionScheme,
+  CountertopSpec,
   EdgeSizingPolicy,
   EdgeSpec,
   FacadeGroup,
+  FalsePanel,
   HingeSide,
   LeafFill,
   Material,
@@ -13,6 +15,7 @@ import type {
   Mm,
   NodeId,
   OpeningSystem,
+  OverhangSpec,
   PartRole,
   PlinthCutout,
   PlinthPartKind,
@@ -21,6 +24,8 @@ import type {
   SizeSpec,
   SplitAxis,
   Tolerances,
+  TopSectionSpec,
+  WallMountSpec,
 } from '../domain/index.js';
 import { createDividerSpec } from '../domain/index.js';
 
@@ -195,6 +200,50 @@ export type Command =
         readonly cutout?: PlinthCutout | null;
         readonly materialId?: MaterialId | null;
         readonly thickness?: Mm | null;
+      };
+    }
+  | {
+      /**
+       * Конструктивные модификаторы корпуса одним патчем (PROMPT 15 §13).
+       * `null` у любого поля — выключить модификатор; отсутствие ключа —
+       * не трогать. Одна команда вместо десяти из формулировки задания по
+       * той же причине, по какой PROMPT 14 обошёлся `SetBackPanel`: все
+       * они пишут в поля одного и того же `CarcassSpec`, и десять путей
+       * записи в один объект означали бы вторую систему состояния.
+       */
+      readonly type: 'SetStructuralModifiers';
+      readonly furnitureIndex: number;
+      readonly patch: {
+        readonly overhang?: OverhangSpec | null;
+        readonly topSection?: TopSectionSpec | null;
+        readonly ceilingGap?: Mm | null;
+        readonly countertop?: CountertopSpec | null;
+        readonly wallMount?: WallMountSpec | null;
+      };
+    }
+  | {
+      /**
+       * Фальшпанели адресуются по своему `id` (политика идентичности,
+       * `docs/DATA_MODEL.md` §5.7), а не по позиции в массиве: добавление
+       * соседней панели не должно попадать в другую.
+       */
+      readonly type: 'AddFalsePanel';
+      readonly furnitureIndex: number;
+      readonly panel: FalsePanel;
+    }
+  | { readonly type: 'RemoveFalsePanel'; readonly furnitureIndex: number; readonly panelId: NodeId }
+  | {
+      readonly type: 'UpdateFalsePanel';
+      readonly furnitureIndex: number;
+      readonly panelId: NodeId;
+      readonly patch: {
+        readonly position?: FalsePanel['position'];
+        readonly width?: Mm | null;
+        readonly height?: Mm | null;
+        readonly depth?: Mm | null;
+        readonly materialId?: MaterialId | null;
+        readonly thickness?: Mm | null;
+        readonly offset?: Mm | null;
       };
     }
   | { readonly type: 'SetConstructionScheme'; readonly scheme: ConstructionScheme }
@@ -567,6 +616,103 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
       if (patch.thickness !== undefined) {
         if (patch.thickness === null) delete base.thickness;
         else if (patch.thickness > 0) base.thickness = patch.thickness;
+      }
+      return;
+    }
+
+    case 'SetStructuralModifiers': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const { patch } = command;
+      const carcass = furniture.carcass;
+
+      if (patch.overhang !== undefined) {
+        if (patch.overhang === null) delete carcass.overhang;
+        else {
+          const o = patch.overhang;
+          // Свес отсчитывается наружу и отрицательным быть не может (§14):
+          // утопление детали внутрь корпуса — другое правило, и оно не
+          // подтверждено (T-MOD-01).
+          if (o.front < 0 || o.back < 0 || o.left < 0 || o.right < 0) return;
+          carcass.overhang = { ...o, appliesTo: [...o.appliesTo] };
+        }
+      }
+      if (patch.topSection !== undefined) {
+        if (patch.topSection === null) delete carcass.topSection;
+        else {
+          if (!(patch.topSection.height > 0) || patch.topSection.gap < 0) return;
+          carcass.topSection = { ...patch.topSection };
+        }
+      }
+      if (patch.ceilingGap !== undefined) {
+        if (patch.ceilingGap === null) delete carcass.ceilingGap;
+        else {
+          if (patch.ceilingGap < 0) return;
+          carcass.ceilingGap = patch.ceilingGap;
+        }
+      }
+      if (patch.countertop !== undefined) {
+        if (patch.countertop === null) delete carcass.countertop;
+        else {
+          const c = patch.countertop;
+          if (!(c.thickness > 0)) return;
+          if (c.overhangFront < 0 || c.overhangBack < 0 || c.overhangLeft < 0 || c.overhangRight < 0) return;
+          if (draft.materials.items[c.materialId] === undefined) return;
+          carcass.countertop = { ...c };
+        }
+      }
+      if (patch.wallMount !== undefined) {
+        if (patch.wallMount === null) delete carcass.wallMount;
+        else {
+          if (patch.wallMount.elevation !== undefined && patch.wallMount.elevation < 0) return;
+          carcass.wallMount = { ...patch.wallMount };
+        }
+      }
+      return;
+    }
+
+    case 'AddFalsePanel': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const panels = furniture.carcass.falsePanels ?? [];
+      // Панель с уже занятым id не добавляется: два объекта с одной
+      // идентичностью дали бы две детали с одинаковым `Part.id`.
+      if (panels.some((p) => p.id === command.panel.id)) return;
+      furniture.carcass.falsePanels = [...panels, { ...command.panel }];
+      return;
+    }
+
+    case 'RemoveFalsePanel': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const panels = furniture.carcass.falsePanels ?? [];
+      const next = panels.filter((p) => p.id !== command.panelId);
+      if (next.length === panels.length) return;
+      furniture.carcass.falsePanels = next;
+      return;
+    }
+
+    case 'UpdateFalsePanel': {
+      const furniture = draft.furniture[command.furnitureIndex];
+      if (furniture === undefined) return;
+      const panel = (furniture.carcass.falsePanels ?? []).find((p) => p.id === command.panelId);
+      if (panel === undefined) return;
+      const { patch } = command;
+
+      if (patch.position !== undefined) panel.position = patch.position;
+      for (const key of ['width', 'height', 'depth', 'thickness'] as const) {
+        const value = patch[key];
+        if (value === undefined) continue;
+        if (value === null) delete panel[key];
+        else if (value > 0) panel[key] = value;
+      }
+      if (patch.offset !== undefined) {
+        if (patch.offset === null) delete panel.offset;
+        else if (patch.offset >= 0) panel.offset = patch.offset;
+      }
+      if (patch.materialId !== undefined) {
+        if (patch.materialId === null) delete panel.materialId;
+        else if (draft.materials.items[patch.materialId] !== undefined) panel.materialId = patch.materialId;
       }
       return;
     }

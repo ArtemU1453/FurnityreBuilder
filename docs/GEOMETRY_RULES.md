@@ -2232,3 +2232,107 @@ height < plinthHeight:  это ПАЗ в одной детали — царга 
 | `PLINTH_PARTS_NOT_SPECIFIED` | info | цоколь задан высотой, состав царг не указан |
 | `PLINTH_CUTOUT_NOT_IMPLEMENTED` | info | частичный вырез — паз, а не две детали |
 | `PLINTH_LEGS_NOT_IMPLEMENTED` | info | ножки: высота учтена, деталей нет |
+
+---
+
+## 26. КОНСТРУКТИВНЫЕ МОДИФИКАТОРЫ КОРПУСА (PROMPT 15)
+
+Полное описание с обоснованиями и статусами подтверждения —
+`docs/STRUCTURAL_MODIFIERS.md`. Здесь — только формулы.
+
+### 26.1 Вертикальный бюджет
+
+**Формула** (`resolveVerticalLayout`, `stages/carcass.ts` — единственное
+место в проекте, где считаются полосы по Y):
+```
+plinthHeight        = base?.kind === 'plinth' && height > 0 ? base.height : 0
+countertopThickness = countertop?.thickness > 0 ? countertop.thickness : 0
+topSectionHeight    = topSection?.height > 0 ? topSection.height : 0
+topSectionGap       = topSection ? max(topSection.gap, 0) : 0
+ceilingGap          = max(ceilingGap ?? 0, 0)
+
+consumed     = plinthHeight + countertopThickness + topSectionGap + topSectionHeight + ceilingGap
+carcassHeight = heightIncludesBase ? H − consumed : H
+carcassY0     = plinthHeight
+countertopY0  = carcassY0 + carcassHeight
+topSectionY0  = countertopY0 + countertopThickness + topSectionGap
+totalTop      = topSectionY0 + topSectionHeight + ceilingGap
+```
+**Источник.** `ASSUMPTION (T-MOD-03)`. **Тест.** «источник истины — H:
+сумма полос равна габариту» в `modifiers.test.ts`.
+
+Все этапы (`carcass`, `back`, `countertop`) читают эту функцию, а не
+считают полосы сами: пока `back` пользовался урезанной версией, задняя
+стенка строилась во весь габарит и перекрывала зазор до потолка.
+
+### 26.2 Свес
+
+**Формула** (горизонталь оболочки и столешница):
+```
+x0    = (spansFullWidth ? 0 : T) − left
+width = (spansFullWidth ? W : W − 2T) + left + right
+z0    = carcassZ0 − back
+depth = carcassDepth + back + front
+```
+**Ограничение.** `left`/`right` применяются ТОЛЬКО при
+`spansFullWidth` — вкладная горизонталь стоит между боковинами, и её
+расширение вбок было бы пересечением с ними
+(`OVERHANG_INCOMPATIBLE_WITH_SCHEME`, warning). Любой свес, уводящий
+деталь за начало координат, — ошибка `OVERHANG_OUT_OF_BOUNDS`
+(`docs/STRUCTURAL_MODIFIERS.md` §2).
+**Источник.** `ASSUMPTION (T-MOD-01)`, `UNKNOWN (T-OFF-01)`.
+
+### 26.3 Верхняя секция
+
+Строится той же функцией `buildShell`, что и основной корпус, в своей
+полосе `[topSectionY0, topSectionY0 + topSectionHeight]`. Оболочка обязана
+вмещать свои горизонтали: `height >= (hasTop ? T : 0) + (hasBottom ? T : 0)`,
+иначе `SHELL_HEIGHT_TOO_SMALL` (error).
+**Источник.** `ASSUMPTION (T-MOD-02)`, `UNKNOWN (T-CAR-05)`.
+
+### 26.4 Столешница
+
+```
+left  = countertop.overhangLeft + (overhang.left, если appliesTo ∋ 'countertop')
+width = W + left + right
+depth = carcassDepth + back + front
+y     = countertopY0,   height = countertop.thickness
+```
+Собственные свесы столешницы и общий свес корпуса складываются.
+**Источник.** `UNKNOWN (T-CAR-06)`.
+
+### 26.5 Фальшпанели
+
+```
+left/right: width = thickness,  height = totalTop − carcassY0,  depth = depth ?? carcassDepth
+            x = −t − offset (левая) | W + offset (правая)
+top/bottom: width = width ?? W,  height = thickness
+            y = totalTop + offset (верхняя) | carcassY0 − t − offset (нижняя)
+```
+Левая и нижняя панели уходят за начало координат и отклоняются
+(`FALSE_PANEL_GEOMETRY_INVALID`). **Источник.** `ASSUMPTION (T-MOD-05)`.
+
+### 26.6 Крепление к стене
+
+Геометрии не даёт: режим (`floor-standing` | `wall-mounted` | `suspended`)
+публикуется в `GeometryResult.structure`. Цоколь под ненапольным изделием
+даёт предупреждение `WALL_MOUNT_WITH_PLINTH`.
+**Источник.** `ASSUMPTION (T-MOD-04)`.
+
+### 26.7 Диагностика модификаторов
+
+| Код | Severity | Когда |
+|---|---|---|
+| `VERTICAL_BUDGET_EXCEEDED` | error | полосы не оставляют высоты корпусу (валидация проекта) |
+| `CARCASS_HEIGHT_NOT_POSITIVE` | error | то же на уровне движка |
+| `SHELL_HEIGHT_TOO_SMALL` | error | оболочка ниже своих крышки и дна |
+| `OVERHANG_INVALID` | error | отрицательный свес (валидация проекта) |
+| `OVERHANG_OUT_OF_BOUNDS` | error | свес уводит деталь за начало координат |
+| `OVERHANG_INCOMPATIBLE_WITH_SCHEME` | warning | боковой свес вкладной горизонтали |
+| `OVERHANG_NOT_APPLIED` | info | свес задан, `appliesTo` пуст |
+| `TOP_SECTION_HEIGHT_INVALID` / `TOP_SECTION_GAP_INVALID` | error | недопустимые параметры антресоли |
+| `TOP_SECTION_CONTENT_NOT_IMPLEMENTED` | info | наполнение антресоли не строится |
+| `CEILING_GAP_INVALID` | error | отрицательный зазор до потолка |
+| `COUNTERTOP_THICKNESS_INVALID` / `COUNTERTOP_GEOMETRY_INVALID` | error | недопустимая столешница |
+| `FALSE_PANEL_SIZE_INVALID` / `FALSE_PANEL_GEOMETRY_INVALID` | error | недопустимая фальшпанель |
+| `WALL_MOUNT_WITH_PLINTH` | warning | цоколь у настенного или подвесного изделия |

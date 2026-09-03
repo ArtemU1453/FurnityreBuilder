@@ -6,12 +6,14 @@ import type {
   BaseSpec,
   CarcassSpec,
   ConstructionScheme,
+  CountertopSpec,
   Dimensions,
   DividerSpec,
   Drawer,
   DrawerBoxSpec,
   FacadeGroup,
   FacadeLeaf,
+  FalsePanel,
   Furniture,
   HandlePlacement,
   HingeSide,
@@ -21,6 +23,7 @@ import type {
   Shelf,
   SlideSpec,
   Tolerances,
+  TopSectionSpec,
 } from './types.js';
 
 /**
@@ -279,6 +282,39 @@ export function createPushToOpenSystem(ids: IdFactory, hingeSide?: HingeSide): O
  */
 export function createPlinthBase(height: Mm, setback = 0): BaseSpec {
   return { kind: 'plinth', height, setback, parts: ['front'] };
+}
+
+/**
+ * Столешница заданной толщины без свесов (PROMPT 15 §7).
+ *
+ * Свесы по умолчанию нулевые: их величина референсом не подтверждена
+ * (`ASSUMPTION(T-CAR-06)`), а ненулевое значение «по умолчанию» было бы
+ * ровно тем выдуманным правилом, которого проект избегает.
+ */
+export function createCountertop(thickness: Mm, materialId: MaterialId): CountertopSpec {
+  return {
+    thickness,
+    overhangFront: 0,
+    overhangLeft: 0,
+    overhangRight: 0,
+    overhangBack: 0,
+    materialId,
+    edge: DEFAULT_EDGE,
+  };
+}
+
+/**
+ * Верхняя секция заданной высоты вплотную к корпусу (PROMPT 15 §5).
+ * Зазор по умолчанию нулевой — антресоль ставится на корпус
+ * (`ASSUMPTION(T-MOD-02)`).
+ */
+export function createTopSection(height: Mm, gap = 0): TopSectionSpec {
+  return { height, gap, hasTop: true, hasBottom: true };
+}
+
+/** Фальшпанель у заданной стороны корпуса (PROMPT 15 §9). */
+export function createFalsePanel(ids: IdFactory, position: FalsePanel['position']): FalsePanel {
+  return { id: ids.next<'Node'>(), position };
 }
 
 export function createDefaultCarcass(backMaterialId: MaterialId): CarcassSpec {

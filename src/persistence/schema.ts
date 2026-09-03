@@ -272,6 +272,50 @@ const furniture = z.object({
         edge: edgeSpec,
       })
       .optional(),
+    // Конструктивные модификаторы PROMPT 15. Все опциональные: старый
+    // проект без них читается схемой как есть, отдельная миграция не нужна
+    // (docs/DATA_MODEL.md §8.1, docs/STRUCTURAL_MODIFIERS.md §7).
+    overhang: z
+      .object({
+        front: mm,
+        back: mm,
+        left: mm,
+        right: mm,
+        appliesTo: z.array(z.enum(['top', 'bottom', 'countertop'])),
+      })
+      .optional(),
+    topSection: z
+      .object({
+        height: positiveMm,
+        gap: mm,
+        materialId: id.optional(),
+        hasTop: z.boolean(),
+        hasBottom: z.boolean(),
+      })
+      .optional(),
+    ceilingGap: mm.optional(),
+    wallMount: z
+      .object({
+        mode: z.enum(['floor-standing', 'wall-mounted', 'suspended']),
+        wallId: id.optional(),
+        elevation: mm.optional(),
+      })
+      .optional(),
+    falsePanels: z
+      .array(
+        z.object({
+          id,
+          position: z.enum(['left', 'right', 'top', 'bottom']),
+          width: positiveMm.optional(),
+          height: positiveMm.optional(),
+          depth: positiveMm.optional(),
+          materialId: id.optional(),
+          thickness: positiveMm.optional(),
+          edge: edgeSpec.optional(),
+          offset: mm.optional(),
+        }),
+      )
+      .optional(),
   }),
   root: sectionNode,
   facades: z.array(facadeGroup),

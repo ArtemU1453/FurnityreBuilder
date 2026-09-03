@@ -6,6 +6,7 @@ import { baseStage } from './stages/base.js';
 import { carcassStage } from './stages/carcass.js';
 import { facadesStage } from './stages/facades.js';
 import { fillStage } from './stages/fill.js';
+import { modifiersStage } from './stages/modifiers.js';
 import { layoutStage } from './stages/layout.js';
 import { normalizeStage } from './stages/normalize.js';
 import type { GeometryInput, GeometryResult, StageDescriptor } from './types.js';
@@ -40,7 +41,11 @@ export const PIPELINE: readonly StageDescriptor[] = [
   // корпус через resolveBasePlacement, царги строятся по явно заданному
   // составу (T-BASE-01). Ножки ('legs') деталей не дают — это фурнитура.
   { name: 'base', status: 'implemented' },
-  { name: 'countertop', status: 'planned', plannedAt: '23' },
+  // 'countertop' реализован на PROMPT 15 и заодно строит фальшпанели: обе
+  // детали — конструктивные модификаторы поверх уже посчитанного корпуса,
+  // и второй этап ради второй роли завёл бы лишний проход
+  // (docs/GEOMETRY_RULES.md §24–25).
+  { name: 'countertop', status: 'implemented' },
   // 'facades' реализован на PROMPT 10 только для базового случая — одного
   // FacadeGroup, покрывающего ровно один лист дерева (одну ячейку).
   // Покрытие нескольких ячеек (covers.kind === 'carcass' или узел-
@@ -59,6 +64,7 @@ const IMPLEMENTED: Readonly<Record<string, GeometryStage>> = {
   fill: fillStage,
   back: backStage,
   base: baseStage,
+  countertop: modifiersStage,
   facades: facadesStage,
 };
 
