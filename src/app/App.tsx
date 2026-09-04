@@ -20,6 +20,7 @@ import { calculateHardware, formatHardwareDebug } from '../hardware/index.js';
 import { calculateCutting, toProductionParts } from '../production/index.js';
 import { calculateDrilling, formatDrillingDebug } from '../drilling/index.js';
 import { calculateProduction, formatProductionDebug } from '../bom/index.js';
+import { exportPdf, exportXlsx } from './export-actions.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import { Button, Field } from '../design-system/index.js';
@@ -62,6 +63,11 @@ export function App(): React.JSX.Element {
   const [sectionsDraft, setSectionsDraft] = useState(1);
   const [sectionWidthsDraft, setSectionWidthsDraft] = useState('');
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  // Экспорт: одно состояние на обе кнопки. Пока идёт генерация, обе
+  // заблокированы — второй запуск во время первого дал бы два файла и
+  // непонятно какой из них актуален (§19).
+  const [exporting, setExporting] = useState<'pdf' | 'xlsx' | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   // Выбранная для управления дверью ячейка (PROMPT 10 §19). Черновой выбор,
   // а не команда: сам по себе он ничего в проекте не меняет.
   const [selectedCellId, setSelectedCellId] = useState<NodeId | ''>('');
@@ -131,6 +137,27 @@ export function App(): React.JSX.Element {
     if (!import.meta.env.DEV || furniture === undefined || geometry === undefined) return undefined;
     return formatProductionDebug(calculateProduction(project, { geometry: new Map([[furniture.id, geometry]]) }));
   }, [project, furniture, geometry]);
+
+  const runExport = async (kind: 'pdf' | 'xlsx'): Promise<void> => {
+    if (exporting !== null || furniture === undefined || geometry === undefined) return;
+    setExporting(kind);
+    setExportError(null);
+    try {
+      const context = {
+        project,
+        geometry: new Map([[String(furniture.id), geometry]]),
+        now: () => new Date().toISOString().slice(0, 16).replace('T', ' '),
+      };
+      if (kind === 'pdf') await exportPdf(context);
+      else await exportXlsx(context);
+    } catch (error) {
+      // Ошибку показываем текстом и оставляем кнопку рабочей: экспорт
+      // должен быть повторяемым, а не заканчиваться тупиком (§19).
+      setExportError(error instanceof Error ? error.message : 'Не удалось сформировать документ.');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const report = useMemo(() => validateProject(project), [project]);
 
@@ -508,6 +535,42 @@ export function App(): React.JSX.Element {
       </header>
 
       <main id="main" className={styles.main}>
+        <section className={styles.panel} aria-labelledby="export-title">
+          <h2 id="export-title" className={styles.panelTitle}>
+            Производственная документация
+          </h2>
+          <p className={styles.pending}>
+            Спецификация деталей, фурнитура, присадка и карта раскроя. Документ формируется из текущего
+            расчёта: отдельного «пересчитать» не требуется.
+          </p>
+          <div className={styles.debugToolbar}>
+            <Button
+              variant="primary"
+              onClick={() => {
+                void runExport('pdf');
+              }}
+              loading={exporting === 'pdf'}
+              disabled={exporting !== null}
+            >
+              {exporting === 'pdf' ? 'Формируется PDF…' : 'Скачать PDF'}
+            </Button>
+            <Button
+              onClick={() => {
+                void runExport('xlsx');
+              }}
+              loading={exporting === 'xlsx'}
+              disabled={exporting !== null}
+            >
+              {exporting === 'xlsx' ? 'Формируется XLSX…' : 'Скачать XLSX'}
+            </Button>
+          </div>
+          {/* Сообщения экспорта читаются вслух: результат действия не
+              должен быть виден только глазами (§19). */}
+          <p className={styles.pending} role="status" aria-live="polite">
+            {exportError ?? (exporting === null ? '' : 'Идёт формирование документа…')}
+          </p>
+        </section>
+
         <section className={styles.panel} aria-labelledby="dimensions-title">
           <h2 id="dimensions-title" className={styles.panelTitle}>
             Габариты

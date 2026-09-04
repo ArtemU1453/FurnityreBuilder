@@ -88,7 +88,7 @@ Engine» (PROMPT 3) — прирост этого этапа: пять новы�
 ## 3. РАСПРЕДЕЛЕНИЕ
 
 ```
- 14  architecture/boundaries               границы слоёв (+ чистота слоёв фурнитуры, раскроя, присадки и спецификации, PROMPT 16–19)
+ 16  architecture/boundaries               границы слоёв (+ чистота слоёв фурнитуры, раскроя, присадки, спецификации и экспорта, PROMPT 16–20)
  10  domain/coordinates                    система координат, пересечение против касания (PROMPT 7)
   7  domain/layout                         раскладка деления, 3 property-теста
   5  domain/project                        создание проекта, детерминизм
@@ -102,6 +102,9 @@ Engine» (PROMPT 3) — прирост этого этапа: пять новы�
   9  geometry/engine                       контракт движка, размеры раскроя
  34  geometry/fill                         полки: 15 сценариев §PROMPT6 + коллизии (PROMPT 6)
   3  geometry/fill-properties              property: полки на случайных W/H/D/числе полок (PROMPT 6)
+ 17  export/data                           расчёт → данные документа, единицы, статусы (PROMPT 20)
+ 13  export/xlsx                           книга открывается exceljs: листы, типы ячеек, детерминизм (PROMPT 20)
+  8  export/pdf                            документ открывается pdf-lib: страницы, форматы, шрифт (PROMPT 20)
  33  bom/engine                            деталировка, группировка, сводки, статус (PROMPT 19)
   7  bom/bom-properties                    property: ссылки, количества, детерминизм (PROMPT 19)
  14  drilling/coordinates                  локальная система детали, грани, переход в мировые (PROMPT 18)
@@ -294,6 +297,8 @@ PROMPT 2 и не замеченное до этого этапа.)
 | `drilling` импортирует `state` | `boundaries/element-types` |
 | React в `src/bom` | `no-restricted-imports` |
 | `bom` импортирует `state` | `boundaries/element-types` |
+| React в `src/export` | `no-restricted-imports` |
+| `export` импортирует `state` | `boundaries/element-types` |
 | React в `src/domain` | `no-restricted-imports` |
 | `geometry` импортирует `state` | `boundaries/element-types` |
 | `domain` обращается к `window` | `no-restricted-globals` |

@@ -136,6 +136,26 @@ describe('архитектурные границы', () => {
     expect(rules).toContain('boundaries/element-types');
   });
 
+  it('запрещает React в генераторах документов', { timeout: 60_000 }, async () => {
+    // PROMPT 20 §2: экспорт получает готовые данные и не знает ни об
+    // экране, ни о том, как файл будет сохранён.
+    const rules = await lintSource(
+      'export',
+      'probe.ts',
+      "import { useMemo } from 'react';\nexport const probe = useMemo;\n",
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('запрещает экспорту трогать модель: export → state', { timeout: 60_000 }, async () => {
+    const rules = await lintSource(
+      'export',
+      'probe.ts',
+      "import { PLANNED_COMMANDS } from '../../state/commands.js';\nexport const probe = PLANNED_COMMANDS;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
   it('запрещает импорт вверх по слоям: geometry → state', { timeout: 60_000 }, async () => {
     const rules = await lintSource(
       'geometry',

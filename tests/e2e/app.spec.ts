@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -16,7 +17,9 @@ test('приложение запускается и показывает рас
 
   // Каркас по умолчанию: 2 боковины + дно + крышка + задняя стенка
   // (деталью она стала на PROMPT 14).
-  await expect(page.getByText('Деталей')).toBeVisible();
+  // `exact` обязателен: с PROMPT 20 слово встречается ещё и в описании
+  // панели экспорта, и нестрогий локатор находит два элемента.
+  await expect(page.getByText('Деталей', { exact: true })).toBeVisible();
   await expect(page.locator('li', { hasText: 'Деталей' })).toContainText('5');
 });
 
@@ -168,3 +171,41 @@ test('способ открывания ящиков можно выбрать (
   await opening.selectOption('handle');
   await expect(page.locator('li', { hasText: 'Ручек' })).toContainText('2');
 });
+
+test('производственная документация скачивается и не запускается дважды (PROMPT 20 §19)', async ({ page }) => {
+  await page.goto('/');
+
+  const pdfButton = page.getByRole('button', { name: 'Скачать PDF' });
+  const xlsxButton = page.getByRole('button', { name: 'Скачать XLSX' });
+  await expect(pdfButton).toBeEnabled();
+  await expect(xlsxButton).toBeEnabled();
+
+  // XLSX: файл действительно приходит, и это настоящий ZIP.
+  // Проверяется содержимое, а не имя: headless-Chromium сообщает о
+  // blob-загрузках имя «download» независимо от атрибута, а вот байты
+  // приходят настоящие.
+  const xlsxDownload = page.waitForEvent('download');
+  await xlsxButton.click();
+  const xlsxPath = await (await xlsxDownload).path();
+  expect(xlsxPath).not.toBeNull();
+  const xlsxBytes = readFileSync(xlsxPath);
+  expect(xlsxBytes.length).toBeGreaterThan(2000);
+  expect([...xlsxBytes.subarray(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
+
+  // PDF собирается дольше: кнопки на это время блокируются, чтобы второй
+  // запуск не дал два файла и вопрос, какой из них актуален.
+  const pdfDownload = page.waitForEvent('download');
+  await pdfButton.click();
+  const pdfPath = await (await pdfDownload).path();
+  expect(pdfPath).not.toBeNull();
+  const pdfBytes = readFileSync(pdfPath);
+  expect(pdfBytes.length).toBeGreaterThan(5000);
+  expect(pdfBytes.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+
+  // После завершения обе кнопки снова рабочие: экспорт повторяем.
+  await expect(pdfButton).toBeEnabled();
+  await expect(xlsxButton).toBeEnabled();
+});
+
+
+

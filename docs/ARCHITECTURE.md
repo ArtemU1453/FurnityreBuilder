@@ -219,6 +219,13 @@ src/
     summaries.ts             сводки присадки и раскроя
     confirmations.ts         централизованный список неподтверждённых правил
     engine.ts                calculateProduction: единый конвейер расчёта
+  export/                    ProductionCalculationResult → PDF/XLSX, чистые функции
+    types.ts                 ProductionExportData: плоские строки документов
+    data.ts                  адаптер расчёта в данные документа
+    format.ts                единицы и округление, общие для обоих форматов
+    pdf.ts                   производственный PDF (pdf-lib + встроенный шрифт)
+    xlsx.ts                  книга Office Open XML без внешних библиотек
+    zip.ts                   минимальный ZIP-контейнер и CRC32
   validation/                правила → Issue[]
     rules/{values,references,structure}.ts
   persistence/               схема Zod, сериализация, миграции, репозитории

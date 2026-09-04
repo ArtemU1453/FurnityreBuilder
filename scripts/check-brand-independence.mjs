@@ -33,8 +33,15 @@ const EXTERNAL_PATTERNS = [
   { re: /google-analytics|googletagmanager|yandex\.ru\/metrika|mc\.yandex/gi, label: 'аналитика' },
 ];
 
-/** Ссылки на документацию и спецификации допустимы в комментариях и в README. */
-const ALLOWED_URL = /(schema\.org|www\.w3\.org|claude\.ai|github\.com\/emilkowalski)/i;
+/**
+ * Ссылки на документацию и спецификации допустимы в комментариях и в README.
+ *
+ * `schemas.openxmlformats.org` — не ссылка, а ИДЕНТИФИКАТОР пространства
+ * имён XML в формате XLSX (PROMPT 20). Он обязан присутствовать в файле
+ * дословно, иначе книгу не откроет ни один редактор таблиц, и никогда не
+ * запрашивается по сети: это имя, а не адрес.
+ */
+const ALLOWED_URL = /(schema\.org|www\.w3\.org|claude\.ai|github\.com\/emilkowalski|schemas\.openxmlformats\.org)/i;
 
 function walk(dir, files = []) {
   if (!existsSync(dir)) return files;
