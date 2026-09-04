@@ -4,7 +4,7 @@ import type { Project, ProjectId, ProjectPreview } from '../../domain/index.js';
 import type { ProjectSummary } from '../../persistence/index.js';
 import { SORT_LABELS } from '../../library/index.js';
 import type { SortOrder } from '../../library/index.js';
-import { Button } from '../../design-system/index.js';
+import { Button, Dialog, EmptyState, Select, StatusIndicator } from '../../design-system/index.js';
 import type { ProjectLibrary as Library } from '../use-project-library.js';
 import styles from './ProjectLibrary.module.css';
 
@@ -69,6 +69,7 @@ export function ProjectLibrary(props: ProjectLibraryProps): React.JSX.Element {
   // работы, и одна случайная кнопка не должна их стирать. Диалога нет
   // намеренно — подтверждение стоит там же, где действие.
   const [confirming, setConfirming] = useState<ProjectId | undefined>(undefined);
+  const pending = library.visible.find((summary) => summary.id === confirming);
 
   const open = (id: ProjectId): void => {
     void (async () => {
@@ -101,22 +102,14 @@ export function ProjectLibrary(props: ProjectLibraryProps): React.JSX.Element {
               }}
             />
           </label>
-          <label>
-            <span className={styles.recentLabel}>Порядок </span>
-            <select
-              className={styles.sort}
-              value={library.order}
-              onChange={(event) => {
-                library.setOrder(event.target.value as SortOrder);
-              }}
-            >
-              {Object.entries(SORT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label="Порядок"
+            value={library.order}
+            options={Object.entries(SORT_LABELS).map(([value, label]) => ({ value, label }))}
+            onChange={(value) => {
+              library.setOrder(value as SortOrder);
+            }}
+          />
           <Button
             variant="primary"
             onClick={() => {
@@ -161,23 +154,23 @@ export function ProjectLibrary(props: ProjectLibraryProps): React.JSX.Element {
         сделает, исчезнет с закрытием вкладки. Молчать об этом нельзя.
       */}
       {library.ephemeral ? (
-        <p className={styles.notice}>
-          Постоянное хранилище недоступно (приватный режим). Проекты живут только в этой вкладке —
-          сохраните их файлом.
-        </p>
+        <StatusIndicator
+          tone="warning"
+          label="Постоянное хранилище недоступно"
+          detail="Приватный режим: проекты живут только в этой вкладке — сохраните их файлом."
+        />
       ) : null}
 
       {props.currentIsDirty ? (
-        <p className={styles.notice}>
-          В открытом проекте есть несохранённые изменения. Откройте другой проект только после
-          сохранения — иначе правки будут потеряны.
-        </p>
+        <StatusIndicator
+          tone="warning"
+          label="В открытом проекте есть несохранённые изменения"
+          detail="Откройте другой проект только после сохранения — иначе правки будут потеряны."
+        />
       ) : null}
 
       {library.error === undefined ? null : (
-        <p className={styles.error} role="alert">
-          {library.error}
-        </p>
+        <StatusIndicator tone="danger" label={library.error} live />
       )}
 
       {library.recent.length === 0 ? null : (
@@ -199,13 +192,41 @@ export function ProjectLibrary(props: ProjectLibraryProps): React.JSX.Element {
       )}
 
       {library.loading ? (
-        <p className={styles.empty}>Загружается…</p>
+        <EmptyState tone="loading" title="Загружается…" />
       ) : library.visible.length === 0 ? (
-        <p className={styles.empty}>
-          {library.summaries.length === 0
-            ? 'Проектов пока нет. Создайте новый или откройте файл.'
-            : 'Ничего не найдено по этому запросу.'}
-        </p>
+        library.summaries.length === 0 ? (
+          <EmptyState
+            title="Проектов пока нет"
+            description="Создайте первый проект мебели или откройте файл, сохранённый раньше."
+            action={
+              <Button
+                variant="primary"
+                onClick={() => {
+                  void (async () => {
+                    const created = await library.create();
+                    if (created !== undefined) props.onOpen(created);
+                  })();
+                }}
+              >
+                Создать проект
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="Ничего не найдено"
+            description={`По запросу «${library.query}» проектов нет. Попробуйте другое слово или очистите поиск.`}
+            action={
+              <Button
+                onClick={() => {
+                  library.setQuery('');
+                }}
+              >
+                Очистить поиск
+              </Button>
+            }
+          />
+        )
       ) : (
         <ul className={styles.grid} aria-label="Проекты">
           {library.visible.map((summary) => {
@@ -220,7 +241,10 @@ export function ProjectLibrary(props: ProjectLibraryProps): React.JSX.Element {
                   {summary.preview === undefined ? (
                     <div className={styles.previewEmpty}>Превью появится после сохранения</div>
                   ) : (
-                    <img src={previewSource(summary.preview)} alt={`Превью проекта «${summary.name}»`} />
+                    <img
+                      src={previewSource(summary.preview)}
+                      alt={`Превью проекта «${summary.name}»`}
+                    />
                   )}
                 </div>
 
@@ -292,50 +316,59 @@ export function ProjectLibrary(props: ProjectLibraryProps): React.JSX.Element {
                   >
                     Экспорт
                   </Button>
-                  {confirming === summary.id ? (
-                    <>
-                      <Button
-                        variant="danger"
-                        onClick={() => {
-                          void library.remove(summary.id);
-                          setConfirming(undefined);
-                        }}
-                      >
-                        Да, удалить
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setConfirming(undefined);
-                        }}
-                      >
-                        Отмена
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="danger"
-                      onClick={() => {
-                        setConfirming(summary.id);
-                      }}
-                    >
-                      Удалить
-                    </Button>
-                  )}
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      setConfirming(summary.id);
+                    }}
+                  >
+                    Удалить
+                  </Button>
                 </div>
-
-                {confirming === summary.id ? (
-                  <p className={styles.statusWarning} role="alert">
-                    {placed === 0
-                      ? 'Проект будет удалён без возможности вернуть. Сохраните его файлом, если он ещё нужен.'
-                      : `Проект размещён в помещении ${String(placed)} раз(а). ` +
-                        'Размещения останутся и будут отмечены как недоступные — расстановка не пропадёт молча.'}
-                  </p>
-                ) : null}
               </li>
             );
           })}
         </ul>
       )}
+      {/*
+        Подтверждение удаления — общий диалог приложения (§20), а не
+        собственная пара кнопок на карточке. Проект — это часы работы, и
+        необратимое действие обязано выглядеть одинаково везде: на
+        телефоне тот же компонент приходит листом снизу.
+      */}
+      <Dialog
+        open={pending !== undefined}
+        title={pending === undefined ? '' : `Удалить «${pending.name}»?`}
+        description={
+          pending === undefined || props.placementsOf(pending.id) === 0
+            ? 'Проект будет удалён без возможности вернуть. Сохраните его файлом, если он ещё нужен.'
+            : `Проект размещён в помещении ${String(props.placementsOf(pending.id))} раз(а). ` +
+              'Размещения останутся и будут отмечены как недоступные — расстановка не пропадёт молча.'
+        }
+        onClose={() => {
+          setConfirming(undefined);
+        }}
+        actions={
+          <>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (pending !== undefined) void library.remove(pending.id);
+                setConfirming(undefined);
+              }}
+            >
+              Удалить
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirming(undefined);
+              }}
+            >
+              Отмена
+            </Button>
+          </>
+        }
+      />
     </section>
   );
 }

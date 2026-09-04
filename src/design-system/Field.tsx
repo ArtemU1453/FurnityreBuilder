@@ -19,7 +19,11 @@ export interface FieldProps {
   /** Пояснение или причина проблемы. Всегда текстом, не только цветом. */
   readonly message?: string;
   readonly hint?: string;
-  readonly children: (props: { id: string; describedBy: string | undefined; invalid: boolean }) => ReactNode;
+  readonly children: (props: {
+    id: string;
+    describedBy: string | undefined;
+    invalid: boolean;
+  }) => ReactNode;
 }
 
 export function Field({
@@ -45,12 +49,17 @@ export function Field({
       {hasMessage ? (
         <p
           id={messageId}
-          className={[styles.message, status === 'error' ? styles.error : status === 'warning' ? styles.warning : styles.hint]
+          className={[
+            styles.message,
+            status === 'error' ? styles.error : status === 'warning' ? styles.warning : styles.hint,
+          ]
             .filter(Boolean)
             .join(' ')}
           role={status === 'error' ? 'alert' : undefined}
         >
-          <span aria-hidden="true">{status === 'error' ? '✕' : status === 'warning' ? '!' : 'i'}</span>
+          <span aria-hidden="true">
+            {status === 'error' ? '✕' : status === 'warning' ? '!' : 'i'}
+          </span>
           {message}
         </p>
       ) : hint !== undefined ? (

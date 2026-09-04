@@ -1,108 +1,17 @@
-.shell {
-  display: grid;
-  grid-template-rows: var(--h-toolbar) 1fr auto;
-  min-height: 100vh;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-4);
-  /* Уровень 2: единственная полупрозрачная поверхность в приложении. */
-  background: var(--surface-floating-bg);
-  backdrop-filter: var(--surface-floating-blur);
-  border-bottom: var(--border-hairline) solid var(--border-subtle);
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-.title {
-  font-size: var(--t-heading-size);
-  line-height: var(--t-heading-lh);
-  letter-spacing: var(--t-heading-ls);
-  font-weight: 600;
-  margin: 0;
-  margin-right: auto;
-}
-
-.main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 22rem;
-  gap: var(--sp-4);
-  padding: var(--sp-4);
-  align-items: start;
-}
-
-@media (max-width: 60rem) {
-  .main {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.panel {
-  background: var(--bg-surface);
-  border: var(--border-hairline) solid var(--border-subtle);
-  border-radius: var(--r-lg);
-  padding: var(--sp-4);
-  box-shadow: var(--shadow-1);
-}
-
-/* Схема шире одной колонки сетки: под неё нужна вся ширина рабочей области. */
-.fullWidth {
-  grid-column: 1 / -1;
-}
-
-.debugToolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-3);
-}
-
-.debugToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-size: var(--t-label-size);
-  color: var(--text-secondary);
-}
-
-.panelTitle {
-  font-size: var(--t-label-size);
-  letter-spacing: var(--t-label-ls);
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin: 0 0 var(--sp-3);
-  font-weight: 600;
-}
+/*
+ * Остатки оформления, не ставшие компонентами design system
+ * (PROMPT 26 §7–§8).
+ *
+ * Каркас, панели, тулбар, кнопки и поля отсюда убраны: они переехали в
+ * `src/app/shell/` и в design system. Здесь остаётся только раскладка
+ * содержимого панелей конструктора и оформление технического
+ * debug-вывода, у которого потребитель один.
+ */
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
   gap: var(--sp-3);
-}
-
-.numberInput {
-  width: 100%;
-  min-height: var(--h-control-md);
-  padding: 0 var(--sp-2);
-  font-family: var(--font-num);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  color: var(--text-primary);
-  background: var(--bg-sunken);
-  border: var(--border-hairline) solid var(--border-default);
-  border-radius: var(--r-sm);
-}
-
-.numberInput:hover {
-  border-color: var(--border-strong);
-}
-
-.numberInput[aria-invalid='true'] {
-  border-color: var(--danger-500);
 }
 
 .stats {
@@ -145,44 +54,11 @@
   line-height: var(--t-caption-lh);
 }
 
-.error {
-  color: var(--danger-500);
-}
-.warning {
-  color: var(--warning-500);
-}
-.info {
-  color: var(--text-tertiary);
-}
-
-.status {
-  display: flex;
-  gap: var(--sp-4);
-  padding: var(--sp-2) var(--sp-4);
-  border-top: var(--border-hairline) solid var(--border-subtle);
-  color: var(--text-tertiary);
-  font-size: var(--t-caption-size);
-}
-
 .pending {
   margin: 0;
   color: var(--text-tertiary);
   font-size: var(--t-caption-size);
   line-height: var(--t-caption-lh);
-}
-
-.skipLink {
-  position: absolute;
-  left: -9999px;
-}
-
-.skipLink:focus {
-  left: var(--sp-4);
-  top: var(--sp-2);
-  z-index: 10;
-  background: var(--bg-surface);
-  padding: var(--sp-2);
-  border-radius: var(--r-sm);
 }
 
 /* Технический вывод спецификации фурнитуры (PROMPT 16 §26): моноширинный
@@ -191,10 +67,10 @@
   margin: var(--sp-2) 0 0;
   padding: 0;
   list-style: none;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-family: var(--font-num);
+  font-size: var(--t-caption-size);
   line-height: 1.5;
-  color: var(--color-text-muted, #555);
+  color: var(--text-tertiary);
   overflow-x: auto;
 }
 
@@ -204,52 +80,40 @@
 
 /* Готовность к производству (PROMPT 21 §17–§18). Статус несёт и цвет, и
    слово: цвет здесь — усиление, а не единственный носитель смысла. */
-.readinessStatus {
-  margin: var(--sp-3) 0 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.readinessStatus[data-status='READY_FOR_PRODUCTION'] {
-  color: var(--color-success, #1c7c40);
-}
-
-.readinessStatus[data-status='INVALID'] {
-  color: var(--color-danger, #b3261e);
-}
-
-.readinessList {
-  margin: var(--sp-2) 0 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 2px;
-}
 
 .readinessList > li {
   display: grid;
   grid-template-columns: 16px 120px 1fr;
   gap: var(--sp-2);
   align-items: baseline;
-  font-size: 12px;
+  font-size: var(--t-caption-size);
   color: var(--text-secondary);
   padding: 2px 0;
 }
 
 .readinessList > li[data-status='ERROR'] {
-  color: var(--color-danger, #b3261e);
+  color: var(--tone-danger-text);
 }
 
-.readinessMark {
+
+/*
+ * Текстовое поле. Одно на всё приложение — список ширин секций, который
+ * вводится строкой «300, 500, 400». Компонентом design system не стало
+ * намеренно: второго такого поля нет, и завести его «на будущее»
+ * значило бы получить ещё один неиспользуемый примитив.
+ */
+.textInput {
+  min-height: var(--h-control-md);
+  width: 100%;
+  padding: 0 var(--sp-2);
+  font: inherit;
   font-family: var(--font-num);
-  text-align: center;
-}
-
-.readinessTitle {
   color: var(--text-primary);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-default);
+  border-radius: var(--r-sm);
 }
 
-.readinessDetail {
-  color: var(--text-tertiary);
+.textInput:hover {
+  border-color: var(--border-strong);
 }

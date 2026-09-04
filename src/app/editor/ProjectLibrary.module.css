@@ -42,22 +42,8 @@
 }
 
 .search,
-.sort {
-  height: var(--h-control-md);
-  padding: 0 var(--sp-2);
-  font: inherit;
-  font-size: var(--t-label-size);
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  border: var(--border-hairline) solid var(--border-default);
-  border-radius: var(--r-sm);
-}
 
 .search:focus-visible,
-.sort:focus-visible {
-  outline: var(--border-focus) solid var(--focus-ring);
-  outline-offset: 1px;
-}
 
 .search {
   min-width: 180px;
@@ -72,7 +58,8 @@
   list-style: none;
 }
 
-@media (max-width: 560px) {
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 600px) {
   /* Телефон: одна колонка. Две карточки по 110 px нечитаемы. */
   .grid {
     grid-template-columns: minmax(0, 1fr);
@@ -142,14 +129,6 @@
   color: var(--text-secondary);
 }
 
-.statusWarning {
-  color: var(--warning-500);
-}
-
-.statusInvalid {
-  color: var(--danger-500);
-}
-
 .cardActions {
   display: flex;
   flex-wrap: wrap;
@@ -157,21 +136,6 @@
 }
 
 .empty,
-.error {
-  margin: 0;
-  font-size: var(--t-body-size);
-  color: var(--text-secondary);
-}
-
-.error {
-  color: var(--danger-500);
-}
-
-.notice {
-  margin: 0;
-  font-size: var(--t-caption-size);
-  color: var(--warning-500);
-}
 
 .recent {
   display: flex;

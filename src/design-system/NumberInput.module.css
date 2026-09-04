@@ -1,0 +1,83 @@
+/*
+ * Числовое поле. Единица — часть поля, а не подписи: подпись отвечает на
+ * вопрос «что это», единица — «в чём измеряется», и второе относится к
+ * значению.
+ */
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  /* Без этого контрол не ужимается ниже собственной ширины поля ввода:
+     у элемента сетки `min-width` по умолчанию равен содержимому, а у
+     `<input type="number">` оно около 176px. На узком экране колонка
+     выдавливалась за край, и страница ехала вбок. */
+  min-width: 0;
+  min-height: var(--h-control-md);
+  padding: 0 var(--sp-2);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-default);
+  border-radius: var(--r-sm);
+  transition: border-color var(--duration-color) var(--easing-standard);
+}
+
+.control:hover {
+  border-color: var(--border-strong);
+}
+
+/* Фокус на самом поле, но рамка нужна вокруг всего контрола вместе с
+   единицей: иначе обведённым оказывается только число. */
+.control:focus-within {
+  outline: var(--border-focus) solid var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--focus-ring);
+}
+
+.control[data-invalid] {
+  border-color: var(--tone-danger-border);
+  background: var(--tone-danger-bg);
+}
+
+.input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.input:focus {
+  outline: none;
+}
+
+.input:disabled {
+  color: var(--text-tertiary);
+}
+
+/* Стрелки числового поля скрыты: шаг задаётся клавишами и колесом, а
+   пара кнопок 8×6 px не является зоной попадания ни для кого. */
+.input::-webkit-outer-spin-button,
+.input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.unit {
+  flex: none;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  letter-spacing: var(--t-caption-ls);
+  color: var(--text-tertiary);
+  user-select: none;
+}

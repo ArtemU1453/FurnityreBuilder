@@ -1,0 +1,66 @@
+.checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--sp-2);
+  padding: var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--tone-neutral-bg);
+  color: var(--tone-neutral-text);
+}
+
+.check[data-tone='success'] {
+  background: var(--tone-success-bg);
+  color: var(--tone-success-text);
+}
+
+.check[data-tone='warning'] {
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-text);
+}
+
+.check[data-tone='danger'] {
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-text);
+}
+
+.mark {
+  grid-row: 1 / span 3;
+  font-family: var(--font-num);
+  font-weight: 600;
+  line-height: var(--t-body-lh);
+}
+
+.title {
+  font-size: var(--t-label-size);
+  line-height: var(--t-label-lh);
+  font-weight: 600;
+}
+
+.detail {
+  grid-column: 2;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  color: var(--text-secondary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.message {
+  margin: 0;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  color: var(--text-tertiary);
+  min-height: var(--t-caption-lh);
+}

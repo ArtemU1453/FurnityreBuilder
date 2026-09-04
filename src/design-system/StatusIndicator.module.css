@@ -1,0 +1,76 @@
+.status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--t-label-size);
+  line-height: var(--t-label-lh);
+  letter-spacing: var(--t-label-ls);
+  color: var(--tone-neutral-text);
+}
+
+.status[data-compact] {
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-full);
+  border: var(--border-hairline) solid var(--tone-neutral-border);
+  background: var(--tone-neutral-bg);
+  font-size: var(--t-caption-size);
+}
+
+.dot {
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: var(--r-full);
+  background: currentColor;
+  /* Точка выравнивается по строке, а не по базовой линии текста. */
+  transform: translateY(-0.05em);
+}
+
+.label {
+  font-weight: 500;
+}
+
+.detail {
+  color: var(--text-tertiary);
+  font-size: var(--t-caption-size);
+}
+
+.status[data-tone='info'] {
+  color: var(--tone-info-text);
+}
+.status[data-tone='info'][data-compact] {
+  border-color: var(--tone-info-border);
+  background: var(--tone-info-bg);
+}
+
+.status[data-tone='success'] {
+  color: var(--tone-success-text);
+}
+.status[data-tone='success'][data-compact] {
+  border-color: var(--tone-success-border);
+  background: var(--tone-success-bg);
+}
+
+.status[data-tone='warning'] {
+  color: var(--tone-warning-text);
+}
+.status[data-tone='warning'][data-compact] {
+  border-color: var(--tone-warning-border);
+  background: var(--tone-warning-bg);
+}
+
+/* Форма точки различает состояния помимо цвета: «требует подтверждения»
+   — кольцо, «ошибка» — сплошной круг. */
+.status[data-tone='warning'] .dot {
+  background: none;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.status[data-tone='danger'] {
+  color: var(--tone-danger-text);
+}
+.status[data-tone='danger'][data-compact] {
+  border-color: var(--tone-danger-border);
+  background: var(--tone-danger-bg);
+}

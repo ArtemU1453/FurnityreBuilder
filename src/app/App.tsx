@@ -45,22 +45,38 @@ import { useLinkedProjects } from './use-linked-projects.js';
 import { ProjectLibrary } from './editor/ProjectLibrary.js';
 import { EditorCanvas } from './editor/EditorCanvas.js';
 import { Scene3D } from './editor/Scene3D.js';
-import { RoomPlanner, rotateQuarter } from './editor/RoomPlanner.js';
-import { RoomInspector } from './editor/RoomInspector.js';
+import { rotateQuarter } from './editor/RoomPlanner.js';
 import { Inspector } from './editor/Inspector.js';
-import { StatusBar } from './editor/StatusBar.js';
-import { Toolbar } from './editor/Toolbar.js';
 import { describeSelection, resolveSelection } from './editor/selection.js';
 import type { InspectorAction } from './editor/selection.js';
 import type { GizmoTarget } from '../scene/index.js';
 import { extentKey, findPlacement, furnitureExtent, validateRoom } from '../room/index.js';
 import type { ExtentLookup } from '../room/index.js';
 import { createFurnitureInstance, createRectangularRoom } from '../domain/index.js';
-import type { Furniture, FurnitureId, InstanceId, Project, ProjectId, Vec3 } from '../domain/index.js';
-import editorStyles from './editor/EditorPanels.module.css';
+import type {
+  Furniture,
+  FurnitureId,
+  InstanceId,
+  Project,
+  ProjectId,
+  Vec3,
+} from '../domain/index.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
-import { Button, Field } from '../design-system/index.js';
+import {
+  Button,
+  Field,
+  NumberInput,
+  Panel,
+  SegmentedControl,
+  Select,
+  Switch,
+} from '../design-system/index.js';
+import { AppShell, ProjectContext, StatusBar, TopActions } from './shell/index.js';
+import type { Screen } from './shell/index.js';
+import { ProductionScreen } from './screens/ProductionScreen.js';
+import { RoomScreen } from './screens/RoomScreen.js';
+import workspace from './screens/Workspace.module.css';
 import styles from './App.module.css';
 
 /**
@@ -79,32 +95,6 @@ const AXES = [
   { key: 'depth', label: 'Глубина' },
   { key: 'panelThickness', label: 'Толщина' },
 ] as const;
-
-/**
- * Подписи статусов готовности. Живут рядом с интерфейсом, а не в домене:
- * домен отвечает за статус, интерфейс — за то, как он звучит по-русски.
- */
-const READINESS_LABELS: Readonly<Record<string, string>> = {
-  READY_FOR_PRODUCTION: 'Готово к производству',
-  HAS_WARNINGS: 'Готово с замечаниями',
-  NEEDS_CONFIRMATION: 'Требуется подтверждение производственных правил',
-  INVALID: 'Изготовление невозможно: есть ошибки',
-};
-
-const CHECK_LABELS: Readonly<Record<string, string>> = {
-  PASS: 'в порядке',
-  WARNING: 'есть замечания',
-  ERROR: 'ошибка',
-  NEEDS_CONFIRMATION: 'нужно подтверждение',
-};
-
-/** Значок статуса. Дублируется текстом рядом: цвет и знак — не единственный носитель смысла. */
-const CHECK_MARKS: Readonly<Record<string, string>> = {
-  PASS: '✓',
-  WARNING: '!',
-  ERROR: '✕',
-  NEEDS_CONFIRMATION: '?',
-};
 
 export function App(): React.JSX.Element {
   const project = useDocumentStore((s) => s.project);
@@ -224,15 +214,32 @@ export function App(): React.JSX.Element {
     );
   }, [project, furniture, geometry]);
 
-  // Готовность к производству (PROMPT 21). Считается из того же расчёта,
-  // что и спецификация: отдельного «пересчитать» нет и быть не может —
-  // производных результатов не существует в устаревшем виде.
+  /*
+    Готовность к производству (PROMPT 21). Считается из того же расчёта,
+    что и спецификация: отдельного «пересчитать» нет и быть не может —
+    производных результатов не существует в устаревшем виде.
+
+    Зависимости — не весь проект, а то, от чего расчёт действительно
+    зависит (PROMPT 26 §30). Разница не косметическая: `project` меняется
+    и при перемещении мебели по комнате, а расстановка не влияет ни на
+    одну деталь. До этой правки каждый шаг перетаскивания в планировщике
+    запускал весь производственный конвейер — геометрию, детали,
+    фурнитуру, присадку, раскрой и спецификацию — ради результата,
+    который заведомо не изменился.
+
+    `project` всё ещё передаётся в расчёт: ему нужен весь документ.
+    Перезапускается он теперь только когда меняется что-то из списка
+    зависимостей.
+  */
   const readiness = useMemo(() => {
     if (furniture === undefined || geometry === undefined) return undefined;
     return validateProductionReadiness(project, {
       calculation: calculateProduction(project, { geometry: new Map([[furniture.id, geometry]]) }),
     });
-  }, [project, furniture, geometry]);
+    // `project` намеренно не в списке зависимостей: см. комментарий выше —
+    // иначе расчёт запускается на каждое движение мебели по комнате.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [furniture, geometry, project.settings, project.materials, project.hardware]);
 
   const runExport = async (kind: 'pdf' | 'xlsx'): Promise<void> => {
     if (exporting !== null || furniture === undefined || geometry === undefined) return;
@@ -307,13 +314,17 @@ export function App(): React.JSX.Element {
   };
 
   /**
-   * Вид холста. Состояние ИНТЕРФЕЙСА: в проект не сохраняется и по
-   * Ctrl+Z не отменяется — как и выделение (PROMPT 22 §5, PROMPT 23 §36).
+   * Вид холста в конструкторе: сцена или плоская схема.
+   *
+   * Это ОДНО И ТО ЖЕ изделие, показанное по-разному, поэтому выделение и
+   * команды у них общие. Помещение из этого переключателя убрано
+   * (PROMPT 26 §5): оно не вид изделия, а другой раздел — со своими
+   * инструментами и своим инспектором.
+   *
+   * Состояние интерфейса: в проект не сохраняется и по Ctrl+Z не
+   * отменяется, как и выделение (PROMPT 22 §5, PROMPT 23 §36).
    */
-  const [canvasMode, setCanvasMode] = useState<'3d' | '2d' | 'room'>('3d');
-  /** Режимы показа помещения. Состояние интерфейса: в проект не идут. */
-  const [cutawayWalls, setCutawayWalls] = useState(true);
-  const [snapEnabled, setSnapEnabled] = useState(true);
+  const [canvasMode, setCanvasMode] = useState<'3d' | '2d'>('3d');
 
   // ── Планировщик помещения (PROMPT 24) ─────────────────────────────────────
 
@@ -378,11 +389,16 @@ export function App(): React.JSX.Element {
     execute(
       {
         type: 'SetRoom',
-        room: createRectangularRoom({ ids: createRandomIdFactory(), width: 4000, depth: 3000, height: 2700 }),
+        room: createRectangularRoom({
+          ids: createRandomIdFactory(),
+          width: 4000,
+          depth: 3000,
+          height: 2700,
+        }),
       },
       'Создать помещение',
     );
-    setCanvasMode('room');
+    setScreen('room');
   };
 
   /**
@@ -421,10 +437,6 @@ export function App(): React.JSX.Element {
       },
       label,
     );
-  };
-
-  const addFurnitureToRoom = (furnitureId: FurnitureId): void => {
-    placeInRoom(project.id, furnitureId, 'Добавить мебель в помещение');
   };
 
   /**
@@ -494,7 +506,12 @@ export function App(): React.JSX.Element {
     // размер немедленно уедет при следующем изменении габарита, и жест
     // окажется бессмысленным (`SizeSpec`, T-DIM-04).
     execute(
-      { type: 'SetChildSize', furnitureIndex: 0, childId: target.childId, size: { mode: 'fixed', value } },
+      {
+        type: 'SetChildSize',
+        furnitureIndex: 0,
+        childId: target.childId,
+        size: { mode: 'fixed', value },
+      },
       target.axis === 'x' ? 'Ширина секции' : 'Высота ряда',
     );
   };
@@ -510,10 +527,18 @@ export function App(): React.JSX.Element {
   // ── Библиотека проектов (PROMPT 25) ───────────────────────────────────────
 
   const library = useProjectLibrary();
-  /** Открыта ли библиотека. Состояние интерфейса: в проект не идёт. */
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  /** Выбранный в планировщике проект для размещения. Тоже состояние интерфейса. */
-  const [placingProjectId, setPlacingProjectId] = useState('');
+  /**
+   * Текущий раздел приложения (PROMPT 26 §3).
+   *
+   * Одно состояние на всю навигацию. Раньше их было два — `libraryOpen`
+   * булевым и `canvasMode === 'room'` — и вопрос «где я нахожусь»
+   * складывался из двух ответов, которые могли противоречить друг другу.
+   *
+   * Адресов у разделов нет: приложение работает без сервера, и заводить
+   * маршрутизацию ради четырёх экранов значило бы построить вторую
+   * навигацию рядом с переключателем.
+   */
+  const [screen, setScreen] = useState<Screen>('editor');
 
   /**
    * Открытие проекта из библиотеки (§21).
@@ -526,7 +551,7 @@ export function App(): React.JSX.Element {
   const openProject = (opened: Project): void => {
     replaceProject(opened);
     storage.markClean(opened);
-    setLibraryOpen(false);
+    setScreen('editor');
   };
 
   /**
@@ -1072,232 +1097,195 @@ export function App(): React.JSX.Element {
   const pushToOpenPartCount = geometry.parts.filter((p) => p.role === 'push-to-open').length;
 
   return (
-    <div className={`${styles.shell} ${editorStyles.editor}`}>
-      <a className={styles.skipLink} href="#main">
-        Перейти к содержимому
-      </a>
-
-      <Toolbar
-        projectName={project.name}
-        canUndo={history.past.length > 0}
-        canRedo={history.future.length > 0}
-        storage={storage.status}
-        storageMessage={storage.message}
-        production={readiness?.status}
-        exporting={exporting}
-        libraryOpen={libraryOpen}
-        onToggleLibrary={() => {
-          setLibraryOpen((open) => !open);
-        }}
-        onUndo={undo}
-        onRedo={redo}
-        onSave={() => {
-          void storage.save();
-        }}
-        onExport={(kind) => {
-          void runExport(kind);
-        }}
-      />
-
-      {libraryOpen ? (
-        <div className={editorStyles.workspace}>
-          <ProjectLibrary
-            library={library}
-            currentProjectId={project.id}
-            currentIsDirty={storage.status === 'unsaved'}
-            onOpen={openProject}
-            onExport={exportProjectFile}
-            placementsOf={placementsOf}
-          />
-        </div>
+    <AppShell
+      screen={screen}
+      onScreen={setScreen}
+      context={
+        <ProjectContext
+          name={project.name}
+          size={furniture.dimensions}
+          storage={storage.status}
+          {...(storage.ephemeral ? { storageDetail: 'только память вкладки' } : {})}
+        />
+      }
+      actions={
+        <TopActions
+          canUndo={history.past.length > 0}
+          canRedo={history.future.length > 0}
+          storage={storage.status}
+          production={readiness?.status}
+          onUndo={undo}
+          onRedo={redo}
+          onSave={() => {
+            void storage.save();
+          }}
+        />
+      }
+      status={
+        <StatusBar
+          issues={problems}
+          production={readiness?.status}
+          storage={storage.status}
+          onSelectIssue={selectIssueTarget}
+        />
+      }
+    >
+      {screen === 'library' ? (
+        <ProjectLibrary
+          library={library}
+          currentProjectId={project.id}
+          currentIsDirty={storage.status === 'unsaved'}
+          onOpen={openProject}
+          onExport={exportProjectFile}
+          placementsOf={placementsOf}
+        />
       ) : null}
 
-      <div className={editorStyles.workspace} hidden={libraryOpen}>
-        {/*
-          Порядок в разметке совпадает с порядком на экране: параметры,
-          холст, инспектор. Раскладывать колонки сеткой в один порядок, а
-          в разметке держать другой — значит развести порядок табуляции с
-          визуальным, и клавиатурный обход начинает прыгать по экрану.
-          Телефонную перестановку («сначала изделие, потом поля») делает
-          `order` в одноколоночной раскладке, где прыгать уже некуда (§25).
-        */}
-        <main id="main" className={editorStyles.sidebar}>
-          <section className={styles.panel} aria-labelledby="export-title">
-            <h2 id="export-title" className={styles.panelTitle}>
-              Производственная документация
-            </h2>
-            <p className={styles.pending}>
-              Спецификация деталей, фурнитура, присадка и карта раскроя. Документ формируется из
-              текущего расчёта: отдельного «пересчитать» не требуется.
-            </p>
-            {/*
-            Чеклист готовности (§17). Строится из доменного результата и
-            ничего не проверяет сам. Список, а не таблица: каждый пункт —
-            самостоятельное утверждение о разделе, и читать его нужно
-            построчно, в том числе скринридером.
-          */}
-            {readiness === undefined ? null : (
-              <>
-                <p className={styles.readinessStatus} data-status={readiness.status}>
-                  {READINESS_LABELS[readiness.status]}
-                </p>
-                <ul className={styles.readinessList}>
-                  {readiness.checks.map((check) => (
-                    <li key={check.id} data-status={check.status}>
-                      <span className={styles.readinessMark} aria-hidden="true">
-                        {CHECK_MARKS[check.status]}
-                      </span>
-                      <span className={styles.readinessTitle}>{check.title}</span>
-                      <span className={styles.readinessDetail}>
-                        {CHECK_LABELS[check.status]} · {check.details}
-                      </span>
-                      {check.errors.length === 0 ? null : (
-                        <span className={styles.readinessDetail}>{check.errors[0]?.message}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+      {screen === 'production' ? (
+        <ProductionScreen
+          readiness={readiness}
+          exporting={exporting}
+          exportError={exportError}
+          onExport={(kind) => {
+            void runExport(kind);
+          }}
+        />
+      ) : null}
 
-            <div className={styles.debugToolbar}>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  void runExport('pdf');
-                }}
-                loading={exporting === 'pdf'}
-                disabled={exporting !== null}
-              >
-                {exporting === 'pdf' ? 'Формируется PDF…' : 'Скачать PDF'}
-              </Button>
-              <Button
-                onClick={() => {
-                  void runExport('xlsx');
-                }}
-                loading={exporting === 'xlsx'}
-                disabled={exporting !== null}
-              >
-                {exporting === 'xlsx' ? 'Формируется XLSX…' : 'Скачать XLSX'}
-              </Button>
-            </div>
-            {/* Сообщения экспорта читаются вслух: результат действия не
-              должен быть виден только глазами (§19). */}
-            <p className={styles.pending} role="status" aria-live="polite">
-              {exportError ?? (exporting === null ? '' : 'Идёт формирование документа…')}
-            </p>
-          </section>
+      {screen === 'room' ? (
+        <RoomScreen
+          room={room}
+          geometries={furnitureGeometries}
+          materials={project.materials}
+          extents={roomExtents}
+          status={roomValidation?.status}
+          selected={room?.furnitureInstances.find((item) => item.id === selectedInstances[0])}
+          selectedInstances={selectedInstances}
+          furnitureNames={furnitureNames}
+          placeable={library.summaries.filter((summary) => summary.furnitureCount > 0)}
+          missingProjects={linked.missing.size}
+          onCreateRoom={createRoom}
+          onPlaceProject={addProjectToRoom}
+          onSelectInstance={(id) => {
+            selectInstances(id === undefined ? [] : [id]);
+          }}
+          onMoveCommit={(id, position, rotation) => {
+            execute(
+              { type: 'TransformFurnitureInstance', instanceId: id, position, rotation },
+              'Переместить мебель',
+            );
+          }}
+          onRoomSize={(width, depth, height) => {
+            execute({ type: 'SetRoomSize', width, depth, height }, 'Габарит помещения');
+          }}
+          onFloorElevation={(elevation) => {
+            execute({ type: 'SetFloor', patch: { elevation } }, 'Уровень пола');
+          }}
+          onCeilingVisible={(visible) => {
+            execute({ type: 'SetCeiling', patch: { visible } }, 'Показ потолка');
+          }}
+          onMove={(id, position) => {
+            execute(
+              { type: 'TransformFurnitureInstance', instanceId: id, position },
+              'Переместить мебель',
+            );
+          }}
+          onRotate={(id) => {
+            const instance = room?.furnitureInstances.find((item) => item.id === id);
+            if (instance === undefined) return;
+            execute(
+              {
+                type: 'TransformFurnitureInstance',
+                instanceId: id,
+                rotation: rotateQuarter(instance.rotation),
+              },
+              'Повернуть мебель',
+            );
+          }}
+          onFlags={(id, patch) => {
+            execute({ type: 'SetInstanceFlags', instanceId: id, ...patch }, 'Свойства экземпляра');
+          }}
+          onDuplicate={duplicateInstance}
+          onRemove={(id) => {
+            execute({ type: 'RemoveFurnitureInstance', instanceId: id }, 'Убрать из помещения');
+          }}
+        />
+      ) : null}
 
-          <section className={styles.panel} aria-labelledby="dimensions-title">
-            <h2 id="dimensions-title" className={styles.panelTitle}>
-              Габариты
-            </h2>
+      {/*
+        Конструктор. Порядок в разметке совпадает с порядком на экране:
+        параметры, холст, инспектор. Раскладывать колонки сеткой в один
+        порядок, а в разметке держать другой — значит развести порядок
+        табуляции с визуальным, и клавиатурный обход начинает прыгать.
+      */}
+      <div className={workspace.workspace} hidden={screen !== 'editor'}>
+        <div className={workspace.sidebar}>
+          <Panel id="dimensions" title="Габариты">
             <div className={styles.grid}>
               {AXES.map(({ key, label }) => {
                 const value = furniture.dimensions[key];
                 const invalid = !Number.isFinite(value) || value <= 0;
                 return (
-                  <Field
+                  <NumberInput
                     key={key}
-                    label={`${label}, мм`}
+                    label={label}
+                    unit="мм"
+                    value={value}
+                    min={1}
                     status={invalid ? 'error' : 'default'}
                     {...(invalid ? { message: 'Значение должно быть больше нуля.' } : {})}
-                  >
-                    {({ id, describedBy, invalid: isInvalid }) => (
-                      <input
-                        id={id}
-                        className={styles.numberInput}
-                        type="number"
-                        inputMode="numeric"
-                        value={Number.isFinite(value) ? value : ''}
-                        aria-invalid={isInvalid}
-                        {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
-                        onChange={(event) => {
-                          // Без debounce: схема обязана реагировать на каждый
-                          // валидный промежуточный ввод. См. INTERACTION_MODEL §4.4.
-                          const next = event.target.valueAsNumber;
-                          execute(
-                            { type: 'SetDimension', furnitureIndex: 0, axis: key, value: next },
-                            `Габарит: ${label}`,
-                          );
-                        }}
-                      />
-                    )}
-                  </Field>
+                    onChange={(next) => {
+                      // Без debounce: схема обязана реагировать на каждый
+                      // валидный промежуточный ввод. См. INTERACTION_MODEL §4.4.
+                      execute(
+                        { type: 'SetDimension', furnitureIndex: 0, axis: key, value: next },
+                        `Габарит: ${label}`,
+                      );
+                    }}
+                  />
                 );
               })}
             </div>
-          </section>
+          </Panel>
 
-          <section className={styles.panel} aria-labelledby="grid-title">
-            <h2 id="grid-title" className={styles.panelTitle}>
-              Сетка
-            </h2>
+          <Panel id="grid" title="Сетка">
             <div className={styles.grid}>
-              <Field label="Секций">
-                {({ id }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                    value={sectionsDraft}
-                    onChange={(event) => {
-                      const next = event.target.valueAsNumber;
-                      if (Number.isFinite(next) && next >= 1) setSectionsDraft(Math.round(next));
-                    }}
-                  />
-                )}
-              </Field>
-              <Field label="Строк">
-                {({ id }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                    value={rowsDraft}
-                    onChange={(event) => {
-                      const next = event.target.valueAsNumber;
-                      if (Number.isFinite(next) && next >= 1) setRowsDraft(Math.round(next));
-                    }}
-                  />
-                )}
-              </Field>
-              <Field label="Колонок">
-                {({ id }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                    value={columnsDraft}
-                    onChange={(event) => {
-                      const next = event.target.valueAsNumber;
-                      if (Number.isFinite(next) && next >= 1) setColumnsDraft(Math.round(next));
-                    }}
-                  />
-                )}
-              </Field>
-              <Field label="Полок в ячейке">
-                {({ id }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={shelvesDraft}
-                    onChange={(event) => {
-                      const next = event.target.valueAsNumber;
-                      if (Number.isFinite(next) && next >= 0) setShelvesDraft(Math.round(next));
-                    }}
-                  />
-                )}
-              </Field>
+              <NumberInput
+                label="Секций"
+                value={sectionsDraft}
+                min={1}
+                step={1}
+                onChange={(next) => {
+                  if (next >= 1) setSectionsDraft(Math.round(next));
+                }}
+              />
+              <NumberInput
+                label="Строк"
+                value={rowsDraft}
+                min={1}
+                step={1}
+                onChange={(next) => {
+                  if (next >= 1) setRowsDraft(Math.round(next));
+                }}
+              />
+              <NumberInput
+                label="Колонок"
+                value={columnsDraft}
+                min={1}
+                step={1}
+                onChange={(next) => {
+                  if (next >= 1) setColumnsDraft(Math.round(next));
+                }}
+              />
+              <NumberInput
+                label="Полок в ячейке"
+                value={shelvesDraft}
+                min={0}
+                step={1}
+                onChange={(next) => {
+                  if (next >= 0) setShelvesDraft(Math.round(next));
+                }}
+              />
             </div>
             <Button onClick={applySectionCount} style={{ marginTop: 'var(--sp-3)' }}>
               Применить секций: {sectionsDraft}
@@ -1310,7 +1298,7 @@ export function App(): React.JSX.Element {
                 {({ id, describedBy }) => (
                   <input
                     id={id}
-                    className={styles.numberInput}
+                    className={styles.textInput}
                     type="text"
                     inputMode="numeric"
                     value={sectionWidthsDraft}
@@ -1329,118 +1317,90 @@ export function App(): React.JSX.Element {
             <Button onClick={applyGrid} style={{ marginTop: 'var(--sp-2)' }}>
               Применить сетку {rowsDraft}×{columnsDraft}
             </Button>
-          </section>
+          </Panel>
 
-          <section className={styles.panel} aria-labelledby="doors-title">
-            <h2 id="doors-title" className={styles.panelTitle}>
-              Двери
-            </h2>
+          <Panel id="doors" title="Двери">
             <div className={styles.grid}>
-              <Field label="Ячейка">
-                {({ id }) => (
-                  <select
-                    id={id}
-                    className={styles.numberInput}
-                    value={selectedCellId}
-                    onChange={(event) => {
-                      setSelectedCellId(
-                        event.target.value === '' ? '' : asId<'Node'>(event.target.value),
-                      );
-                    }}
-                  >
-                    <option value="">— выбрать —</option>
-                    {geometry.cells.map((cell) => {
-                      const node = findNode(furniture.root, cell.nodeId);
-                      const drawerCount =
-                        node?.kind === 'leaf' && node.fill.kind === 'drawers'
-                          ? node.fill.drawers.length
-                          : 0;
-                      return (
-                        <option key={cell.nodeId} value={cell.nodeId}>
-                          {cell.nodeId} ({formatMm(cell.box.size.x)} × {formatMm(cell.box.size.y)})
-                          {facadeForCell(cell.nodeId) === undefined ? '' : ' — дверь'}
-                          {drawerCount === 0 ? '' : ` — ящиков: ${String(drawerCount)}`}
-                        </option>
-                      );
-                    })}
-                  </select>
-                )}
-              </Field>
+              <Select
+                label="Ячейка"
+                value={selectedCellId}
+                options={[
+                  { value: '', label: '— выбрать —' },
+                  ...geometry.cells.map((cell) => {
+                    const node = findNode(furniture.root, cell.nodeId);
+                    const drawerCount =
+                      node?.kind === 'leaf' && node.fill.kind === 'drawers'
+                        ? node.fill.drawers.length
+                        : 0;
+                    const door = facadeForCell(cell.nodeId) === undefined ? '' : ' — дверь';
+                    const drawers = drawerCount === 0 ? '' : ` — ящиков: ${String(drawerCount)}`;
+                    return {
+                      value: cell.nodeId,
+                      label: `${cell.nodeId} (${formatMm(cell.box.size.x)} × ${formatMm(cell.box.size.y)})${door}${drawers}`,
+                    };
+                  }),
+                ]}
+                onChange={(next) => {
+                  setSelectedCellId(next === '' ? '' : asId<'Node'>(next));
+                }}
+              />
               {selectedFacade === undefined ? null : (
                 <>
-                  <Field label="Сторона петель">
-                    {({ id }) => (
-                      <select
-                        id={id}
-                        className={styles.numberInput}
-                        value={selectedFacade.leaves[0]?.hingeSide ?? 'left'}
-                        onChange={(event) => {
-                          setDoorHingeSide(event.target.value as HingeSide);
-                        }}
-                      >
-                        <option value="left">Слева</option>
-                        <option value="right">Справа</option>
-                      </select>
-                    )}
-                  </Field>
-                  <Field label="Материал">
-                    {({ id }) => (
-                      <select
-                        id={id}
-                        className={styles.numberInput}
-                        value={selectedFacade.leaves[0]?.materialId ?? ''}
-                        onChange={(event) => {
-                          if (event.target.value !== '')
-                            setDoorMaterial(asId<'Material'>(event.target.value));
-                        }}
-                      >
-                        <option value="">по умолчанию</option>
-                        {Object.values(project.materials.items).map((material) => (
-                          <option key={material.id} value={material.id}>
-                            {material.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </Field>
-                  <Field label="Кромка">
-                    {({ id }) => (
-                      <select
-                        id={id}
-                        className={styles.numberInput}
-                        value={
-                          selectedFacade.leaves[0]?.edge === undefined
-                            ? 'inherit'
-                            : selectedFacade.leaves[0]?.edge?.front === 0
-                              ? 'none'
-                              : 'default'
-                        }
-                        onChange={(event) => {
-                          setDoorEdge(event.target.value as 'default' | 'none' | 'inherit');
-                        }}
-                      >
-                        <option value="inherit">по умолчанию</option>
-                        <option value="default">2/0/0.4/0.4 мм</option>
-                        <option value="none">без кромки</option>
-                      </select>
-                    )}
-                  </Field>
-                  <Field label="Открывание">
-                    {({ id }) => (
-                      <select
-                        id={id}
-                        className={styles.numberInput}
-                        value={selectedFacade.leaves[0]?.opening?.kind ?? 'none'}
-                        onChange={(event) => {
-                          setDoorOpening(event.target.value as OpeningSystem['kind']);
-                        }}
-                      >
-                        <option value="none">Нет</option>
-                        <option value="handle">Ручка</option>
-                        <option value="push-to-open">Push-to-open</option>
-                      </select>
-                    )}
-                  </Field>
+                  <Select
+                    label="Сторона петель"
+                    value={selectedFacade.leaves[0]?.hingeSide ?? 'left'}
+                    options={[
+                      { value: 'left', label: 'Слева' },
+                      { value: 'right', label: 'Справа' },
+                    ]}
+                    onChange={(next) => {
+                      setDoorHingeSide(next as HingeSide);
+                    }}
+                  />
+                  <Select
+                    label="Материал"
+                    value={selectedFacade.leaves[0]?.materialId ?? ''}
+                    options={[
+                      { value: '', label: 'по умолчанию' },
+                      ...Object.values(project.materials.items).map((material) => ({
+                        value: material.id,
+                        label: material.name,
+                      })),
+                    ]}
+                    onChange={(next) => {
+                      if (next !== '') setDoorMaterial(asId<'Material'>(next));
+                    }}
+                  />
+                  <Select
+                    label="Кромка"
+                    value={
+                      selectedFacade.leaves[0]?.edge === undefined
+                        ? 'inherit'
+                        : selectedFacade.leaves[0]?.edge?.front === 0
+                          ? 'none'
+                          : 'default'
+                    }
+                    options={[
+                      { value: 'inherit', label: 'по умолчанию' },
+                      { value: 'default', label: '2/0/0.4/0.4 мм' },
+                      { value: 'none', label: 'без кромки' },
+                    ]}
+                    onChange={(next) => {
+                      setDoorEdge(next as 'default' | 'none' | 'inherit');
+                    }}
+                  />
+                  <Select
+                    label="Открывание"
+                    value={selectedFacade.leaves[0]?.opening?.kind ?? 'none'}
+                    options={[
+                      { value: 'none', label: 'Нет' },
+                      { value: 'handle', label: 'Ручка' },
+                      { value: 'push-to-open', label: 'Push-to-open' },
+                    ]}
+                    onChange={(next) => {
+                      setDoorOpening(next as OpeningSystem['kind']);
+                    }}
+                  />
                 </>
               )}
             </div>
@@ -1460,12 +1420,9 @@ export function App(): React.JSX.Element {
             >
               Убрать дверь
             </Button>
-          </section>
+          </Panel>
 
-          <section className={styles.panel} aria-labelledby="drawers-title">
-            <h2 id="drawers-title" className={styles.panelTitle}>
-              Ящики
-            </h2>
+          <Panel id="drawers" title="Ящики">
             <p className={styles.pending}>
               Ячейка выбирается в панели «Двери» выше — ящик и дверь на одной ячейке несовместимы.
             </p>
@@ -1477,22 +1434,18 @@ export function App(): React.JSX.Element {
             </ul>
             {selectedDrawers.length === 0 ? null : (
               <div className={styles.grid}>
-                <Field label="Открывание (все ящики ячейки)">
-                  {({ id }) => (
-                    <select
-                      id={id}
-                      className={styles.numberInput}
-                      value={selectedDrawers[0]?.facade.opening?.kind ?? 'none'}
-                      onChange={(event) => {
-                        setDrawersOpening(event.target.value as OpeningSystem['kind']);
-                      }}
-                    >
-                      <option value="none">Нет</option>
-                      <option value="handle">Ручка</option>
-                      <option value="push-to-open">Push-to-open</option>
-                    </select>
-                  )}
-                </Field>
+                <Select
+                  label="Открывание (все ящики ячейки)"
+                  value={selectedDrawers[0]?.facade.opening?.kind ?? 'none'}
+                  options={[
+                    { value: 'none', label: 'Нет' },
+                    { value: 'handle', label: 'Ручка' },
+                    { value: 'push-to-open', label: 'Push-to-open' },
+                  ]}
+                  onChange={(next) => {
+                    setDrawersOpening(next as OpeningSystem['kind']);
+                  }}
+                />
               </div>
             )}
             <Button
@@ -1509,228 +1462,152 @@ export function App(): React.JSX.Element {
             >
               Убрать ящик
             </Button>
-          </section>
+          </Panel>
 
           {/*
           Корпус (PROMPT 14 §27). Технический минимум: задняя стенка и цоколь.
           Полноценная панель конструкции корпуса — не этот этап.
         */}
-          <section className={styles.panel} aria-labelledby="structure-title">
-            <h2 id="structure-title" className={styles.panelTitle}>
-              Корпус
-            </h2>
+          <Panel id="structure" title="Корпус">
             <div className={styles.grid}>
-              <Field label="Задняя стенка">
-                {({ id }) => (
-                  <select
-                    id={id}
-                    className={styles.numberInput}
-                    value={
-                      backPanel.mount.kind === 'inset-groove' ? 'inset-flush' : backPanel.mount.kind
-                    }
-                    onChange={(event) => {
-                      setBackMount(event.target.value as 'none' | 'overlay' | 'inset-flush');
-                    }}
-                  >
-                    <option value="overlay">Накладная</option>
-                    <option value="inset-flush">Вкладная</option>
-                    <option value="none">Нет</option>
-                  </select>
-                )}
-              </Field>
+              <Select
+                label="Задняя стенка"
+                value={
+                  backPanel.mount.kind === 'inset-groove' ? 'inset-flush' : backPanel.mount.kind
+                }
+                options={[
+                  { value: 'overlay', label: 'Накладная' },
+                  { value: 'inset-flush', label: 'Вкладная' },
+                  { value: 'none', label: 'Нет' },
+                ]}
+                onChange={(next) => {
+                  setBackMount(next as 'none' | 'overlay' | 'inset-flush');
+                }}
+              />
               {backPanel.mount.kind === 'none' ? null : (
                 <>
-                  <Field label="Толщина стенки, мм">
-                    {({ id }) => (
-                      <input
-                        id={id}
-                        className={styles.numberInput}
-                        type="number"
-                        min={1}
-                        inputMode="numeric"
-                        value={backPanel.mount.kind === 'none' ? '' : backPanel.mount.thickness}
-                        onChange={(event) => {
-                          setBackThickness(event.target.valueAsNumber);
-                        }}
-                      />
-                    )}
-                  </Field>
-                  <Field label="Разделение стенки">
-                    {({ id }) => (
-                      <select
-                        id={id}
-                        className={styles.numberInput}
-                        value={backPanel.segmentation}
-                        onChange={(event) => {
-                          setBackSegmentation(event.target.value as 'single' | 'per-section');
-                        }}
-                      >
-                        <option value="single">Цельная</option>
-                        <option value="per-section">По секциям</option>
-                      </select>
-                    )}
-                  </Field>
-                </>
-              )}
-              <Field label="Высота цоколя, мм" message="0 — цоколя нет.">
-                {({ id, describedBy }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={plinth?.height ?? 0}
-                    {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
-                    onChange={(event) => {
-                      setPlinthHeight(event.target.valueAsNumber);
+                  <NumberInput
+                    label="Толщина стенки"
+                    unit="мм"
+                    value={backPanel.mount.thickness}
+                    min={1}
+                    onChange={setBackThickness}
+                  />
+                  <Select
+                    label="Разделение стенки"
+                    value={backPanel.segmentation}
+                    options={[
+                      { value: 'single', label: 'Цельная' },
+                      { value: 'per-section', label: 'По секциям' },
+                    ]}
+                    onChange={(next) => {
+                      setBackSegmentation(next as 'single' | 'per-section');
                     }}
                   />
-                )}
-              </Field>
+                </>
+              )}
+              <NumberInput
+                label="Высота цоколя"
+                unit="мм"
+                value={plinth?.height ?? 0}
+                min={0}
+                message="0 — цоколя нет."
+                onChange={(next) => {
+                  setPlinthHeight(next);
+                }}
+              />
               {plinth === undefined ? null : (
                 <>
-                  <Field label="Отступ цоколя, мм">
-                    {({ id }) => (
-                      <input
-                        id={id}
-                        className={styles.numberInput}
-                        type="number"
-                        min={0}
-                        inputMode="numeric"
-                        value={plinth.setback}
-                        onChange={(event) => {
-                          setPlinthSetback(event.target.valueAsNumber);
-                        }}
-                      />
-                    )}
-                  </Field>
-                  <Field label="Царги цоколя">
-                    {({ id }) => (
-                      <select
-                        id={id}
-                        className={styles.numberInput}
-                        value={(plinth.parts ?? []).length > 1 ? 'sides' : 'front'}
-                        onChange={(event) => {
-                          togglePlinthSides(event.target.value === 'sides');
-                        }}
-                      >
-                        <option value="front">Только передняя</option>
-                        <option value="sides">Передняя и боковые</option>
-                      </select>
-                    )}
-                  </Field>
+                  <NumberInput
+                    label="Отступ цоколя"
+                    unit="мм"
+                    value={plinth.setback}
+                    min={0}
+                    onChange={setPlinthSetback}
+                  />
+                  <Select
+                    label="Царги цоколя"
+                    value={(plinth.parts ?? []).length > 1 ? 'sides' : 'front'}
+                    options={[
+                      { value: 'front', label: 'Только передняя' },
+                      { value: 'sides', label: 'Передняя и боковые' },
+                    ]}
+                    onChange={(next) => {
+                      togglePlinthSides(next === 'sides');
+                    }}
+                  />
                 </>
               )}
             </div>
-          </section>
+          </Panel>
 
           {/*
           Конструктивные модификаторы (PROMPT 15 §21). Технический минимум:
           зазор до потолка, антресоль, столешница, крепление и фальшпанели.
         */}
-          <section className={styles.panel} aria-labelledby="modifiers-title">
-            <h2 id="modifiers-title" className={styles.panelTitle}>
-              Модификаторы
-            </h2>
+          <Panel id="modifiers" title="Модификаторы">
             <p className={styles.pending}>
               Габарит H делится между цоколем, корпусом, столешницей, антресолью и зазором до
               потолка.
             </p>
             <div className={styles.grid}>
-              <Field label="Зазор до потолка, мм">
-                {({ id }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={modifiers.ceilingGap ?? 0}
-                    onChange={(event) => {
-                      setCeilingGap(event.target.valueAsNumber);
-                    }}
-                  />
-                )}
-              </Field>
-              <Field label="Высота антресоли, мм" message="0 — антресоли нет.">
-                {({ id, describedBy }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={modifiers.topSection?.height ?? 0}
-                    {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
-                    onChange={(event) => {
-                      setTopSectionHeight(event.target.valueAsNumber);
-                    }}
-                  />
-                )}
-              </Field>
-              <Field label="Толщина столешницы, мм" message="0 — столешницы нет.">
-                {({ id, describedBy }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={modifiers.countertop?.thickness ?? 0}
-                    {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
-                    onChange={(event) => {
-                      setCountertopThickness(event.target.valueAsNumber);
-                    }}
-                  />
-                )}
-              </Field>
+              <NumberInput
+                label="Зазор до потолка"
+                unit="мм"
+                value={modifiers.ceilingGap ?? 0}
+                min={0}
+                onChange={setCeilingGap}
+              />
+              <NumberInput
+                label="Высота антресоли"
+                unit="мм"
+                value={modifiers.topSection?.height ?? 0}
+                min={0}
+                message="0 — антресоли нет."
+                onChange={(next) => {
+                  setTopSectionHeight(next);
+                }}
+              />
+              <NumberInput
+                label="Толщина столешницы"
+                unit="мм"
+                value={modifiers.countertop?.thickness ?? 0}
+                min={0}
+                message="0 — столешницы нет."
+                onChange={(next) => {
+                  setCountertopThickness(next);
+                }}
+              />
               {modifiers.countertop === undefined ? null : (
-                <Field label="Свес столешницы, мм">
-                  {({ id }) => (
-                    <input
-                      id={id}
-                      className={styles.numberInput}
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      value={modifiers.countertop?.overhangFront ?? 0}
-                      onChange={(event) => {
-                        setCountertopOverhang(event.target.valueAsNumber);
-                      }}
-                    />
-                  )}
-                </Field>
+                <NumberInput
+                  label="Свес столешницы"
+                  unit="мм"
+                  value={modifiers.countertop?.overhangFront ?? 0}
+                  min={0}
+                  onChange={setCountertopOverhang}
+                />
               )}
-              <Field label="Установка">
-                {({ id }) => (
-                  <select
-                    id={id}
-                    className={styles.numberInput}
-                    value={modifiers.wallMount?.mode ?? 'floor-standing'}
-                    onChange={(event) => {
-                      setWallMount(
-                        event.target.value as 'floor-standing' | 'wall-mounted' | 'suspended',
-                      );
-                    }}
-                  >
-                    <option value="floor-standing">Напольная</option>
-                    <option value="wall-mounted">Настенная</option>
-                    <option value="suspended">Подвесная</option>
-                  </select>
-                )}
-              </Field>
-              <Field label="Фальшпанелей">
-                {({ id }) => (
-                  <input
-                    id={id}
-                    className={styles.numberInput}
-                    type="number"
-                    readOnly
-                    value={(modifiers.falsePanels ?? []).length}
-                  />
-                )}
-              </Field>
+              <Select
+                label="Установка"
+                value={modifiers.wallMount?.mode ?? 'floor-standing'}
+                options={[
+                  { value: 'floor-standing', label: 'Напольная' },
+                  { value: 'wall-mounted', label: 'Настенная' },
+                  { value: 'suspended', label: 'Подвесная' },
+                ]}
+                onChange={(next) => {
+                  setWallMount(next as 'floor-standing' | 'wall-mounted' | 'suspended');
+                }}
+              />
+              {/*
+                Счётчик, а не поле: значение выводится из модели и не
+                правится напрямую. Поле «только для чтения» обещало бы
+                ввод, которого нет.
+              */}
+              <div className={styles.stat}>
+                <span className={styles.statLabel}>Фальшпанелей</span>
+                <span className={styles.statValue}>{(modifiers.falsePanels ?? []).length}</span>
+              </div>
             </div>
             <Button
               onClick={() => {
@@ -1755,7 +1632,7 @@ export function App(): React.JSX.Element {
             >
               Убрать фальшпанель
             </Button>
-          </section>
+          </Panel>
 
           {/*
           Материалы (PROMPT 13 §23). Технический минимум: реестр материалов
@@ -1764,142 +1641,87 @@ export function App(): React.JSX.Element {
           создание и удаление материалов) — НЕ этот этап, см.
           docs/FEATURE_MATRIX.md.
         */}
-          <section className={styles.panel} aria-labelledby="materials-title">
-            <h2 id="materials-title" className={styles.panelTitle}>
-              Материалы
-            </h2>
+          <Panel id="materials" title="Материалы">
             <p className={styles.pending}>
               Толщина материала — источник геометрии: у детали без своего переопределения толщина
               берётся отсюда.
             </p>
             <div className={styles.grid}>
               {materialList.map((material) => (
-                <Field key={material.id} label={`${material.name}, мм`}>
-                  {({ id }) => (
-                    <input
-                      id={id}
-                      className={styles.numberInput}
-                      type="number"
-                      min={1}
-                      inputMode="numeric"
-                      value={material.thickness}
-                      onChange={(event) => {
-                        setMaterialThickness(material.id, event.target.valueAsNumber);
-                      }}
-                    />
-                  )}
-                </Field>
+                <NumberInput
+                  key={material.id}
+                  label={material.name}
+                  unit="мм"
+                  value={material.thickness}
+                  min={1}
+                  onChange={(next) => {
+                    setMaterialThickness(material.id, next);
+                  }}
+                />
               ))}
             </div>
             <div className={styles.grid} style={{ marginTop: 'var(--sp-3)' }}>
-              <Field label="Материал корпуса">
-                {({ id }) => (
-                  <select
-                    id={id}
-                    className={styles.numberInput}
-                    value={project.materials.assignment.side ?? ''}
-                    onChange={(event) => {
-                      if (event.target.value !== '') {
-                        assignMaterial(
-                          CARCASS_ROLES,
-                          asId<'Material'>(event.target.value),
-                          'Материал корпуса',
-                        );
-                      }
-                    }}
-                  >
-                    <option value="">— не назначен —</option>
-                    {materialList.map((material) => (
-                      <option key={material.id} value={material.id}>
-                        {material.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </Field>
-              <Field label="Материал полок">
-                {({ id }) => (
-                  <select
-                    id={id}
-                    className={styles.numberInput}
-                    value={project.materials.assignment['shelf-adjustable'] ?? ''}
-                    onChange={(event) => {
-                      if (event.target.value !== '') {
-                        assignMaterial(
-                          SHELF_ROLES,
-                          asId<'Material'>(event.target.value),
-                          'Материал полок',
-                        );
-                      }
-                    }}
-                  >
-                    <option value="">— не назначен —</option>
-                    {materialList.map((material) => (
-                      <option key={material.id} value={material.id}>
-                        {material.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </Field>
-              <Field label="Материал фасадов">
-                {({ id }) => (
-                  <select
-                    id={id}
-                    className={styles.numberInput}
-                    value={project.materials.assignment.facade ?? ''}
-                    onChange={(event) => {
-                      if (event.target.value !== '') {
-                        assignMaterial(
-                          ['facade'],
-                          asId<'Material'>(event.target.value),
-                          'Материал фасадов',
-                        );
-                      }
-                    }}
-                  >
-                    <option value="">— не назначен —</option>
-                    {materialList.map((material) => (
-                      <option key={material.id} value={material.id}>
-                        {material.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </Field>
-              <Field label="Материал проекта по умолчанию">
-                {({ id }) => (
-                  <select
-                    id={id}
-                    className={styles.numberInput}
-                    value={project.settings.defaultMaterialId}
-                    onChange={(event) => {
-                      if (event.target.value !== '') {
-                        execute(
-                          {
-                            type: 'SetDefaultMaterial',
-                            materialId: asId<'Material'>(event.target.value),
-                          },
-                          'Материал проекта',
-                        );
-                      }
-                    }}
-                  >
-                    {materialList.map((material) => (
-                      <option key={material.id} value={material.id}>
-                        {material.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </Field>
+              <Select
+                label="Материал корпуса"
+                value={project.materials.assignment.side ?? ''}
+                options={[
+                  { value: '', label: '— не назначен —' },
+                  ...materialList.map((material) => ({ value: material.id, label: material.name })),
+                ]}
+                onChange={(next) => {
+                  if (next !== '') {
+                    assignMaterial(CARCASS_ROLES, asId<'Material'>(next), 'Материал корпуса');
+                  }
+                }}
+              />
+              <Select
+                label="Материал полок"
+                value={project.materials.assignment['shelf-adjustable'] ?? ''}
+                options={[
+                  { value: '', label: '— не назначен —' },
+                  ...materialList.map((material) => ({ value: material.id, label: material.name })),
+                ]}
+                onChange={(next) => {
+                  if (next !== '') {
+                    assignMaterial(SHELF_ROLES, asId<'Material'>(next), 'Материал полок');
+                  }
+                }}
+              />
+              <Select
+                label="Материал фасадов"
+                value={project.materials.assignment.facade ?? ''}
+                options={[
+                  { value: '', label: '— не назначен —' },
+                  ...materialList.map((material) => ({ value: material.id, label: material.name })),
+                ]}
+                onChange={(next) => {
+                  if (next !== '') {
+                    assignMaterial(['facade'], asId<'Material'>(next), 'Материал фасадов');
+                  }
+                }}
+              />
+              <Select
+                label="Материал проекта по умолчанию"
+                value={project.settings.defaultMaterialId}
+                options={[
+                  ...materialList.map((material) => ({ value: material.id, label: material.name })),
+                ]}
+                onChange={(next) => {
+                  if (next !== '') {
+                    execute(
+                      {
+                        type: 'SetDefaultMaterial',
+                        materialId: asId<'Material'>(next),
+                      },
+                      'Материал проекта',
+                    );
+                  }
+                }}
+              />
             </div>
-          </section>
+          </Panel>
 
-          <aside className={styles.panel} aria-labelledby="result-title">
-            <h2 id="result-title" className={styles.panelTitle}>
-              Результат расчёта
-            </h2>
+          <Panel id="result" title="Результат расчёта" tone="sunken">
             <ul className={styles.stats}>
               <li className={styles.stat}>
                 <span className={styles.statLabel}>Деталей</span>
@@ -1985,10 +1807,10 @@ export function App(): React.JSX.Element {
               </>
             ) : null}
 
-            <p className={styles.pending} style={{ marginTop: 'var(--sp-4)' }}>
+            <p className={styles.pending}>
               Этапы конвейера геометрии, ещё не реализованные: {geometry.pendingStages.join(', ')}.
             </p>
-          </aside>
+          </Panel>
 
           {/*
           Технический debug-renderer (PROMPT 4 §17). НЕ часть конечного
@@ -1998,25 +1820,12 @@ export function App(): React.JSX.Element {
           мёртвую ветку целиком (docs/GEOMETRY_RULES.md §12).
         */}
           {import.meta.env.DEV ? (
-            <section
-              className={`${styles.panel} ${styles.fullWidth}`}
-              aria-labelledby="schema-title"
-            >
-              <h2 id="schema-title" className={styles.panelTitle}>
-                Схема (debug, только в разработке)
-              </h2>
-              <div className={styles.debugToolbar}>
-                <label className={styles.debugToggle}>
-                  <input
-                    type="checkbox"
-                    checked={showDebugInfo}
-                    onChange={(event) => {
-                      setShowDebugInfo(event.target.checked);
-                    }}
-                  />
-                  Показывать ID и координаты
-                </label>
-              </div>
+            <Panel id="schema" title="Схема (debug, только в разработке)" wide>
+              <Switch
+                label="Показывать ID и координаты"
+                checked={showDebugInfo}
+                onChange={setShowDebugInfo}
+              />
               {debugView === undefined ? null : (
                 <DebugSchema view={debugView} showDebugInfo={showDebugInfo} />
               )}
@@ -2093,10 +1902,10 @@ export function App(): React.JSX.Element {
                   </ul>
                 </>
               )}
-            </section>
+            </Panel>
           ) : null}
-        </main>
-        <div className={editorStyles.canvasArea}>
+        </div>
+        <div className={workspace.canvas}>
           {/*
             Вид холста: трёхмерная сцена или плоская схема. Это одно и то
             же изделие, показанное по-разному, поэтому и выделение, и
@@ -2105,139 +1914,15 @@ export function App(): React.JSX.Element {
             одного шкафа отнимают место и заставляют выбирать, куда
             смотреть.
           */}
-          <div className={editorStyles.viewSwitch} role="group" aria-label="Вид изделия">
-            <button
-              type="button"
-              aria-pressed={canvasMode === '3d'}
-              onClick={() => {
-                setCanvasMode('3d');
-              }}
-            >
-              3D
-            </button>
-            <button
-              type="button"
-              aria-pressed={canvasMode === '2d'}
-              onClick={() => {
-                setCanvasMode('2d');
-              }}
-            >
-              Схема
-            </button>
-            <button
-              type="button"
-              aria-pressed={canvasMode === 'room'}
-              onClick={() => {
-                if (room === undefined) createRoom();
-                else setCanvasMode('room');
-              }}
-            >
-              Помещение
-            </button>
-          </div>
-
-          {canvasMode !== 'room' ? null : room === undefined ? (
-            <p className={styles.pending}>Помещение ещё не создано.</p>
-          ) : (
-            <RoomPlanner
-              room={room}
-              geometries={furnitureGeometries}
-              materials={project.materials}
-              selectedInstances={selectedInstances}
-              cutawayWalls={cutawayWalls}
-              snapEnabled={snapEnabled}
-              onSelectInstance={(id) => {
-                selectInstances(id === undefined ? [] : [id]);
-              }}
-              onMoveCommit={(id, position, rotation) => {
-                execute(
-                  { type: 'TransformFurnitureInstance', instanceId: id, position, rotation },
-                  'Переместить мебель',
-                );
-              }}
-            />
-          )}
-
-          {canvasMode !== 'room' || room === undefined ? null : (
-            <div className={editorStyles.viewSwitch} role="group" aria-label="Показ помещения">
-              <button
-                type="button"
-                aria-pressed={cutawayWalls}
-                onClick={() => {
-                  setCutawayWalls(!cutawayWalls);
-                }}
-              >
-                Прозрачные стены
-              </button>
-              <button
-                type="button"
-                aria-pressed={snapEnabled}
-                onClick={() => {
-                  setSnapEnabled(!snapEnabled);
-                }}
-              >
-                Привязка
-              </button>
-              {project.furniture.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    addFurnitureToRoom(item.id);
-                  }}
-                >
-                  Добавить «{item.name}»
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/*
-            Выбор проекта для размещения (PROMPT 25 §13–§14).
-
-            Список — из библиотеки, а не из открытого проекта: в
-            помещение ставят готовые изделия, и большинство из них
-            сделаны не в этом же документе. Кнопка не блокируется после
-            нажатия: один и тот же проект размещается сколько угодно раз,
-            и каждый экземпляр — самостоятельный объект (§14).
-          */}
-          {canvasMode !== 'room' || room === undefined ? null : (
-            <div className={editorStyles.viewSwitch} role="group" aria-label="Разместить проект из библиотеки">
-              <label>
-                <span>Проект из библиотеки </span>
-                <select
-                  value={placingProjectId}
-                  aria-label="Проект для размещения"
-                  onChange={(event) => {
-                    setPlacingProjectId(event.target.value);
-                  }}
-                >
-                  <option value="">— выберите —</option>
-                  {library.summaries
-                    .filter((summary) => summary.furnitureCount > 0)
-                    .map((summary) => (
-                      <option key={summary.id} value={summary.id}>
-                        {summary.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                disabled={placingProjectId === ''}
-                onClick={() => {
-                  if (placingProjectId !== '') addProjectToRoom(placingProjectId as ProjectId);
-                }}
-              >
-                Разместить в помещении
-              </button>
-              {linked.missing.size === 0 ? null : (
-                <span role="status">
-                  Недоступных проектов в расстановке: {String(linked.missing.size)}
-                </span>
-              )}
-            </div>
-          )}
+          <SegmentedControl
+            label="Вид изделия"
+            value={canvasMode}
+            onChange={setCanvasMode}
+            options={[
+              { value: '3d', label: 'Сцена' },
+              { value: '2d', label: 'Схема' },
+            ]}
+          />
 
           {canvasMode !== '3d' || geometry === undefined || furniture === undefined ? null : (
             <Scene3D
@@ -2263,7 +1948,10 @@ export function App(): React.JSX.Element {
             />
           )}
 
-          {canvasMode !== '2d' || geometry === undefined || furniture === undefined || canvasView === undefined ? null : (
+          {canvasMode !== '2d' ||
+          geometry === undefined ||
+          furniture === undefined ||
+          canvasView === undefined ? null : (
             <EditorCanvas
               view={canvasView}
               selectedParts={selectedParts}
@@ -2290,54 +1978,12 @@ export function App(): React.JSX.Element {
           )}
         </div>
 
-        {canvasMode === 'room' && room !== undefined && roomValidation !== undefined ? (
-          <RoomInspector
-            room={room}
-            extents={roomExtents}
-            status={roomValidation.status}
-            selected={room.furnitureInstances.find((item) => item.id === selectedInstances[0])}
-            furnitureNames={furnitureNames}
-            onRoomSize={(width, depth, height) => {
-              execute({ type: 'SetRoomSize', width, depth, height }, 'Габарит помещения');
-            }}
-            onFloorElevation={(elevation) => {
-              execute({ type: 'SetFloor', patch: { elevation } }, 'Уровень пола');
-            }}
-            onCeilingVisible={(visible) => {
-              execute({ type: 'SetCeiling', patch: { visible } }, 'Показ потолка');
-            }}
-            onMove={(id, position) => {
-              execute({ type: 'TransformFurnitureInstance', instanceId: id, position }, 'Переместить мебель');
-            }}
-            onRotate={(id) => {
-              const instance = room.furnitureInstances.find((item) => item.id === id);
-              if (instance === undefined) return;
-              execute(
-                { type: 'TransformFurnitureInstance', instanceId: id, rotation: rotateQuarter(instance.rotation) },
-                'Повернуть мебель',
-              );
-            }}
-            onFlags={(id, patch) => {
-              execute({ type: 'SetInstanceFlags', instanceId: id, ...patch }, 'Свойства экземпляра');
-            }}
-            onDuplicate={duplicateInstance}
-            onRemove={(id) => {
-              execute({ type: 'RemoveFurnitureInstance', instanceId: id }, 'Убрать из помещения');
-            }}
-          />
-        ) : inspector === undefined ? null : (
-          <Inspector model={inspector} onAction={runInspectorAction} />
-        )}
+        <aside className={workspace.inspector} aria-label="Свойства объекта">
+          {inspector === undefined ? null : (
+            <Inspector model={inspector} onAction={runInspectorAction} />
+          )}
+        </aside>
       </div>
-
-      <StatusBar
-        issues={problems}
-        production={readiness?.status}
-        storage={storage.status}
-        storageMessage={storage.message}
-        ephemeral={storage.ephemeral}
-        onSelectIssue={selectIssueTarget}
-      />
-    </div>
+    </AppShell>
   );
 }

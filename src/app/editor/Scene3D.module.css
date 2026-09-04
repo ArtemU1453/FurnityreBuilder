@@ -81,7 +81,7 @@
 
 .dimensions dt {
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--t-caption-size);
 }
 
 .dimensions dd {
@@ -102,8 +102,8 @@
   background: var(--surface-floating-bg);
   backdrop-filter: var(--surface-floating-blur);
   color: var(--text-secondary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-family: var(--font-num);
+  font-size: var(--t-caption-size);
   line-height: 1.5;
   pointer-events: none;
 }
@@ -112,28 +112,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-1);
-}
-
-.viewButton {
-  padding: 6px 10px;
-  border-radius: var(--r-md);
-  border: var(--border-hairline) solid var(--border-subtle);
-  background: var(--bg-surface-raised);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.viewButton[aria-pressed='true'] {
-  border-color: var(--accent-500);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.viewButton:focus-visible {
-  outline: var(--border-focus) solid var(--focus-ring);
-  outline-offset: 2px;
 }
 
 /*

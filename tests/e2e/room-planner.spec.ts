@@ -16,12 +16,19 @@ const inspector = (page: Page) => page.getByLabel('Свойства помеще
 
 async function openPlanner(page: Page): Promise<void> {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Помещение', exact: true }).click();
+  // Проект нужно сохранить: в помещение ставят проекты из библиотеки, а
+  // несохранённого проекта в библиотеке нет (PROMPT 25 §13).
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Сохранено' })).toBeVisible();
+
+  await page.getByRole('radio', { name: 'Помещение' }).click();
+  await page.getByRole('button', { name: 'Создать помещение' }).click();
   await expect(canvas(page)).toBeVisible();
 }
 
 async function addFurniture(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /^Добавить «/ }).first().click();
+  await page.getByLabel('Проект из библиотеки').selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Разместить в помещении' }).click();
   await expect(canvas(page)).toHaveAttribute('aria-label', /Мебели: 1/);
 }
 
@@ -65,7 +72,7 @@ test('перетаскивание мебели меняет положение 
   await addFurniture(page);
   const at = await selectFurniture(page);
 
-  const positionX = inspector(page).getByLabel('Положение X, мм');
+  const positionX = inspector(page).getByRole('spinbutton', { name: 'Положение X', exact: true });
   const before = await positionX.inputValue();
 
   await page.mouse.move(at.x, at.y);
@@ -87,7 +94,7 @@ test('вращение камеры не двигает мебель (§14)', as
   await openPlanner(page);
   await addFurniture(page);
   await selectFurniture(page);
-  const positionX = inspector(page).getByLabel('Положение X, мм');
+  const positionX = inspector(page).getByRole('spinbutton', { name: 'Положение X', exact: true });
   const before = await positionX.inputValue();
 
   // Пустое место сцены: жест там — вращение камеры, а не перемещение.
@@ -105,16 +112,25 @@ test('поворот, блокировка, видимость и дублиро
   await addFurniture(page);
   await selectFurniture(page);
 
+  const locked = page.getByRole('switch', { name: 'Заблокировано' });
+  const visible = page.getByRole('switch', { name: 'Показывать объект' });
+
   await page.getByRole('button', { name: 'Повернуть на 90°' }).click();
-  await page.getByRole('button', { name: 'Заблокировать' }).click();
-  await expect(page.getByRole('button', { name: 'Разблокировать' })).toBeVisible();
+
+  // Блокировка и видимость — переключатели, а не кнопки, меняющие
+  // подпись (PROMPT 26 §8): состояние видно, не нажимая.
+  await locked.check();
+  await expect(locked).toBeChecked();
   // Заблокированный объект нельзя повернуть.
   await expect(page.getByRole('button', { name: 'Повернуть на 90°' })).toBeDisabled();
 
-  await page.getByRole('button', { name: 'Разблокировать' }).click();
-  await page.getByRole('button', { name: 'Скрыть' }).click();
-  await expect(page.getByRole('button', { name: 'Показать' })).toBeVisible();
-  await page.getByRole('button', { name: 'Показать' }).click();
+  await locked.uncheck();
+  await expect(locked).not.toBeChecked();
+
+  await visible.uncheck();
+  await expect(visible).not.toBeChecked();
+  await visible.check();
+  await expect(visible).toBeChecked();
 
   await page.getByRole('button', { name: 'Дублировать' }).click();
   await expect(canvas(page)).toHaveAttribute('aria-label', /Мебели: 2/);
@@ -127,8 +143,8 @@ test('мебель убирается из помещения, изделие о
   await page.getByRole('button', { name: 'Убрать из помещения' }).click();
   await expect(canvas(page)).toHaveAttribute('aria-label', /Мебели: 0/);
 
-  // Изделие никуда не делось: в редакторе оно на месте.
-  await page.getByRole('button', { name: '3D', exact: true }).click();
+  // Изделие никуда не делось: в конструкторе оно на месте.
+  await page.getByRole('radio', { name: 'Конструктор' }).click();
   await expect(page.getByRole('img', { name: /Трёхмерный вид изделия/ })).toBeVisible();
 });
 
@@ -136,7 +152,7 @@ test('габарит помещения правится с клавиатуры
   await openPlanner(page);
   // Локатор сужен до инспектора помещения: поле «Ширина, мм» есть и у
   // изделия в боковой панели, и без сужения правится не то.
-  const width = inspector(page).getByLabel('Ширина, мм');
+  const width = inspector(page).getByRole('spinbutton', { name: 'Ширина', exact: true });
   await width.fill('5200');
   await expect(canvas(page)).toHaveAttribute('aria-label', /5200 × 3000/);
 });
@@ -144,7 +160,7 @@ test('габарит помещения правится с клавиатуры
 test('стандартные виды помещения переключают камеру (§23)', async ({ page }) => {
   await openPlanner(page);
   const before = await canvas(page).screenshot();
-  await page.getByRole('button', { name: 'План', exact: true }).click();
+  await page.getByRole('radio', { name: 'План' }).click();
   await page.waitForTimeout(150);
   expect(Buffer.compare(before, await canvas(page).screenshot())).not.toBe(0);
 });
@@ -152,7 +168,7 @@ test('стандартные виды помещения переключают 
 test('прозрачные стены переключаются и меняют картинку (§22)', async ({ page }) => {
   await openPlanner(page);
   const before = await canvas(page).screenshot();
-  await page.getByRole('button', { name: 'Прозрачные стены' }).click();
+  await page.getByRole('switch', { name: 'Прозрачные стены' }).click();
   await page.waitForTimeout(150);
   expect(Buffer.compare(before, await canvas(page).screenshot())).not.toBe(0);
 });
@@ -160,13 +176,13 @@ test('прозрачные стены переключаются и меняют
 test('помещение и расстановка переживают перезагрузку (§28)', async ({ page }) => {
   await openPlanner(page);
   await addFurniture(page);
-  await inspector(page).getByLabel('Ширина, мм').fill('4600');
+  await inspector(page).getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('4600');
 
-  await page.getByRole('button', { name: 'Сохранить' }).click();
-  await expect(page.getByLabel('Состояние проекта')).toContainText('Сохранено');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Сохранено' })).toBeVisible();
 
   await page.reload();
-  await page.getByRole('button', { name: 'Помещение', exact: true }).click();
+  await page.getByRole('radio', { name: 'Помещение' }).click();
   await expect(canvas(page)).toHaveAttribute('aria-label', /4600 × 3000/);
   await expect(canvas(page)).toHaveAttribute('aria-label', /Мебели: 1/);
 });

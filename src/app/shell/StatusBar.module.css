@@ -1,0 +1,54 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  border-top: var(--border-hairline) solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.issue {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font: inherit;
+  font-size: var(--t-label-size);
+  padding: 2px var(--sp-2);
+  border: var(--border-hairline) solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--tone-neutral-text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color var(--duration-color) var(--easing-standard);
+}
+
+.issue:hover {
+  background: var(--bg-sunken);
+}
+
+.issue[data-tone='danger'] {
+  color: var(--tone-danger-text);
+}
+
+.issue[data-tone='warning'] {
+  color: var(--tone-warning-text);
+}
+
+/* Слово «Ошибка»/«Предупреждение» стоит перед текстом: §16 требует, чтобы
+   предупреждение не читалось как ошибка, и одного цвета для этого мало. */
+.issueKind {
+  font-weight: 600;
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 600px) {
+  .bar {
+    padding-left: var(--sp-3);
+    padding-right: var(--sp-3);
+    gap: var(--sp-1) var(--sp-3);
+  }
+}

@@ -15,10 +15,17 @@ import {
   withGizmos,
   zoom,
 } from '../../scene/index.js';
-import type { Camera, GizmoTarget, SceneModel, SceneObject, ViewPreset } from '../../scene/index.js';
+import type {
+  Camera,
+  GizmoTarget,
+  SceneModel,
+  SceneObject,
+  ViewPreset,
+} from '../../scene/index.js';
 import { createSceneRenderer } from '../../render/index.js';
 import type { ObjectState, RenderStyle, SceneRenderer } from '../../render/index.js';
 import { resizeValue } from './resize.js';
+import { SegmentedControl } from '../../design-system/index.js';
 import styles from './Scene3D.module.css';
 
 /**
@@ -46,7 +53,12 @@ import styles from './Scene3D.module.css';
 type Intent =
   | { readonly kind: 'idle' }
   /** Нажали на объект: пока не сдвинулись — это выбор, сдвинулись — орбита. */
-  | { readonly kind: 'pending'; readonly objectId: string | undefined; readonly x: number; readonly y: number }
+  | {
+      readonly kind: 'pending';
+      readonly objectId: string | undefined;
+      readonly x: number;
+      readonly y: number;
+    }
   | { readonly kind: 'orbit' }
   | { readonly kind: 'pan' }
   | {
@@ -120,7 +132,12 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
 
   const [preview, setPreview] = useState<Preview | undefined>(undefined);
   /** Снимок счётчиков рендерера для debug-режима (§27, §31). */
-  const [stats, setStats] = useState({ drawCalls: 0, geometryUploads: 0, culled: 0, lastFrameMs: 0 });
+  const [stats, setStats] = useState({
+    drawCalls: 0,
+    geometryUploads: 0,
+    culled: 0,
+    lastFrameMs: 0,
+  });
   const [unsupported, setUnsupported] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | undefined>(undefined);
   const [view, setView] = useState<ViewPreset>('perspective');
@@ -179,7 +196,15 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
     // не нужны, а лишний setState на каждом кадре орбиты сводил бы на нет
     // весь смысл рендера вне React.
     if (props.debug) setStats({ ...renderer.stats });
-  }, [fullScene, states, visibleVolumes, props.showGrid, props.showAxes, props.editable, props.debug]);
+  }, [
+    fullScene,
+    states,
+    visibleVolumes,
+    props.showGrid,
+    props.showAxes,
+    props.editable,
+    props.debug,
+  ]);
 
   /** Один кадр на анимационный тик: серия событий указателя не даёт серии отрисовок (§24). */
   const requestDraw = useCallback(() => {
@@ -292,7 +317,8 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
       const camera = cameraRef.current;
       const renderer = rendererRef.current;
       const host = hostRef.current;
-      if (target === undefined || camera === null || renderer === null || host === null) return undefined;
+      if (target === undefined || camera === null || renderer === null || host === null)
+        return undefined;
 
       const axis: Vec3 =
         target.kind === 'furniture-height' || (target.kind === 'child-size' && target.axis === 'y')
@@ -300,7 +326,14 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
           : { x: 1, y: 0, z: 0 };
 
       const rect = host.getBoundingClientRect();
-      const perMm = pixelsPerMmAlong(camera, renderer.aspect, rect.width, rect.height, object.position, axis);
+      const perMm = pixelsPerMmAlong(
+        camera,
+        renderer.aspect,
+        rect.width,
+        rect.height,
+        object.position,
+        axis,
+      );
       // Ось смотрит почти точно в камеру: тянуть за такую ручку нечем.
       // Честнее не начинать жест, чем делить на почти-ноль и дёргать
       // изделие на метры за один пиксель.
@@ -325,7 +358,16 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
       const ux = screen.x / screenLength;
       const uy = -screen.y / screenLength;
 
-      return { kind: 'gizmo', target, base, pxPerMm: perMm, ux, uy, startX: clientX, startY: clientY };
+      return {
+        kind: 'gizmo',
+        target,
+        base,
+        pxPerMm: perMm,
+        ux,
+        uy,
+        startX: clientX,
+        startY: clientY,
+      };
     },
     [props.furniture, props.geometry],
   );
@@ -371,7 +413,12 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
       }
 
       const hit = hitAt(event.clientX, event.clientY);
-      intentRef.current = { kind: 'pending', objectId: hit?.object.id, x: event.clientX, y: event.clientY };
+      intentRef.current = {
+        kind: 'pending',
+        objectId: hit?.object.id,
+        x: event.clientX,
+        y: event.clientY,
+      };
     },
     [hitAt, props.editable, startGizmo],
   );
@@ -421,7 +468,8 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
       const rect = host.getBoundingClientRect();
 
       if (intent.kind === 'pending') {
-        if (Math.hypot(event.clientX - intent.x, event.clientY - intent.y) < DRAG_THRESHOLD_PX) return;
+        if (Math.hypot(event.clientX - intent.x, event.clientY - intent.y) < DRAG_THRESHOLD_PX)
+          return;
         // Порог пройден: нажатие было не щелчком, а началом вращения.
         intentRef.current = { kind: 'orbit' };
       }
@@ -443,7 +491,8 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
         // шага (Shift — 10 мм) накапливалось бы, и значение уползало бы от
         // курсора; движение поперёк оси при этом справедливо ничего не даёт.
         const deltaPx =
-          (event.clientX - current.startX) * current.ux + (event.clientY - current.startY) * current.uy;
+          (event.clientX - current.startX) * current.ux +
+          (event.clientY - current.startY) * current.uy;
         const result = resizeValue({
           base: current.base,
           deltaPx,
@@ -452,7 +501,11 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
           max: props.limits.max,
           modifiers: { shift: event.shiftKey, alt: event.altKey },
         });
-        setPreview({ target: current.target, value: result.value, label: gizmoLabel(current.target) });
+        setPreview({
+          target: current.target,
+          value: result.value,
+          label: gizmoLabel(current.target),
+        });
       }
 
       pointerRef.current = { id: pointer.id, x: event.clientX, y: event.clientY };
@@ -465,7 +518,8 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
       const host = hostRef.current;
       touchesRef.current.delete(event.pointerId);
       if (touchesRef.current.size < 2) pinchRef.current = null;
-      if (host !== null && host.hasPointerCapture(event.pointerId)) host.releasePointerCapture(event.pointerId);
+      if (host !== null && host.hasPointerCapture(event.pointerId))
+        host.releasePointerCapture(event.pointerId);
 
       const intent = intentRef.current;
       intentRef.current = { kind: 'idle' };
@@ -531,8 +585,8 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
       <div className={styles.fallback} role="status">
         <p className={styles.fallbackTitle}>Трёхмерный просмотр недоступен</p>
         <p>
-          Браузер не даёт WebGL 2. Все размеры и наполнение правятся полями слева и инспектором справа, а схема
-          изделия доступна в двумерном виде.
+          Браузер не даёт WebGL 2. Все размеры и наполнение правятся полями слева и инспектором
+          справа, а схема изделия доступна в двумерном виде.
         </p>
       </div>
     );
@@ -606,20 +660,20 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
         )}
       </div>
 
-      <div className={styles.views} role="group" aria-label="Вид камеры">
-        {VIEWS.map((item) => (
-          <button
-            key={item.preset}
-            type="button"
-            className={styles.viewButton}
-            aria-pressed={view === item.preset}
-            onClick={() => {
-              setView(item.preset);
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
+      {/*
+        Виды камеры взаимоисключающие, поэтому это переключатель, а не
+        ряд самостоятельных кнопок (PROMPT 26 §24, §32): скринридер
+        сообщает «2 из 6», а стрелки переключают вид без мыши. Своего
+        оформления кнопок у сцены больше нет — оно было третьим стилем
+        кнопки в приложении.
+      */}
+      <div className={styles.views}>
+        <SegmentedControl
+          label="Вид камеры"
+          value={view}
+          options={VIEWS.map((item) => ({ value: item.preset, label: item.label }))}
+          onChange={setView}
+        />
       </div>
     </div>
   );
@@ -640,7 +694,10 @@ function gizmoLabel(target: GizmoTarget): string {
   return target.axis === 'x' ? 'Ширина секции' : 'Высота ряда';
 }
 
-function gizmoBase(target: Extract<GizmoTarget, { kind: 'child-size' }>, geometry: GeometryResult): number | undefined {
+function gizmoBase(
+  target: Extract<GizmoTarget, { kind: 'child-size' }>,
+  geometry: GeometryResult,
+): number | undefined {
   const box =
     geometry.cells.find((cell) => cell.nodeId === target.childId)?.box ??
     geometry.sections.find((section) => section.nodeId === target.childId)?.box;

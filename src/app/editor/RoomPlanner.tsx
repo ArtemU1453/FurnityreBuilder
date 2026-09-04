@@ -25,6 +25,7 @@ import {
 import type { Camera, SceneModel, ViewPreset } from '../../scene/index.js';
 import { createSceneRenderer } from '../../render/index.js';
 import type { ObjectState, RenderStyle, SceneRenderer } from '../../render/index.js';
+import { SegmentedControl } from '../../design-system/index.js';
 import styles from './Scene3D.module.css';
 
 /**
@@ -47,7 +48,12 @@ import styles from './Scene3D.module.css';
 
 type Intent =
   | { readonly kind: 'idle' }
-  | { readonly kind: 'pending'; readonly objectId: string | undefined; readonly x: number; readonly y: number }
+  | {
+      readonly kind: 'pending';
+      readonly objectId: string | undefined;
+      readonly x: number;
+      readonly y: number;
+    }
   | { readonly kind: 'orbit' }
   | { readonly kind: 'pan' }
   | {
@@ -127,7 +133,9 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
 
   const [unsupported, setUnsupported] = useState(false);
   const [view, setView] = useState<ViewPreset>('perspective');
-  const [preview, setPreview] = useState<{ position: Vec3; rotation: number; snap: SnapResult } | undefined>(undefined);
+  const [preview, setPreview] = useState<
+    { position: Vec3; rotation: number; snap: SnapResult } | undefined
+  >(undefined);
 
   /** Габариты изделий: берутся из уже посчитанной геометрии (§13). */
   const extents: ExtentLookup = useMemo(() => {
@@ -166,16 +174,16 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
   );
 
   /** Проверка размещения на габаритах: дёшево и достаточно для кадра жеста. */
-  const validation = useMemo(
-    () => validateRoom(displayRoom, { extents }),
-    [displayRoom, extents],
-  );
+  const validation = useMemo(() => validateRoom(displayRoom, { extents }), [displayRoom, extents]);
 
   const states = useMemo(() => {
     const map = new Map<string, ObjectState>();
     const broken = new Set(
       validation.issues
-        .filter((item) => item.severity === 'error' && item.target?.path?.startsWith('room.furnitureInstances.'))
+        .filter(
+          (item) =>
+            item.severity === 'error' && item.target?.path?.startsWith('room.furnitureInstances.'),
+        )
         .map((item) => item.target?.path?.split('.').at(-1) ?? ''),
     );
     for (const object of scene.objects) {
@@ -184,7 +192,8 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
       // Ошибка размещения важнее выделения: красный шкаф, который ещё и
       // выбран, обязан остаться красным.
       if (broken.has(instanceId)) map.set(object.id, 'invalid');
-      else if (props.selectedInstances.includes(instanceId as InstanceId)) map.set(object.id, 'selected');
+      else if (props.selectedInstances.includes(instanceId as InstanceId))
+        map.set(object.id, 'selected');
     }
     return map;
   }, [scene, validation, props.selectedInstances]);
@@ -348,7 +357,12 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
         }
       }
 
-      intentRef.current = { kind: 'pending', objectId: hit?.object.id, x: event.clientX, y: event.clientY };
+      intentRef.current = {
+        kind: 'pending',
+        objectId: hit?.object.id,
+        x: event.clientX,
+        y: event.clientY,
+      };
     },
     [hitAt, ndcAt, props.room],
   );
@@ -386,7 +400,8 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
       const intent = intentRef.current;
 
       if (intent.kind === 'pending') {
-        if (Math.hypot(event.clientX - intent.x, event.clientY - intent.y) < DRAG_THRESHOLD_PX) return;
+        if (Math.hypot(event.clientX - intent.x, event.clientY - intent.y) < DRAG_THRESHOLD_PX)
+          return;
         intentRef.current = { kind: 'orbit' };
       }
 
@@ -400,9 +415,13 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
       } else if (current.kind === 'move') {
         const ndc = ndcAt(event.clientX, event.clientY);
         const point =
-          ndc === undefined ? undefined : floorPoint(camera, renderer.aspect, ndc.x, ndc.y, props.room.floor.elevation);
+          ndc === undefined
+            ? undefined
+            : floorPoint(camera, renderer.aspect, ndc.x, ndc.y, props.room.floor.elevation);
         if (point !== undefined) {
-          const instance = props.room.furnitureInstances.find((item) => item.id === current.instanceId);
+          const instance = props.room.furnitureInstances.find(
+            (item) => item.id === current.instanceId,
+          );
           const extent = instance === undefined ? undefined : extents.get(instanceKey(instance));
           if (instance !== undefined && extent !== undefined) {
             // Смещение от ТОЧКИ ЗАХВАТА, а не от центра: объект остаётся
@@ -430,7 +449,8 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
       const host = hostRef.current;
       touchesRef.current.delete(event.pointerId);
       if (touchesRef.current.size < 2) pinchRef.current = null;
-      if (host !== null && host.hasPointerCapture(event.pointerId)) host.releasePointerCapture(event.pointerId);
+      if (host !== null && host.hasPointerCapture(event.pointerId))
+        host.releasePointerCapture(event.pointerId);
 
       const intent = intentRef.current;
       intentRef.current = { kind: 'idle' };
@@ -442,7 +462,8 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
       }
 
       if (intent.kind === 'pending') {
-        const instanceId = intent.objectId === undefined ? undefined : instanceIdOf(intent.objectId);
+        const instanceId =
+          intent.objectId === undefined ? undefined : instanceIdOf(intent.objectId);
         props.onSelectInstance(instanceId as InstanceId | undefined);
         return;
       }
@@ -492,8 +513,8 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
       <div className={styles.fallback} role="status">
         <p className={styles.fallbackTitle}>Трёхмерный просмотр недоступен</p>
         <p>
-          Браузер не даёт WebGL 2. Помещение и расстановка правятся полями инспектора: положение, поворот, видимость и
-          блокировка доступны без сцены.
+          Браузер не даёт WebGL 2. Помещение и расстановка правятся полями инспектора: положение,
+          поворот, видимость и блокировка доступны без сцены.
         </p>
       </div>
     );
@@ -548,20 +569,20 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
         </dl>
       </div>
 
-      <div className={styles.views} role="group" aria-label="Вид помещения">
-        {VIEWS.map((item) => (
-          <button
-            key={item.preset}
-            type="button"
-            className={styles.viewButton}
-            aria-pressed={view === item.preset}
-            onClick={() => {
-              setView(item.preset);
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
+      {/*
+        Виды камеры взаимоисключающие, поэтому это переключатель, а не
+        ряд самостоятельных кнопок (PROMPT 26 §24, §32): скринридер
+        сообщает «2 из 6», а стрелки переключают вид без мыши. Своего
+        оформления кнопок у сцены больше нет — оно было третьим стилем
+        кнопки в приложении.
+      */}
+      <div className={styles.views}>
+        <SegmentedControl
+          label="Вид помещения"
+          value={view}
+          options={VIEWS.map((item) => ({ value: item.preset, label: item.label }))}
+          onChange={setView}
+        />
       </div>
     </div>
   );
@@ -575,7 +596,8 @@ const VIEWS: ReadonlyArray<{ preset: ViewPreset; label: string }> = [
 ];
 
 /** Поворот экземпляра на четверть оборота. Используется кнопкой инспектора. */
-export const rotateQuarter = (rotation: number): number => snapRotationToQuarter(rotation + Math.PI / 2);
+export const rotateQuarter = (rotation: number): number =>
+  snapRotationToQuarter(rotation + Math.PI / 2);
 
 /** След экземпляра для подписи в инспекторе. */
 export const footprintLabel = (

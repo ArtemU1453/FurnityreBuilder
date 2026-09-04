@@ -1,0 +1,129 @@
+/*
+ * Каркас приложения (PROMPT 26 §4).
+ *
+ * Четыре строки: контекст, навигация, содержимое, состояние. Порядок в
+ * разметке совпадает с порядком на экране, поэтому обход с клавиатуры
+ * идёт сверху вниз и не прыгает.
+ */
+
+.shell {
+  display: grid;
+  /* Явная колонка, а не неявная: неявный трек `auto` в CSS Grid
+     растягивается по max-content содержимого и выходит за контейнер, а
+     `minmax(0, 1fr)` ограничен доступной шириной. Именно из-за этого на
+     телефоне страница ехала вбок на 91px. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: 100vh;
+  background: var(--bg-app);
+}
+
+.skipLink {
+  position: absolute;
+  left: var(--sp-2);
+  top: var(--sp-2);
+  z-index: 5;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  transform: translateY(-200%);
+}
+
+.skipLink:focus-visible {
+  transform: none;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: var(--h-toolbar);
+  padding: var(--sp-2) var(--sp-4);
+  /* Единственная полупрозрачная поверхность приложения: содержимое
+     проезжает под ней, и край строки виден как край материала. */
+  background: var(--surface-floating-bg);
+  backdrop-filter: var(--surface-floating-blur);
+  border-bottom: var(--border-hairline) solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.context {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.nav {
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: var(--border-hairline) solid var(--border-subtle);
+  background: var(--bg-surface);
+  position: sticky;
+  top: var(--h-toolbar);
+  z-index: 1;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  min-width: 0;
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 900px) {
+  .top,
+  .nav,
+  .content {
+    padding-left: var(--sp-3);
+    padding-right: var(--sp-3);
+  }
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 600px) {
+  /*
+    Телефон: навигация уезжает вниз, под большой палец, и перестаёт быть
+    липкой сверху. Это не уменьшенная десктопная панель, а другое место
+    — то, до которого дотягиваются, не перехватывая телефон.
+  */
+  .shell {
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  .nav {
+    order: 3;
+    position: sticky;
+    top: auto;
+    bottom: 0;
+    border-bottom: 0;
+    border-top: var(--border-hairline) solid var(--border-subtle);
+    padding-bottom: max(var(--sp-2), env(safe-area-inset-bottom));
+  }
+
+  .content {
+    order: 2;
+  }
+
+  .top {
+    /* Габарит проекта на телефоне не помещается рядом с именем и
+       состоянием: он остаётся на экране конструктора, где и нужен. */
+    gap: var(--sp-2);
+  }
+}

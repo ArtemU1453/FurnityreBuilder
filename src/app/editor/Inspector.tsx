@@ -1,4 +1,4 @@
-import { Button } from '../../design-system/index.js';
+import { Button, EmptyState, Panel } from '../../design-system/index.js';
 import type { InspectorAction, InspectorModel } from './selection.js';
 import styles from './EditorPanels.module.css';
 
@@ -27,18 +27,16 @@ export interface InspectorProps {
 export function Inspector({ model, onAction }: InspectorProps): React.JSX.Element {
   return (
     /*
-      Имя области — постоянное «Свойства объекта», а не заголовок
-      выбранного. Область навигации, которая переименовывается при каждом
-      щелчке, бесполезна: в списке ориентиров скринридера она каждый раз
-      называется по-разному, и найти её невозможно. Что именно выбрано,
-      сообщает заголовок внутри.
-    */
-    <aside className={styles.inspector} aria-label="Свойства объекта">
-      <h2 className={styles.panelTitle}>
-        {model.title}
-      </h2>
-      <p className={styles.subtitle}>{model.subtitle}</p>
+      Панель, а не собственная разметка: заголовок, подзаголовок и
+      отступы у инспектора те же, что у любой другой панели приложения
+      (PROMPT 26 §12).
 
+      Постоянное имя ориентира «Свойства объекта» задаёт `<aside>`
+      вокруг: заголовок панели меняется с выделением, а область,
+      которая переименовывается при каждом щелчке, в списке ориентиров
+      скринридера ненаходима. Что именно выбрано, сообщает заголовок.
+    */
+    <Panel id="inspector" title={model.title} subtitle={model.subtitle}>
       <dl className={styles.rows}>
         {model.rows.map((row) => (
           <div key={row.label} className={styles.row}>
@@ -47,6 +45,14 @@ export function Inspector({ model, onAction }: InspectorProps): React.JSX.Elemen
           </div>
         ))}
       </dl>
+
+      {model.rows.length === 0 && model.actions.length === 0 ? (
+        <EmptyState
+          compact
+          title="Ничего не выбрано"
+          description="Выберите деталь, ячейку или секцию на холсте — здесь появятся её свойства и доступные действия."
+        />
+      ) : null}
 
       {model.actions.length === 0 ? null : (
         <div className={styles.actions}>
@@ -62,6 +68,6 @@ export function Inspector({ model, onAction }: InspectorProps): React.JSX.Elemen
           ))}
         </div>
       )}
-    </aside>
+    </Panel>
   );
 }

@@ -2,12 +2,20 @@ import { formatMm } from '../../domain/index.js';
 import type { FurnitureInstance, InstanceId, Room, Vec3 } from '../../domain/index.js';
 import { instanceKey, isRectangular, roomSize } from '../../room/index.js';
 import type { ExtentLookup, RoomStatus } from '../../room/index.js';
-import { Button } from '../../design-system/index.js';
+import {
+  Button,
+  EmptyState,
+  NumberInput,
+  Panel,
+  StatusIndicator,
+  Switch,
+} from '../../design-system/index.js';
+import { ROOM_STATUS } from '../status.js';
 import { footprintLabel } from './RoomPlanner.js';
 import styles from './EditorPanels.module.css';
 
 /**
- * Инспектор помещения (PROMPT 24 §24).
+ * Инспектор помещения (PROMPT 24 §24, PROMPT 26 §12–§13).
  *
  * ## Управление без сцены
  *
@@ -15,14 +23,13 @@ import styles from './EditorPanels.module.css';
  * поворот, блокировка, видимость. Это не дублирование ради галочки —
  * без него планировщик был бы недоступен с клавиатуры, а сцена стала бы
  * единственным способом управления.
+ *
+ * ## Только относящееся к выбранному (§13)
+ *
+ * Панель «Выбранный объект» появляется, когда объект выбран, и исчезает,
+ * когда нет. Показывать поля положения при пустом выделении значило бы
+ * предлагать править то, чего не выбрано.
  */
-
-const STATUS_LABELS: Readonly<Record<RoomStatus, string>> = {
-  VALID: 'Размещение корректно',
-  WARNING: 'Есть замечания к размещению',
-  INVALID: 'Размещение невозможно',
-  NEEDS_CONFIRMATION: 'Правила проходов не заданы',
-};
 
 export interface RoomInspectorProps {
   readonly room: Room;
@@ -40,192 +47,179 @@ export interface RoomInspectorProps {
   readonly onRemove: (id: InstanceId) => void;
 }
 
-const number = (value: string, fallback: number): number => {
-  const parsed = Number(value.replace(',', '.'));
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
 export function RoomInspector(props: RoomInspectorProps): React.JSX.Element {
   const size = roomSize(props.room);
   const rectangular = isRectangular(props.room);
   const selected = props.selected;
   const extent = selected === undefined ? undefined : props.extents.get(instanceKey(selected));
+  const status = ROOM_STATUS[props.status];
 
   return (
-    <aside className={styles.inspector} aria-label="Свойства помещения">
-      <h2 className={styles.panelTitle}>{props.room.name}</h2>
-      <p className={styles.subtitle}>{STATUS_LABELS[props.status]}</p>
+    <>
+      <Panel id="room" title={props.room.name}>
+        <StatusIndicator
+          tone={status.tone}
+          label={status.label}
+          {...(status.hint === undefined ? {} : { detail: status.hint })}
+          live
+        />
 
-      <div className={styles.rows}>
-        <label className={styles.row}>
-          <span className={styles.rowLabel}>Ширина, мм</span>
-          <input
-            className={styles.rowValue}
-            type="number"
-            value={size.width}
-            disabled={!rectangular}
-            onChange={(event) => {
-              props.onRoomSize(number(event.target.value, size.width), size.depth, size.height);
-            }}
-          />
-        </label>
-        <label className={styles.row}>
-          <span className={styles.rowLabel}>Глубина, мм</span>
-          <input
-            className={styles.rowValue}
-            type="number"
-            value={size.depth}
-            disabled={!rectangular}
-            onChange={(event) => {
-              props.onRoomSize(size.width, number(event.target.value, size.depth), size.height);
-            }}
-          />
-        </label>
-        <label className={styles.row}>
-          <span className={styles.rowLabel}>Высота, мм</span>
-          <input
-            className={styles.rowValue}
-            type="number"
-            value={size.height}
-            disabled={!rectangular}
-            onChange={(event) => {
-              props.onRoomSize(size.width, size.depth, number(event.target.value, size.height));
-            }}
-          />
-        </label>
-        <label className={styles.row}>
-          <span className={styles.rowLabel}>Уровень пола, мм</span>
-          <input
-            className={styles.rowValue}
-            type="number"
-            value={props.room.floor.elevation}
-            onChange={(event) => {
-              props.onFloorElevation(number(event.target.value, props.room.floor.elevation));
-            }}
-          />
-        </label>
-        <label className={styles.row}>
-          <span className={styles.rowLabel}>Показывать потолок</span>
-          <input
-            type="checkbox"
-            checked={props.room.ceiling.visible}
-            onChange={(event) => {
-              props.onCeilingVisible(event.target.checked);
-            }}
-          />
-        </label>
-      </div>
+        {/*
+          Габарит правится только у прямоугольной комнаты: у произвольного
+          контура «ширина» не определена, и молча превратить его в
+          прямоугольник значило бы уничтожить ниши и выступы. Поля
+          выключаются с объяснением, а не исчезают.
+        */}
+        <NumberInput
+          label="Ширина"
+          unit="мм"
+          value={size.width}
+          min={1}
+          disabled={!rectangular}
+          onChange={(value) => {
+            props.onRoomSize(value, size.depth, size.height);
+          }}
+        />
+        <NumberInput
+          label="Глубина"
+          unit="мм"
+          value={size.depth}
+          min={1}
+          disabled={!rectangular}
+          onChange={(value) => {
+            props.onRoomSize(size.width, value, size.height);
+          }}
+        />
+        <NumberInput
+          label="Высота"
+          unit="мм"
+          value={size.height}
+          min={1}
+          disabled={!rectangular}
+          onChange={(value) => {
+            props.onRoomSize(size.width, size.depth, value);
+          }}
+        />
+        <NumberInput
+          label="Уровень пола"
+          unit="мм"
+          value={props.room.floor.elevation}
+          hint="Подиум поднимает мебель: шкаф, помещавшийся на полу, на подиуме может упереться в потолок."
+          onChange={props.onFloorElevation}
+        />
+        <Switch
+          label="Показывать потолок"
+          checked={props.room.ceiling.visible}
+          onChange={props.onCeilingVisible}
+        />
 
-      {/*
-        Габарит правится только у прямоугольной комнаты: у произвольного
-        контура «ширина» не определена, и молча превратить его в
-        прямоугольник значило бы уничтожить ниши и выступы. Поле
-        выключается с объяснением, а не исчезает.
-      */}
-      {rectangular ? null : (
-        <p className={styles.pending}>
-          Контур помещения не прямоугольный: габарит задаётся стенами. Правка ширины и глубины для него не определена.
-        </p>
-      )}
+        {rectangular ? null : (
+          <p className={styles.subtitle}>
+            Контур помещения не прямоугольный: габарит задаётся стенами. Правка ширины и глубины для
+            него не определена.
+          </p>
+        )}
+      </Panel>
 
-      <h3 className={styles.panelTitle}>Стены</h3>
-      <dl className={styles.rows}>
-        {props.room.walls.map((wall, index) => (
-          <div key={wall.id} className={styles.row}>
-            <dt className={styles.rowLabel}>Стена {index + 1}</dt>
-            <dd className={styles.rowValue}>
-              {formatMm(Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z))} × {formatMm(wall.height)} мм, толщина{' '}
-              {formatMm(wall.thickness)}
-            </dd>
-          </div>
-        ))}
-      </dl>
-
-      {props.room.openings.length === 0 ? null : (
-        <>
-          <h3 className={styles.panelTitle}>Проёмы</h3>
-          <dl className={styles.rows}>
-            {props.room.openings.map((opening) => (
-              <div key={opening.id} className={styles.row}>
-                <dt className={styles.rowLabel}>
-                  {opening.kind === 'door' ? 'Дверь' : opening.kind === 'window' ? 'Окно' : 'Проём'}
-                </dt>
-                <dd className={styles.rowValue}>
-                  {formatMm(opening.width)} × {formatMm(opening.height)} мм, от {formatMm(opening.position)}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </>
-      )}
-
-      {props.room.obstacles.length === 0 ? null : (
-        <>
-          <h3 className={styles.panelTitle}>Препятствия</h3>
-          <dl className={styles.rows}>
-            {props.room.obstacles.map((obstacle) => (
-              <div key={obstacle.id} className={styles.row}>
-                <dt className={styles.rowLabel}>{obstacle.name ?? obstacle.kind}</dt>
-                <dd className={styles.rowValue}>
-                  {formatMm(obstacle.size.x)} × {formatMm(obstacle.size.y)} × {formatMm(obstacle.size.z)} мм
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </>
-      )}
-
-      <h3 className={styles.panelTitle}>Мебель в помещении</h3>
-      {props.room.furnitureInstances.length === 0 ? (
-        <p className={styles.pending}>Мебель ещё не расставлена.</p>
-      ) : (
+      <Panel id="room-structure" title="Конструкция" tone="sunken">
         <dl className={styles.rows}>
-          {props.room.furnitureInstances.map((instance) => (
-            <div key={instance.id} className={styles.row}>
+          {props.room.walls.map((wall, index) => (
+            <div key={wall.id} className={styles.row}>
+              <dt className={styles.rowLabel}>Стена {index + 1}</dt>
+              <dd className={styles.rowValue}>
+                {formatMm(Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z))} ×{' '}
+                {formatMm(wall.height)} мм, толщина {formatMm(wall.thickness)}
+              </dd>
+            </div>
+          ))}
+          {props.room.openings.map((opening) => (
+            <div key={opening.id} className={styles.row}>
               <dt className={styles.rowLabel}>
-                {props.furnitureNames.get(instance.furnitureId) ?? instance.furnitureId}
+                {opening.kind === 'door' ? 'Дверь' : opening.kind === 'window' ? 'Окно' : 'Проём'}
               </dt>
               <dd className={styles.rowValue}>
-                X {formatMm(instance.position.x)} · Z {formatMm(instance.position.z)}
-                {instance.locked ? ' · заблокировано' : ''}
-                {instance.visible ? '' : ' · скрыто'}
+                {formatMm(opening.width)} × {formatMm(opening.height)} мм, от{' '}
+                {formatMm(opening.position)}
+              </dd>
+            </div>
+          ))}
+          {props.room.obstacles.map((obstacle) => (
+            <div key={obstacle.id} className={styles.row}>
+              <dt className={styles.rowLabel}>{obstacle.name ?? obstacle.kind}</dt>
+              <dd className={styles.rowValue}>
+                {formatMm(obstacle.size.x)} × {formatMm(obstacle.size.y)} ×{' '}
+                {formatMm(obstacle.size.z)} мм
               </dd>
             </div>
           ))}
         </dl>
-      )}
+      </Panel>
+
+      <Panel id="room-furniture" title="Мебель в помещении">
+        {props.room.furnitureInstances.length === 0 ? (
+          <EmptyState
+            compact
+            title="В помещении пока нет мебели"
+            description="Выберите проект из библиотеки слева и разместите его."
+          />
+        ) : (
+          <dl className={styles.rows}>
+            {props.room.furnitureInstances.map((instance) => (
+              <div key={instance.id} className={styles.row}>
+                <dt className={styles.rowLabel}>
+                  {props.furnitureNames.get(instance.furnitureId) ?? instance.furnitureId}
+                </dt>
+                <dd className={styles.rowValue}>
+                  X {formatMm(instance.position.x)} · Z {formatMm(instance.position.z)}
+                  {instance.locked ? ' · заблокировано' : ''}
+                  {instance.visible ? '' : ' · скрыто'}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </Panel>
 
       {selected === undefined ? null : (
-        <>
-          <h3 className={styles.panelTitle}>Выбранный объект</h3>
-          <div className={styles.rows}>
-            <label className={styles.row}>
-              <span className={styles.rowLabel}>Положение X, мм</span>
-              <input
-                className={styles.rowValue}
-                type="number"
-                value={selected.position.x}
-                onChange={(event) => {
-                  props.onMove(selected.id, { ...selected.position, x: number(event.target.value, selected.position.x) });
-                }}
-              />
-            </label>
-            <label className={styles.row}>
-              <span className={styles.rowLabel}>Положение Z, мм</span>
-              <input
-                className={styles.rowValue}
-                type="number"
-                value={selected.position.z}
-                onChange={(event) => {
-                  props.onMove(selected.id, { ...selected.position, z: number(event.target.value, selected.position.z) });
-                }}
-              />
-            </label>
-            <div className={styles.row}>
-              <span className={styles.rowLabel}>След</span>
-              <span className={styles.rowValue}>{footprintLabel(selected, extent)}</span>
-            </div>
-          </div>
+        <Panel
+          id="room-selection"
+          title="Выбранный объект"
+          subtitle={footprintLabel(selected, extent)}
+        >
+          <NumberInput
+            label="Положение X"
+            unit="мм"
+            value={selected.position.x}
+            disabled={selected.locked}
+            onChange={(value) => {
+              props.onMove(selected.id, { ...selected.position, x: value });
+            }}
+          />
+          <NumberInput
+            label="Положение Z"
+            unit="мм"
+            value={selected.position.z}
+            disabled={selected.locked}
+            onChange={(value) => {
+              props.onMove(selected.id, { ...selected.position, z: value });
+            }}
+          />
+
+          <Switch
+            label="Заблокировано"
+            hint="Заблокированный объект не двигается случайным жестом."
+            checked={selected.locked}
+            onChange={(locked) => {
+              props.onFlags(selected.id, { locked });
+            }}
+          />
+          <Switch
+            label="Показывать объект"
+            checked={selected.visible}
+            onChange={(visible) => {
+              props.onFlags(selected.id, { visible });
+            }}
+          />
 
           <div className={styles.actions}>
             <Button
@@ -238,26 +232,13 @@ export function RoomInspector(props: RoomInspectorProps): React.JSX.Element {
             </Button>
             <Button
               onClick={() => {
-                props.onFlags(selected.id, { locked: !selected.locked });
-              }}
-            >
-              {selected.locked ? 'Разблокировать' : 'Заблокировать'}
-            </Button>
-            <Button
-              onClick={() => {
-                props.onFlags(selected.id, { visible: !selected.visible });
-              }}
-            >
-              {selected.visible ? 'Скрыть' : 'Показать'}
-            </Button>
-            <Button
-              onClick={() => {
                 props.onDuplicate(selected.id);
               }}
             >
               Дублировать
             </Button>
             <Button
+              variant="danger"
               onClick={() => {
                 props.onRemove(selected.id);
               }}
@@ -265,8 +246,8 @@ export function RoomInspector(props: RoomInspectorProps): React.JSX.Element {
               Убрать из помещения
             </Button>
           </div>
-        </>
+        </Panel>
       )}
-    </aside>
+    </>
   );
 }

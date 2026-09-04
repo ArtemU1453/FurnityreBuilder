@@ -16,7 +16,7 @@ const library = (page: Page) => page.getByLabel('Библиотека проек
 const cards = (page: Page) => library(page).getByRole('list', { name: 'Проекты', exact: true }).getByRole('listitem');
 
 async function openLibrary(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Мои проекты' }).click();
+  await page.getByRole('radio', { name: 'Библиотека' }).click();
   await expect(library(page)).toBeVisible();
 }
 
@@ -101,7 +101,7 @@ test('удаление спрашивает подтверждение, а не 
   await expect(cards(page)).toHaveCount(1);
   await expect(library(page).getByText(/будет удалён без возможности вернуть/)).toBeVisible();
 
-  await library(page).getByRole('button', { name: 'Да, удалить' }).click();
+  await library(page).getByRole('dialog').getByRole('button', { name: 'Удалить' }).click();
   await expect(library(page).getByText('Проектов пока нет')).toBeVisible();
 });
 
@@ -151,11 +151,12 @@ test('испорченный файл объясняется словами, а 
 test('проект из библиотеки размещается в помещении дважды (§13–§14)', async ({ page }) => {
   await saveCurrent(page);
 
-  await page.getByRole('button', { name: 'Помещение', exact: true }).click();
+  await page.getByRole('radio', { name: 'Помещение' }).click();
+  await page.getByRole('button', { name: 'Создать помещение' }).click();
   const canvas = page.getByRole('img', { name: /Помещение/ });
   await expect(canvas).toBeVisible();
 
-  await page.getByLabel('Проект для размещения').selectOption({ label: 'Новый проект' });
+  await page.getByLabel('Проект из библиотеки').selectOption({ label: 'Новый проект' });
   const place = page.getByRole('button', { name: 'Разместить в помещении' });
   await place.click();
   await expect(canvas).toHaveAttribute('aria-label', /Мебели: 1/);

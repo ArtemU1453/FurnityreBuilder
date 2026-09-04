@@ -52,6 +52,9 @@
 .partLabel {
   fill: var(--text-secondary);
   font-family: var(--font-num);
+  /* Размер в единицах чертежа (миллиметрах viewBox), а не в пикселях
+     экрана: шкала типографики здесь неприменима — она про интерфейс.
+     Подпись масштабируется вместе с чертежом, как и должна. */
   font-size: 26px;
   text-anchor: middle;
   dominant-baseline: middle;
@@ -62,6 +65,9 @@
   fill: var(--text-tertiary);
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  /* Размер в единицах чертежа (миллиметрах viewBox), а не в пикселях
+     экрана: шкала типографики здесь неприменима — она про интерфейс.
+     Подпись масштабируется вместе с чертежом, как и должна. */
   font-size: 20px;
   text-anchor: middle;
   dominant-baseline: middle;
@@ -71,6 +77,9 @@
 .title {
   fill: var(--text-tertiary);
   font-family: var(--font-num);
+  /* Размер в единицах чертежа (миллиметрах viewBox), а не в пикселях
+     экрана: шкала типографики здесь неприменима — она про интерфейс.
+     Подпись масштабируется вместе с чертежом, как и должна. */
   font-size: 30px;
   letter-spacing: 0.06em;
   dominant-baseline: middle;
@@ -80,8 +89,8 @@
   margin: var(--sp-2) 0 0;
   padding: 0;
   list-style: none;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-family: var(--font-num);
+  font-size: var(--t-caption-size);
   line-height: 1.5;
   color: var(--text-tertiary);
   overflow-x: auto;
@@ -95,6 +104,6 @@
   margin: var(--sp-2) 0 0;
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--t-caption-size);
   color: var(--text-secondary);
 }

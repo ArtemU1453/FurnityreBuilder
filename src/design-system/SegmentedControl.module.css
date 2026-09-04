@@ -1,0 +1,103 @@
+.group {
+  display: inline-flex;
+  /* Переносится на узком экране вместо того, чтобы выехать за край:
+     шесть видов камеры в 366px в одну строку не помещаются, а
+     горизонтальная прокрутка страницы — всегда дефект раскладки. */
+  flex-wrap: wrap;
+  max-width: 100%;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-sunken);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-md);
+}
+
+.group[data-stretch] {
+  display: flex;
+  width: 100%;
+}
+
+.group[data-stretch] .segment {
+  flex: 1;
+  /* Ужимается ниже длины подписи: иначе четыре раздела не помещаются в
+     390px, и вся страница едет вбок. */
+  min-width: 0;
+}
+
+.segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--h-control-sm);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--t-label-size);
+  line-height: var(--t-label-lh);
+  letter-spacing: var(--t-label-ls);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  /* Только цвет: выбранный сегмент не переезжает пружиной, потому что
+     переезд подложки под пальцем читается как задержка отклика. */
+  transition:
+    background-color var(--duration-color) var(--easing-standard),
+    color var(--duration-color) var(--easing-standard);
+}
+
+.segment:hover {
+  color: var(--text-primary);
+}
+
+.segment[data-selected] {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-1);
+}
+
+/*
+ * Радиокнопка лежит поверх сегмента и невидима, но занимает его целиком.
+ * Нулевой размер здесь был бы ошибкой: нажатие тогда доходит до кнопки
+ * только через подпись, а сам элемент управления недостижим — ни для
+ * автоматизации, ни для вспомогательных технологий, которые целятся в
+ * него, а не в текст рядом.
+ */
+/* Сама радиокнопка и есть зона попадания: она перекрывает сегмент и
+   вытянута до 44px по высоте. Расширять зону псевдоэлементом подписи
+   нельзя — он оказался бы поверх кнопки и перехватывал бы нажатия. */
+.radio {
+  position: absolute;
+  inset: calc((var(--h-control-sm) - 44px) / 2) 0;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  /* Подпись позиционирована (в ней рисуется рамка фокуса) и потому
+     оказалась бы выше кнопки в порядке наложения. Кнопка обязана быть
+     сверху: нажатие должно доходить до неё, а не до текста. */
+  z-index: 1;
+}
+
+/* Фокус виден на сегменте, хотя фокус получает спрятанная радиокнопка. */
+.radio:focus-visible + .text::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-sm);
+  outline: var(--border-focus) solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.radio:disabled + .text {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.text {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

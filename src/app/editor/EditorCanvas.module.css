@@ -9,7 +9,18 @@
 
 .canvas {
   width: 100%;
+  /*
+   * Высота ограничена окном (PROMPT 26 §27). `height: auto` при
+   * viewBox высокого шкафа давал схему в 1075 px: изделие не помещалось
+   * на экран, и до его низа приходилось прокручивать страницу — а
+   * заодно ручка изменения габарита оказывалась за пределами окна и до
+   * неё нельзя было дотянуться указателем.
+   *
+   * `preserveAspectRatio` у SVG вписывает чертёж в отведённую высоту,
+   * поэтому пропорции не искажаются: схема просто становится мельче.
+   */
   height: auto;
+  max-height: calc(100vh - 16rem);
   display: block;
   background: var(--bg-canvas);
   border: var(--border-hairline) solid var(--border-subtle);
@@ -39,18 +50,18 @@
 .part:focus-visible,
 .cell:focus-visible {
   outline: none;
-  stroke: var(--focus-ring, #2563eb);
+  stroke: var(--focus-ring, var(--accent-500));
   stroke-width: 3;
 }
 
 .selected {
-  stroke: var(--focus-ring, #2563eb);
+  stroke: var(--focus-ring, var(--accent-500));
   stroke-width: 3;
   stroke-dasharray: none;
 }
 
 .hovered {
-  stroke: var(--focus-ring, #2563eb);
+  stroke: var(--focus-ring, var(--accent-500));
   stroke-width: 2;
 }
 
@@ -69,7 +80,7 @@
 
 /* Сработавший магнит виден сразу: сплошная линия вместо пунктира. */
 .previewSnapped {
-  stroke: var(--focus-ring, #2563eb);
+  stroke: var(--focus-ring, var(--accent-500));
   stroke-dasharray: none;
 }
 
@@ -77,6 +88,9 @@
   fill: var(--text-secondary);
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  /* Размер в единицах чертежа (миллиметрах viewBox), а не в пикселях
+     экрана: шкала типографики здесь неприменима — она про интерфейс.
+     Подпись масштабируется вместе с чертежом, как и должна. */
   font-size: 26px;
   text-anchor: middle;
   pointer-events: none;
@@ -99,13 +113,13 @@
 
 .handleVertical:hover,
 .handleHorizontal:hover {
-  fill: color-mix(in srgb, var(--focus-ring, #2563eb) 18%, transparent);
+  fill: color-mix(in srgb, var(--focus-ring, var(--accent-500)) 18%, transparent);
 }
 
 .emptyText {
   fill: var(--text-tertiary);
   font-family: var(--font-num);
-  font-size: 14px;
+  font-size: var(--t-body-size);
   text-anchor: middle;
   dominant-baseline: middle;
 }

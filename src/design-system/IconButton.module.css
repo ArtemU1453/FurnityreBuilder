@@ -1,0 +1,76 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control-md);
+  height: var(--h-control-md);
+  padding: 0;
+  border: var(--border-hairline) solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-color) var(--easing-standard),
+    color var(--duration-color) var(--easing-standard);
+}
+
+/* Зона попадания 44px, при том что рисунок остаётся 32px. */
+.button::after {
+  content: '';
+  position: absolute;
+  inset: calc((var(--h-control-md) - 44px) / 2);
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+}
+
+/* Отклик на нажатие, а не на отпускание — как у обычной кнопки. */
+.button:active:not(:disabled) {
+  transform: scale(0.94);
+  transition: transform 100ms var(--easing-standard);
+}
+
+.button:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.pressed {
+  background: var(--accent-100);
+  color: var(--accent-700);
+}
+
+.tip {
+  position: absolute;
+  top: calc(100% + var(--sp-2));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-xs);
+  background: var(--n-800);
+  color: var(--n-0);
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fade) var(--easing-standard);
+}
+
+/* Подсказка появляется и по наведению, и по фокусу с клавиатуры. */
+.button:hover + .tip,
+.button:focus-visible + .tip {
+  opacity: 1;
+}

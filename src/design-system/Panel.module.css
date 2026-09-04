@@ -1,0 +1,66 @@
+.panel {
+  display: grid;
+  /* См. AppShell.module.css: неявный трек `auto` растягивается по
+     max-content и выносит панель за край экрана. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-content: start;
+  padding: var(--sp-4);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  /* Одна тень на все панели. Уровень 1 — «лежит на фоне», не «парит». */
+  box-shadow: var(--shadow-1);
+}
+
+.panel[data-tone='sunken'] {
+  background: var(--bg-sunken);
+  box-shadow: none;
+}
+
+.panel[data-wide] {
+  grid-column: 1 / -1;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.headings {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--t-heading-size);
+  line-height: var(--t-heading-lh);
+  letter-spacing: var(--t-heading-ls);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  letter-spacing: var(--t-caption-ls);
+  color: var(--text-tertiary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.divider {
+  margin: 0;
+  border: 0;
+  border-top: var(--border-hairline) solid var(--border-subtle);
+}

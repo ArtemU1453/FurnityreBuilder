@@ -1,0 +1,46 @@
+.wrap {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--h-control-md);
+  padding: 0 var(--sp-6) 0 var(--sp-2);
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-default);
+  border-radius: var(--r-sm);
+  appearance: none;
+  cursor: pointer;
+  transition: border-color var(--duration-color) var(--easing-standard);
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.select:disabled {
+  color: var(--text-tertiary);
+  background: var(--bg-sunken);
+  cursor: not-allowed;
+}
+
+/* Стрелка рисуется границами, а не картинкой: она наследует цвет темы и
+   не требует ни файла, ни шрифта иконок. */
+.chevron {
+  position: absolute;
+  right: var(--sp-3);
+  top: 50%;
+  width: 0.45em;
+  height: 0.45em;
+  margin-top: -0.3em;
+  border-right: var(--border-emphasis) solid var(--text-tertiary);
+  border-bottom: var(--border-emphasis) solid var(--text-tertiary);
+  transform: rotate(45deg);
+  pointer-events: none;
+}

@@ -1,95 +1,23 @@
 /*
- * Панели редактора (PROMPT 22 §2, §24–§26).
+ * Оформление содержимого панелей: строки «подпись — значение», подписи
+ * и ряды действий (PROMPT 22 §24–§26, PROMPT 26 §8).
  *
- * Сетка редактора: тулбар сверху, боковая панель — холст — инспектор,
- * строка состояния снизу. На узком экране колонки складываются в одну
- * (§25): уменьшенная копия десктопной раскладки на телефоне нечитаема,
- * а вертикальный порядок «холст → параметры» остаётся рабочим.
+ * Каркаса здесь больше нет. Тулбар, рабочая область, строка состояния и
+ * переключатель вида переехали в оболочку приложения
+ * (`src/app/shell/`) и в design system: держать вторую сетку рядом с
+ * первой — ровно то расхождение, которое убирает PROMPT 26 §4.
  */
-
-.editor {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-height: 100vh;
-  background: var(--bg-app);
-}
-
-.workspace {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(240px, 300px);
-  gap: var(--sp-3);
-  padding: var(--sp-3);
-  align-items: start;
-}
-
-/* Скрытая рабочая область: `display: grid` сильнее атрибута `hidden`,
-   поэтому его действие нужно вернуть явно. Скрывать, а не размонтировать,
-   чтобы переключение на библиотеку не пересоздавало контекст WebGL. */
-.workspace[hidden] {
-  display: none;
-}
-
-@media (max-width: 1100px) {
-  .workspace {
-    /* Планшет: инспектор уходит под холст, боковая панель остаётся. */
-    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-  }
-
-  /* Иначе автораскладка уронила бы инспектор в первую колонку второго
-     ряда — под параметры, а не под изделие, к которому он относится. */
-  .inspector {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 760px) {
-  .workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.sidebar,
-.inspector {
-  display: grid;
-  gap: var(--sp-2);
-  align-content: start;
-  max-height: calc(100vh - 160px);
-  overflow-y: auto;
-}
-
-@media (max-width: 760px) {
-  .sidebar,
-  .inspector {
-    max-height: none;
-  }
-}
-
-.canvasArea {
-  display: grid;
-  gap: var(--sp-2);
-  align-content: start;
-  position: sticky;
-  top: var(--sp-3);
-}
-
-@media (max-width: 760px) {
-  .canvasArea {
-    position: static;
-    /* Холст первым: на телефоне сначала показывают изделие, потом поля. */
-    order: -1;
-  }
-}
 
 .panelTitle {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--t-label-size);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .subtitle {
   margin: 2px 0 0;
-  font-size: 11px;
+  font-size: var(--t-caption-size);
   color: var(--text-tertiary);
 }
 
@@ -104,7 +32,7 @@
   grid-template-columns: 1fr auto;
   gap: var(--sp-2);
   align-items: baseline;
-  font-size: 12px;
+  font-size: var(--t-caption-size);
 }
 
 .rowLabel {
@@ -128,120 +56,26 @@
 
 /* ── Тулбар ────────────────────────────────────────────────────────────── */
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: var(--border-hairline) solid var(--border-subtle);
-  background: var(--bg-panel);
-}
 
-.toolbarTitle {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
 
-.toolbarSpacer {
-  flex: 1 1 auto;
-}
 
-.toolbarState {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
 
-.chip {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: var(--border-hairline) solid var(--border-subtle);
-  color: var(--text-secondary);
-}
 
-.chip[data-status='READY_FOR_PRODUCTION'] {
-  color: var(--color-success, #1c7c40);
-}
 
-.chip[data-status='INVALID'] {
-  color: var(--color-danger, #b3261e);
-}
 
 /* ── Строка состояния ──────────────────────────────────────────────────── */
 
-.statusBar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-3);
-  border-top: var(--border-hairline) solid var(--border-subtle);
-  background: var(--bg-panel);
-  font-size: 12px;
-}
 
-.statusItem[data-tone='error'] {
-  color: var(--color-danger, #b3261e);
-}
 
-.statusItem[data-tone='muted'] {
-  color: var(--text-tertiary);
-}
 
-.statusIssue {
-  font: inherit;
-  color: var(--text-primary);
-  background: none;
-  border: none;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
 
-.statusIssue:focus-visible {
-  outline: 2px solid var(--focus-ring, #2563eb);
-  outline-offset: 2px;
-}
 
 /*
  * Переключатель вида холста (PROMPT 23). Сегментированный контрол, а не
  * вкладки: вкладка обещает разное содержимое, а здесь одно и то же
  * изделие, показанное двумя способами.
  */
-.viewSwitch {
-  display: inline-flex;
-  align-self: start;
-  border-radius: var(--r-md);
-  border: var(--border-hairline) solid var(--border-subtle);
-  overflow: hidden;
-}
 
-.viewSwitch button {
-  padding: 6px 14px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
 
-.viewSwitch button + button {
-  border-left: var(--border-hairline) solid var(--border-subtle);
-}
 
-.viewSwitch button[aria-pressed='true'] {
-  background: var(--accent-500);
-  color: var(--text-inverse);
-  font-weight: 600;
-}
 
-.viewSwitch button:focus-visible {
-  outline: var(--border-focus) solid var(--focus-ring);
-  outline-offset: -2px;
-}

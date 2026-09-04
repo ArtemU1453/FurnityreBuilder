@@ -48,7 +48,7 @@ test('приложение не выполняет ни одного внешн�
 test('изменение габарита сразу пересчитывает геометрию, без задержки', async ({ page }) => {
   await page.goto('/');
 
-  const width = page.getByLabel('Ширина, мм');
+  const width = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
   await expect(page.locator('li', { hasText: 'Внутренняя ширина' })).toContainText('968');
 
   await width.fill('1400');
@@ -58,7 +58,7 @@ test('изменение габарита сразу пересчитывает 
 
 test('отмена возвращает предыдущее состояние', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Ширина, мм').fill('1400');
+  await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1400');
   await expect(page.locator('li', { hasText: 'Внутренняя ширина' })).toContainText('1368');
 
   await page.getByRole('button', { name: 'Отменить' }).click();
@@ -67,14 +67,14 @@ test('отмена возвращает предыдущее состояние'
 
 test('ошибка объясняется текстом, а не только цветом, и не блокирует работу', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Глубина, мм').fill('0');
+  await page.getByRole('spinbutton', { name: 'Глубина', exact: true }).fill('0');
 
   const message = page.getByRole('alert').first();
   await expect(message).toBeVisible();
   await expect(message).toContainText('больше нуля');
 
   // Поле остаётся доступным для правки: приложение не отбирает управление.
-  await expect(page.getByLabel('Глубина, мм')).toBeEditable();
+  await expect(page.getByRole('spinbutton', { name: 'Глубина', exact: true })).toBeEditable();
 });
 
 test('интерфейс доступен с клавиатуры и имеет ссылку пропуска навигации', async ({ page }) => {
@@ -84,8 +84,8 @@ test('интерфейс доступен с клавиатуры и имеет 
   await expect(page.getByRole('link', { name: 'Перейти к содержимому' })).toBeFocused();
 
   // Все поля габаритов достижимы табуляцией и подписаны.
-  for (const label of ['Ширина, мм', 'Высота, мм', 'Глубина, мм', 'Толщина, мм']) {
-    await expect(page.getByLabel(label)).toBeVisible();
+  for (const label of ['Ширина', 'Высота', 'Глубина', 'Толщина']) {
+    await expect(page.getByRole('spinbutton', { name: label, exact: true })).toBeVisible();
   }
 });
 
@@ -181,6 +181,9 @@ test('способ открывания ящиков можно выбрать (
 
 test('производственная документация скачивается и не запускается дважды (PROMPT 20 §19)', async ({ page }) => {
   await page.goto('/');
+  // Производство — раздел приложения, а не панель в колонке параметров
+  // (PROMPT 26 §26).
+  await page.getByRole('radio', { name: 'Производство' }).click();
 
   const pdfButton = page.getByRole('button', { name: 'Скачать PDF' });
   const xlsxButton = page.getByRole('button', { name: 'Скачать XLSX' });
@@ -219,25 +222,42 @@ test('производственная документация скачивае
 
 test('чеклист готовности к производству виден и обновляется вместе с проектом (PROMPT 21 §17)', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('radio', { name: 'Производство' }).click();
 
   // Общий статус: подтверждены не все производственные правила, и об этом
-  // сказано словами, а не только цветом.
-  await expect(page.getByText('Требуется подтверждение производственных правил')).toBeVisible();
+  // сказано словами, а не только цветом. Формулировка — из единого
+  // словаря состояний (PROMPT 26 §14), одна и та же в тулбаре, строке
+  // состояния и здесь.
+  await expect(
+    page.getByLabel('Готовность к производству').getByText('Требуется подтверждение правил'),
+  ).toBeVisible();
 
-  // Все восемь разделов чеклиста на месте. Локатор ограничен панелью
-  // производства: слово «Материалы» есть и в заголовке своей панели.
-  const production = page.getByLabel('Производственная документация');
+  // Все восемь разделов чеклиста на месте.
+  const production = page.getByLabel('Готовность к производству');
   for (const title of ['Геометрия', 'Материалы', 'Кромка', 'Фурнитура', 'Присадка', 'Раскрой', 'Спецификация', 'Документация']) {
     await expect(production.getByText(title, { exact: true })).toBeVisible();
   }
 
   // Недопустимый габарит переводит изделие в «изготовление невозможно»
   // сразу, без отдельной кнопки «проверить».
-  await page.getByLabel('Ширина, мм').fill('-100');
-  await expect(page.getByText('Изготовление невозможно: есть ошибки')).toBeVisible();
+  // Габарит правится в конструкторе, а результат виден в производстве:
+  // расчёт производный, отдельного «пересчитать» нет.
+  const width = (): ReturnType<Page['getByRole']> =>
+    page.getByRole('spinbutton', { name: 'Ширина', exact: true });
 
-  await page.getByLabel('Ширина, мм').fill('1000');
-  await expect(page.getByText('Требуется подтверждение производственных правил')).toBeVisible();
+  await page.getByRole('radio', { name: 'Конструктор' }).click();
+  await width().fill('-100');
+  await page.getByRole('radio', { name: 'Производство' }).click();
+  await expect(
+    page.getByLabel('Готовность к производству').getByText('Изготовление невозможно'),
+  ).toBeVisible();
+
+  await page.getByRole('radio', { name: 'Конструктор' }).click();
+  await width().fill('1000');
+  await page.getByRole('radio', { name: 'Производство' }).click();
+  await expect(
+    page.getByLabel('Готовность к производству').getByText('Требуется подтверждение правил'),
+  ).toBeVisible();
 });
 
 
@@ -249,7 +269,7 @@ test('чеклист готовности к производству виден
  */
 async function openSchema(page: Page): Promise<void> {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Схема', exact: true }).click();
+  await page.getByRole('radio', { name: 'Схема' }).click();
   await expect(page.getByRole('application', { name: /Схема изделия/ })).toBeVisible();
 }
 
@@ -310,7 +330,7 @@ test('объект на холсте выбирается с клавиатур�
 test('ширина изделия меняется перетаскиванием ручки на холсте (PROMPT 22 §21–§23)', async ({ page }) => {
   await openSchema(page);
 
-  const widthField = page.getByLabel('Ширина, мм');
+  const widthField = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
   await expect(widthField).toHaveValue('1000');
 
   const handle = page.getByRole('application', { name: /Схема изделия/ }).locator('[aria-label="Изменить ширину изделия перетаскиванием"]');
@@ -346,7 +366,7 @@ test('ширина изделия меняется перетаскивание�
 test('Esc отменяет жест изменения габарита до отпускания', async ({ page }) => {
   await openSchema(page);
 
-  const widthField = page.getByLabel('Ширина, мм');
+  const widthField = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
   const handle = page.getByRole('application', { name: /Схема изделия/ }).locator('[aria-label="Изменить ширину изделия перетаскиванием"]');
   const box = (await handle.boundingBox())!;
 
@@ -366,26 +386,132 @@ test('Esc отменяет жест изменения габарита до о�
 test('проект сохраняется и восстанавливается после перезагрузки (PROMPT 22 §28)', async ({ page }) => {
   await page.goto('/');
 
-  const status = page.getByLabel('Состояние проекта');
-  await expect(status).toContainText('Есть несохранённые изменения');
+  // Состояние сохранения живёт в верхней строке рядом с именем проекта
+  // (PROMPT 26 §6): один ответ на вопрос в одном месте, а не в двух.
+  const saveState = page.getByRole('status').filter({ hasText: /Сохран|несохранённ/ });
+  await expect(saveState).toContainText('Есть несохранённые изменения');
 
-  await page.getByLabel('Ширина, мм').fill('1234');
-  await page.getByRole('button', { name: 'Сохранить' }).click();
-  await expect(status).toContainText('Сохранено');
+  await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1234');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(saveState).toContainText('Сохранено');
 
   await page.reload();
 
   // После перезагрузки открывается то, над чем работали, а не пустой шкаф.
-  await expect(page.getByLabel('Ширина, мм')).toHaveValue('1234');
-  await expect(status).toContainText('Сохранено');
+  await expect(page.getByRole('spinbutton', { name: 'Ширина', exact: true })).toHaveValue('1234');
+  await expect(saveState).toContainText('Сохранено');
 });
 
 test('строка состояния ведёт от текста ошибки к затронутому объекту (PROMPT 22 §29)', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByLabel('Ширина, мм').fill('-100');
+  await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('-100');
 
   const status = page.getByLabel('Состояние проекта');
   await expect(status).toContainText('Изготовление невозможно');
   await expect(status.getByRole('button')).toBeVisible();
+});
+
+/**
+ * Сквозной путь приложения (PROMPT 26 §34, §37).
+ *
+ * Проверяется не отдельная функция, а связность: одни и те же слова,
+ * одни и те же кнопки и одно и то же состояние на всех четырёх экранах.
+ * Ровно то, что аудит нашёл разошедшимся.
+ */
+test('путь Библиотека → Конструктор → Помещение → Производство и обратно (§32, §34)', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  const nav = page.getByRole('radiogroup', { name: 'Раздел' });
+  await expect(nav).toBeVisible();
+
+  // Контекст проекта виден всегда и не меняется от раздела к разделу.
+  const name = page.getByRole('heading', { level: 1 });
+  await expect(name).toHaveText('Новый проект');
+
+  // 1. Конструктор: правка габарита.
+  await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1200');
+  await expect(page.locator('li', { hasText: 'Внутренняя ширина' })).toContainText('1168');
+
+  // 2. Сохранение: состояние в верхней строке, без всплывающих уведомлений.
+  const saveState = page.getByRole('status').filter({ hasText: /Сохран|несохранённ/ });
+  await expect(saveState).toContainText('Есть несохранённые изменения');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(saveState).toContainText('Сохранено');
+
+  // 3. Библиотека: сохранённый проект на месте, имя то же.
+  await page.getByRole('radio', { name: 'Библиотека' }).click();
+  await expect(
+    page.getByRole('list', { name: 'Проекты', exact: true }).getByRole('listitem'),
+  ).toHaveCount(1);
+
+  // 4. Помещение: пустое состояние объясняет и предлагает действие.
+  await page.getByRole('radio', { name: 'Помещение' }).click();
+  await expect(page.getByText('Помещение ещё не создано')).toBeVisible();
+  await page.getByRole('button', { name: 'Создать помещение' }).click();
+  await expect(page.getByRole('img', { name: /Помещение/ })).toBeVisible();
+
+  // 5. Производство: тот же статус, что в строке состояния внизу.
+  await page.getByRole('radio', { name: 'Производство' }).click();
+  const readiness = page.getByLabel('Готовность к производству');
+  await expect(readiness).toContainText('Требуется подтверждение правил');
+  await expect(page.getByLabel('Состояние проекта')).toContainText(
+    'Требуется подтверждение правил',
+  );
+
+  // 6. Обратно в конструктор: правка на месте.
+  await page.getByRole('radio', { name: 'Конструктор' }).click();
+  await expect(page.getByRole('spinbutton', { name: 'Ширина', exact: true })).toHaveValue('1200');
+
+  // 7. История одна на документ и переходы между разделами её не рвут
+  // (§21): последним действием было создание помещения — его и отменяет
+  // кнопка, хотя нажата она в конструкторе.
+  await page.getByRole('button', { name: 'Отменить' }).click();
+  await page.getByRole('radio', { name: 'Помещение' }).click();
+  await expect(page.getByText('Помещение ещё не создано')).toBeVisible();
+
+  // Ширина при этом не пострадала: отменён ровно один шаг.
+  await page.getByRole('radio', { name: 'Конструктор' }).click();
+  await expect(page.getByRole('spinbutton', { name: 'Ширина', exact: true })).toHaveValue('1200');
+});
+
+test('единица измерения стоит в поле, а не в подписи (§9)', async ({ page }) => {
+  await page.goto('/');
+
+  // Подпись отвечает на вопрос «что это», единица — «в чём измеряется».
+  const width = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
+  await expect(width).toBeVisible();
+
+  // Пустое поле не превращается в ноль: это промежуточное состояние
+  // набора, из которого числа ещё нет.
+  await width.fill('');
+  await expect(width).toHaveValue('');
+  await expect(page.getByText('Введите число.')).toBeVisible();
+
+  // Недопустимое значение объясняется словами и НЕ зажимается молча:
+  // ноль доходит до домена, и сообщение приходит от него, а не от поля.
+  await width.fill('0');
+  await expect(page.getByText('Значение должно быть больше нуля.')).toBeVisible();
+  await expect(width).toHaveValue('0');
+
+  await width.fill('900');
+  await expect(page.getByText('Значение должно быть больше нуля.')).toBeHidden();
+});
+
+test('состояния имеют одни и те же слова во всех разделах (§14, §37)', async ({ page }) => {
+  await page.goto('/');
+
+  // Компактная плашка в верхней строке и полная подпись в строке
+  // состояния — одно состояние, один словарь.
+  await expect(page.getByLabel('Состояние проекта')).toContainText(
+    'Требуется подтверждение правил',
+  );
+
+  await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('-100');
+  await expect(page.getByLabel('Состояние проекта')).toContainText('Изготовление невозможно');
+
+  // Предупреждение не выглядит ошибкой: перед текстом стоит слово.
+  await expect(page.getByLabel('Состояние проекта').getByRole('button')).toContainText('Ошибка:');
 });

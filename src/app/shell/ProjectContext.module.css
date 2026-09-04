@@ -1,0 +1,33 @@
+.name {
+  margin: 0;
+  font-size: var(--t-heading-size);
+  line-height: var(--t-heading-lh);
+  letter-spacing: var(--t-heading-ls);
+  font-weight: 600;
+  color: var(--text-primary);
+  /* Длинное имя не выдавливает состояние сохранения за край. */
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size {
+  margin: 0;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  color: var(--text-tertiary);
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 600px) {
+  .size {
+    display: none;
+  }
+
+  .name {
+    max-width: 14ch;
+  }
+}

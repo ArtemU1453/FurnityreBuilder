@@ -1,0 +1,106 @@
+/*
+ * Диалог и лист — одна разметка, разная раскладка (PROMPT 26 §20, §27).
+ */
+
+.dialog {
+  padding: 0;
+  border: 0;
+  background: none;
+  max-width: min(30rem, calc(100vw - var(--sp-8)));
+  max-height: calc(100vh - var(--sp-8));
+  color: var(--text-primary);
+}
+
+.dialog::backdrop {
+  background: rgb(11 14 19 / 0.4);
+}
+
+.sheet {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-4);
+  /* Смещение ставит жест через transform; переход только для доводки без
+     жеста — во время перетаскивания он снимается. */
+  transition: transform var(--duration-fade) var(--easing-standard);
+}
+
+.sheet[data-dragging] {
+  transition: none;
+}
+
+/* Полоса для захвата видна только там, где лист можно тянуть. */
+.grabber {
+  display: none;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--t-title-size);
+  line-height: var(--t-title-lh);
+  letter-spacing: var(--t-title-ls);
+  font-weight: 600;
+}
+
+.description {
+  margin: 0;
+  font-size: var(--t-body-size);
+  line-height: var(--t-body-lh);
+  color: var(--text-secondary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+  margin-top: var(--sp-2);
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 600px) {
+  /*
+    Телефон: не уменьшенный диалог, а лист снизу. Он приходит оттуда же,
+    куда уходит, и оказывается под большим пальцем — в отличие от окна
+    посреди экрана, до середины которого дотянуться нечем.
+  */
+  .dialog {
+    max-width: none;
+    width: 100vw;
+    margin: 0;
+    margin-top: auto;
+    max-height: 90vh;
+  }
+
+  .sheet {
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    padding-bottom: max(var(--sp-5), env(safe-area-inset-bottom));
+    touch-action: none;
+  }
+
+  .grabber {
+    display: grid;
+    place-items: center;
+    margin: calc(var(--sp-3) * -1) 0 0;
+    padding: var(--sp-2) 0;
+    cursor: grab;
+  }
+
+  .grabberBar {
+    width: 2.5rem;
+    height: 4px;
+    border-radius: var(--r-full);
+    background: var(--border-default);
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions > * {
+    flex: 1;
+  }
+}

@@ -91,7 +91,7 @@ test('изменение числа секций перестраивает пе
   await page.getByRole('button', { name: /Применить секций/ }).click();
 
   // Счётчики читаем в панели результата: те же слова есть и в подписях полей.
-  const stats = page.getByRole('complementary', { name: 'Результат расчёта' });
+  const stats = page.getByRole('region', { name: 'Результат расчёта' });
 
   // 3 секции → 2 перегородки, и по подписи на каждую секцию.
   await expect(schema.getByText('SECTION 3')).toBeVisible();
@@ -109,11 +109,11 @@ test('индивидуальные ширины секций применяют�
   await page.goto('/');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
-  const stats = page.getByRole('complementary', { name: 'Результат расчёта' });
+  const stats = page.getByRole('region', { name: 'Результат расчёта' });
 
   // Габарит подбираем так, чтобы 300 + 500 + 400 сошлось с боковинами
   // и двумя перегородками: 1200 + 32 + 32 = 1264.
-  await page.getByLabel('Ширина, мм').fill('1264');
+  await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1264');
   await page.getByLabel('Секций', { exact: true }).fill('3');
   await page.getByRole('button', { name: /Применить секций/ }).click();
   await expect(stats.getByText('Секций').locator('..')).toContainText('3');
@@ -237,7 +237,7 @@ test('изменение габарита в поле обновляет схе�
   const widthDimBefore = await schema.getByText('1000 мм').count();
   expect(widthDimBefore).toBeGreaterThan(0);
 
-  await page.getByLabel('Ширина, мм').fill('1400');
+  await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1400');
 
   await expect(schema.getByText('1400 мм').first()).toBeVisible();
 });
@@ -259,7 +259,7 @@ test('материал и толщина детали подписаны в сх
 
   // Смена ТОЛЩИНЫ МАТЕРИАЛА (а не толщины корпуса) пересчитывает толщину
   // полки: до PROMPT 13 материал на геометрию не влиял вообще (§17).
-  await page.getByLabel('Корпусная плита 16 мм, мм').fill('18');
+  await page.getByRole('spinbutton', { name: 'Корпусная плита 16 мм', exact: true }).fill('18');
   await expect(schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first()).toContainText('Т 18 мм');
 });
 
@@ -305,7 +305,7 @@ test('задняя стенка и цоколь появляются в схем
   await expect(schema.locator('rect')).toHaveCount(6);
 
   // Цоколь: высота поднимает корпус и добавляет переднюю царгу.
-  await page.getByLabel('Высота цоколя, мм').fill('100');
+  await page.getByRole('spinbutton', { name: 'Высота цоколя', exact: true }).fill('100');
   await expect(schema.locator('text').filter({ hasText: 'PLINTH' }).first()).toBeVisible();
   await expect(schema.locator('rect')).toHaveCount(7);
 
@@ -346,17 +346,17 @@ test('модификаторы корпуса пересчитывают гео�
 
   // Антресоль: вторая оболочка, +4 детали (2 боковины, крышка, дно).
   await expect(schema.locator('rect')).toHaveCount(6);
-  await page.getByLabel('Высота антресоли, мм').fill('400');
+  await page.getByRole('spinbutton', { name: 'Высота антресоли', exact: true }).fill('400');
   await expect(schema.locator('rect')).toHaveCount(10);
   await expect(schema.locator('text').filter({ hasText: '(антресоль)' }).first()).toBeVisible();
 
   // Столешница: ещё одна деталь и другая полоса бюджета.
-  await page.getByLabel('Толщина столешницы, мм').fill('38');
+  await page.getByRole('spinbutton', { name: 'Толщина столешницы', exact: true }).fill('38');
   await expect(schema.locator('rect')).toHaveCount(11);
   await expect(schema.locator('text').filter({ hasText: 'COUNTERTOP' }).first()).toBeVisible();
 
   // Зазор до потолка деталей не даёт, но виден в сводке.
-  await page.getByLabel('Зазор до потолка, мм').fill('100');
+  await page.getByRole('spinbutton', { name: 'Зазор до потолка', exact: true }).fill('100');
   await expect(schema.locator('rect')).toHaveCount(11);
   await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('До потолка 100');
 
@@ -516,7 +516,7 @@ test('debug-режим сцены показывает состав и счёт�
   await expect(page.locator('li', { hasText: 'Загрузок геометрии' })).toContainText('1');
 
   // Изменение модели меняет состав сцены — и это видно в тех же счётчиках.
-  await page.getByLabel('Ширина, мм').fill('1600');
+  await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1600');
   await expect(page.locator('li', { hasText: 'Объектов сцены' })).toBeVisible();
   await expect(page.locator('li', { hasText: 'Загрузок геометрии' })).toContainText('1');
 });

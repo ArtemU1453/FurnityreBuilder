@@ -1,0 +1,80 @@
+/*
+ * Рабочая область экрана: параметры — холст — инспектор
+ * (PROMPT 26 §4, §27).
+ *
+ * Одна раскладка на конструктор и на помещение. Раньше их было две с
+ * разными контрольными точками, и переход между разделами переставлял
+ * колонки — читалось как переход в другое приложение.
+ *
+ * Порядок в разметке совпадает с порядком на экране, поэтому обход с
+ * клавиатуры идёт слева направо и не прыгает.
+ */
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(240px, 300px);
+  gap: var(--sp-3);
+  align-items: start;
+  min-width: 0;
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 1200px) {
+  /* Планшет: инспектор уходит под холст, параметры остаются слева. */
+  .workspace {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  }
+
+  .inspector {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.sidebar,
+.inspector {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-content: start;
+  min-width: 0;
+  /* Панели прокручиваются отдельно от холста: холст должен оставаться
+     на месте, пока читают параметры. */
+  max-height: calc(100vh - 12rem);
+  overflow-y: auto;
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 900px) {
+  .sidebar,
+  .inspector {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+.canvas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-content: start;
+  min-width: 0;
+  position: sticky;
+  top: calc(var(--h-toolbar) + var(--sp-8));
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 900px) {
+  .canvas {
+    position: static;
+    /* Телефон: сначала изделие, потом поля. Прыгать порядку табуляции
+       здесь уже некуда — колонка одна. */
+    order: -1;
+  }
+}

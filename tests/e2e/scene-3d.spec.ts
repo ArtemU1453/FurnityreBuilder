@@ -113,23 +113,23 @@ test('стандартные виды переключают камеру (§17)
   const canvas = canvasOf(page);
   const perspective = await canvas.screenshot();
 
-  await page.getByRole('button', { name: 'Спереди' }).click();
+  await page.getByRole('radio', { name: 'Спереди' }).click();
   await page.waitForTimeout(150);
   const front = await canvas.screenshot();
   expect(Buffer.compare(perspective, front)).not.toBe(0);
-  await expect(page.getByRole('button', { name: 'Спереди' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('radio', { name: 'Спереди' })).toBeChecked();
 
-  await page.getByRole('button', { name: 'Сверху' }).click();
+  await page.getByRole('radio', { name: 'Сверху' }).click();
   await page.waitForTimeout(150);
   expect(Buffer.compare(front, await canvas.screenshot())).not.toBe(0);
 });
 
 test('перетаскивание ручки меняет ширину одной командой (§22–§24)', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Спереди' }).click();
+  await page.getByRole('radio', { name: 'Спереди' }).click();
   await page.waitForTimeout(150);
 
-  const widthField = page.getByLabel('Ширина, мм');
+  const widthField = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
   await expect(widthField).toHaveValue('1000');
 
   const box = (await canvasOf(page).boundingBox())!;
@@ -159,7 +159,7 @@ test('перетаскивание ручки меняет ширину одно
 
 test('Esc отменяет жест ручки до отпускания', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Спереди' }).click();
+  await page.getByRole('radio', { name: 'Спереди' }).click();
   await page.waitForTimeout(150);
 
   const box = (await canvasOf(page).boundingBox())!;
@@ -174,7 +174,7 @@ test('Esc отменяет жест ручки до отпускания', async
   await page.keyboard.press('Escape');
   await page.mouse.up();
 
-  await expect(page.getByLabel('Ширина, мм')).toHaveValue('1000');
+  await expect(page.getByRole('spinbutton', { name: 'Ширина', exact: true })).toHaveValue('1000');
   await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled();
 });
 
@@ -251,7 +251,7 @@ test('два пальца масштабируют сцену и не выбир
 test('размеры правятся без мыши: сцена не единственный способ управления (§34)', async ({ page }) => {
   await page.goto('/');
 
-  const widthField = page.getByLabel('Ширина, мм');
+  const widthField = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
   await widthField.fill('1450');
   await expect(widthField).toHaveValue('1450');
 
@@ -263,10 +263,10 @@ test('вид переключается между сценой и плоско�
   await page.goto('/');
   await expect(canvasOf(page)).toBeVisible();
 
-  await page.getByRole('button', { name: 'Схема', exact: true }).click();
+  await page.getByRole('radio', { name: 'Схема' }).click();
   await expect(canvasOf(page)).toHaveCount(0);
   await expect(page.getByRole('application', { name: /Схема изделия/ })).toBeVisible();
 
-  await page.getByRole('button', { name: '3D', exact: true }).click();
+  await page.getByRole('radio', { name: 'Сцена' }).click();
   await expect(canvasOf(page)).toBeVisible();
 });

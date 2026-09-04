@@ -67,7 +67,10 @@ export function EditorCanvas(props: EditorCanvasProps): React.JSX.Element {
 
   const totalWidth = view.totalWidth;
   const totalHeight = view.totalHeight;
-  const flipY = useCallback((y: number, height = 0): number => totalHeight - y - height, [totalHeight]);
+  const flipY = useCallback(
+    (y: number, height = 0): number => totalHeight - y - height,
+    [totalHeight],
+  );
 
   /** Пикселей на миллиметр: по фактическому размеру холста на экране. */
   const scaleOf = useCallback((): number => {
@@ -148,7 +151,12 @@ export function EditorCanvas(props: EditorCanvasProps): React.JSX.Element {
 
   if (totalWidth <= 0 || totalHeight <= 0) {
     return (
-      <svg className={styles.canvas} viewBox="0 0 200 100" role="img" aria-label="Изделие не построено: проверьте габариты">
+      <svg
+        className={styles.canvas}
+        viewBox="0 0 200 100"
+        role="img"
+        aria-label="Изделие не построено: проверьте габариты"
+      >
         <text x={100} y={50} className={styles.emptyText}>
           нет геометрии
         </text>
