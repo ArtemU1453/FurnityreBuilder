@@ -153,6 +153,11 @@ export function calculateProduction(project: Project, options: CalculateProducti
   };
 
   return {
+    geometry: [...geometryByFurniture.entries()].map(([furnitureId, result]) => ({
+      furnitureId,
+      furnitureName: project.furniture.find((f) => f.id === furnitureId)?.name ?? String(furnitureId),
+      result,
+    })),
     bom,
     cutting,
     hardware,

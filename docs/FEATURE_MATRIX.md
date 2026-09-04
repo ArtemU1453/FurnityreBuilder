@@ -144,6 +144,8 @@ P2 — расширенная · P3 — дополнительные возмо�
 | PRD-05 | Присадка (Drilling Engine) | UNKNOWN T-DRILL-01…05 | `DrillingOperation` + `DrillingPlan`; правила петель, направляющих, полкодержателей, крепежа, ручек и push-механизмов реализованы и ждут подтверждения параметров | P2 | XL | PARTIAL |
 | PRD-06 | Конструктивные связи между деталями | UNKNOWN | модель не выражает «эта боковина держит эту полку»; выводить связь из соседства запрещено (PROMPT 18 §12), поэтому присадка полкодержателей, направляющих и корпусного крепежа ждёт модели связей | P1 | L | NOT_STARTED |
 | PRD-07 | Производственная спецификация (Production BOM) | N/A | `calculateProduction(project)` → `ProductionCalculationResult`: деталировка с группировкой, метраж кромки, фурнитура, сводки присадки и раскроя, централизованный список неподтверждённых правил, статус расчёта (`docs/PRODUCTION_BOM.md`) | P1 | L | IMPLEMENTED |
+| PRD-08 | Готовность к производству | N/A | `validateProductionReadiness(project)`: восемь разделов проверок со стабильными идентификаторами, статусы `READY_FOR_PRODUCTION`/`HAS_WARNINGS`/`NEEDS_CONFIRMATION`/`INVALID` (`docs/PRODUCTION_READINESS.md`) | P1 | M | IMPLEMENTED |
+| PRD-09 | Производственный пакет | N/A | `buildProductionPackage`: расчёт, готовность и данные документов одной композицией; отпечаток входа и `isPackageCurrent` против устаревшей распечатки (`docs/PRODUCTION_PACKAGE.md`) | P1 | M | IMPLEMENTED |
 
 ## 7. ХРАНЕНИЕ И ОБМЕН
 

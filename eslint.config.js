@@ -22,6 +22,7 @@ const LAYERS = [
   { type: 'drilling', pattern: 'src/drilling/**/*' },
   { type: 'bom', pattern: 'src/bom/**/*' },
   { type: 'export', pattern: 'src/export/**/*' },
+  { type: 'workflow', pattern: 'src/workflow/**/*' },
   { type: 'validation', pattern: 'src/validation/**/*' },
   { type: 'persistence', pattern: 'src/persistence/**/*' },
   { type: 'state', pattern: 'src/state/**/*' },
@@ -48,6 +49,8 @@ const PURE_LAYERS = [
   'src/bom/**/*.ts',
   // PROMPT 20 §2: генераторы документов не знают ни о React, ни об экране.
   'src/export/**/*.ts',
+  // PROMPT 21 §3: проверка готовности — доменная функция, не интерфейс.
+  'src/workflow/**/*.ts',
 ];
 
 const UI_FRAMEWORK_IMPORTS = {
@@ -133,9 +136,13 @@ export default tseslint.config(
             // результат и раскладывает его по страницам и ячейкам
             // (PROMPT 20 §2). Своих правил производства не содержит.
             { from: 'export', allow: ['export', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
+            // Производственный workflow — самый верхний расчётный слой:
+            // складывает готовые результаты и проверяет готовность
+            // (PROMPT 21 §8). Своих правил производства не содержит.
+            { from: 'workflow', allow: ['workflow', 'export', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'validation', allow: ['validation', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'persistence', allow: ['persistence', 'domain'] },
-            { from: 'state', allow: ['state', 'persistence', 'validation', 'export', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
+            { from: 'state', allow: ['state', 'persistence', 'validation', 'workflow', 'export', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'motion', allow: ['motion'] },
             { from: 'interaction', allow: ['interaction', 'motion', 'state', 'domain'] },
             { from: 'design-system', allow: ['design-system', 'motion'] },

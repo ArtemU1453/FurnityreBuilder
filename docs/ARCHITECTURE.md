@@ -226,6 +226,11 @@ src/
     pdf.ts                   производственный PDF (pdf-lib + встроенный шрифт)
     xlsx.ts                  книга Office Open XML без внешних библиотек
     zip.ts                   минимальный ZIP-контейнер и CRC32
+  workflow/                  готовность к производству и пакет заказа
+    types.ts                 ProductionStatus, ProductionCheck, ProductionPackage
+    readiness.ts             validateProductionReadiness: восемь разделов проверок
+    fingerprint.ts           отпечаток производственного входа
+    package.ts               buildProductionPackage, isPackageCurrent
   validation/                правила → Issue[]
     rules/{values,references,structure}.ts
   persistence/               схема Zod, сериализация, миграции, репозитории

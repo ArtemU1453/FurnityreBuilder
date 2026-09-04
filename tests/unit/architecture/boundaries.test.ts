@@ -156,6 +156,26 @@ describe('архитектурные границы', () => {
     expect(rules).toContain('boundaries/element-types');
   });
 
+  it('запрещает React в проверке готовности', { timeout: 60_000 }, async () => {
+    // PROMPT 21 §3: `validateProductionReadiness` — доменная функция, а не
+    // часть экрана: её результат нужен и интерфейсу, и экспорту, и тестам.
+    const rules = await lintSource(
+      'workflow',
+      'probe.ts',
+      "import { useMemo } from 'react';\nexport const probe = useMemo;\n",
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('запрещает workflow менять модель: workflow → state', { timeout: 60_000 }, async () => {
+    const rules = await lintSource(
+      'workflow',
+      'probe.ts',
+      "import { PLANNED_COMMANDS } from '../../state/commands.js';\nexport const probe = PLANNED_COMMANDS;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
   it('запрещает импорт вверх по слоям: geometry → state', { timeout: 60_000 }, async () => {
     const rules = await lintSource(
       'geometry',

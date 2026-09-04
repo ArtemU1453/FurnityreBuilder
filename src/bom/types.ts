@@ -3,6 +3,7 @@ import type {
   DrillPurpose,
   EdgeSpec,
   EdgeThickness,
+  FurnitureId,
   Grain,
   HardwareId,
   Issue,
@@ -12,6 +13,7 @@ import type {
   NodeId,
   PartId,
 } from '../domain/index.js';
+import type { GeometryResult } from '../geometry/index.js';
 import type { CuttingResult, ProductionPartType, UnplacedReason } from '../production/index.js';
 import type { DrillingOperation, DrillingPlan } from '../drilling/index.js';
 import type { HardwareBOM } from '../hardware/index.js';
@@ -195,7 +197,21 @@ export type CalculationStatus = 'VALID' | 'VALID_WITH_WARNINGS' | 'NEEDS_CONFIRM
  * данные, и заставлять их считать всё заново было бы ровно тем
  * дублированием, которое запрещает §26.
  */
+/** Геометрия изделия внутри результата расчёта: та же, что строил конвейер. */
+export interface ProductionGeometry {
+  readonly furnitureId: FurnitureId;
+  readonly furnitureName: string;
+  readonly result: GeometryResult;
+}
+
 export interface ProductionCalculationResult {
+  /**
+   * Геометрия каждого изделия — тот самый объект, который конвейер
+   * построил и передал дальше (PROMPT 21 §1). Хранится ссылкой, а не
+   * копией: проверке готовности нужна диагностика геометрии отдельно от
+   * остальных, а строить её второй раз означало бы второй расчёт.
+   */
+  readonly geometry: readonly ProductionGeometry[];
   readonly bom: ProductionBOM;
   readonly cutting: CuttingResult;
   readonly hardware: HardwareBOM;

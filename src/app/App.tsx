@@ -21,6 +21,7 @@ import { calculateCutting, toProductionParts } from '../production/index.js';
 import { calculateDrilling, formatDrillingDebug } from '../drilling/index.js';
 import { calculateProduction, formatProductionDebug } from '../bom/index.js';
 import { exportPdf, exportXlsx } from './export-actions.js';
+import { validateProductionReadiness } from '../workflow/index.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import { Button, Field } from '../design-system/index.js';
@@ -42,6 +43,32 @@ const AXES = [
   { key: 'depth', label: 'Глубина' },
   { key: 'panelThickness', label: 'Толщина' },
 ] as const;
+
+/**
+ * Подписи статусов готовности. Живут рядом с интерфейсом, а не в домене:
+ * домен отвечает за статус, интерфейс — за то, как он звучит по-русски.
+ */
+const READINESS_LABELS: Readonly<Record<string, string>> = {
+  READY_FOR_PRODUCTION: 'Готово к производству',
+  HAS_WARNINGS: 'Готово с замечаниями',
+  NEEDS_CONFIRMATION: 'Требуется подтверждение производственных правил',
+  INVALID: 'Изготовление невозможно: есть ошибки',
+};
+
+const CHECK_LABELS: Readonly<Record<string, string>> = {
+  PASS: 'в порядке',
+  WARNING: 'есть замечания',
+  ERROR: 'ошибка',
+  NEEDS_CONFIRMATION: 'нужно подтверждение',
+};
+
+/** Значок статуса. Дублируется текстом рядом: цвет и знак — не единственный носитель смысла. */
+const CHECK_MARKS: Readonly<Record<string, string>> = {
+  PASS: '✓',
+  WARNING: '!',
+  ERROR: '✕',
+  NEEDS_CONFIRMATION: '?',
+};
 
 export function App(): React.JSX.Element {
   const project = useDocumentStore((s) => s.project);
@@ -136,6 +163,16 @@ export function App(): React.JSX.Element {
   const productionDebug = useMemo(() => {
     if (!import.meta.env.DEV || furniture === undefined || geometry === undefined) return undefined;
     return formatProductionDebug(calculateProduction(project, { geometry: new Map([[furniture.id, geometry]]) }));
+  }, [project, furniture, geometry]);
+
+  // Готовность к производству (PROMPT 21). Считается из того же расчёта,
+  // что и спецификация: отдельного «пересчитать» нет и быть не может —
+  // производных результатов не существует в устаревшем виде.
+  const readiness = useMemo(() => {
+    if (furniture === undefined || geometry === undefined) return undefined;
+    return validateProductionReadiness(project, {
+      calculation: calculateProduction(project, { geometry: new Map([[furniture.id, geometry]]) }),
+    });
   }, [project, furniture, geometry]);
 
   const runExport = async (kind: 'pdf' | 'xlsx'): Promise<void> => {
@@ -543,6 +580,36 @@ export function App(): React.JSX.Element {
             Спецификация деталей, фурнитура, присадка и карта раскроя. Документ формируется из текущего
             расчёта: отдельного «пересчитать» не требуется.
           </p>
+          {/*
+            Чеклист готовности (§17). Строится из доменного результата и
+            ничего не проверяет сам. Список, а не таблица: каждый пункт —
+            самостоятельное утверждение о разделе, и читать его нужно
+            построчно, в том числе скринридером.
+          */}
+          {readiness === undefined ? null : (
+            <>
+              <p className={styles.readinessStatus} data-status={readiness.status}>
+                {READINESS_LABELS[readiness.status]}
+              </p>
+              <ul className={styles.readinessList}>
+                {readiness.checks.map((check) => (
+                  <li key={check.id} data-status={check.status}>
+                    <span className={styles.readinessMark} aria-hidden="true">
+                      {CHECK_MARKS[check.status]}
+                    </span>
+                    <span className={styles.readinessTitle}>{check.title}</span>
+                    <span className={styles.readinessDetail}>
+                      {CHECK_LABELS[check.status]} · {check.details}
+                    </span>
+                    {check.errors.length === 0 ? null : (
+                      <span className={styles.readinessDetail}>{check.errors[0]?.message}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
           <div className={styles.debugToolbar}>
             <Button
               variant="primary"

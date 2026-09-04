@@ -88,7 +88,7 @@ Engine» (PROMPT 3) — прирост этого этапа: пять новы�
 ## 3. РАСПРЕДЕЛЕНИЕ
 
 ```
- 16  architecture/boundaries               границы слоёв (+ чистота слоёв фурнитуры, раскроя, присадки, спецификации и экспорта, PROMPT 16–20)
+ 18  architecture/boundaries               границы слоёв (+ чистота слоёв фурнитуры, раскроя, присадки, спецификации, экспорта и workflow, PROMPT 16–21)
  10  domain/coordinates                    система координат, пересечение против касания (PROMPT 7)
   7  domain/layout                         раскладка деления, 3 property-теста
   5  domain/project                        создание проекта, детерминизм
@@ -102,6 +102,8 @@ Engine» (PROMPT 3) — прирост этого этапа: пять новы�
   9  geometry/engine                       контракт движка, размеры раскроя
  34  geometry/fill                         полки: 15 сценариев §PROMPT6 + коллизии (PROMPT 6)
   3  geometry/fill-properties              property: полки на случайных W/H/D/числе полок (PROMPT 6)
+ 15  workflow/readiness                    чеклист готовности, статусы, разделы проверок (PROMPT 21)
+ 13  workflow/package                      пакет, отпечаток, инвалидация, сквозной конвейер (PROMPT 21)
  17  export/data                           расчёт → данные документа, единицы, статусы (PROMPT 20)
  13  export/xlsx                           книга открывается exceljs: листы, типы ячеек, детерминизм (PROMPT 20)
   8  export/pdf                            документ открывается pdf-lib: страницы, форматы, шрифт (PROMPT 20)
@@ -299,6 +301,8 @@ PROMPT 2 и не замеченное до этого этапа.)
 | `bom` импортирует `state` | `boundaries/element-types` |
 | React в `src/export` | `no-restricted-imports` |
 | `export` импортирует `state` | `boundaries/element-types` |
+| React в `src/workflow` | `no-restricted-imports` |
+| `workflow` импортирует `state` | `boundaries/element-types` |
 | React в `src/domain` | `no-restricted-imports` |
 | `geometry` импортирует `state` | `boundaries/element-types` |
 | `domain` обращается к `window` | `no-restricted-globals` |

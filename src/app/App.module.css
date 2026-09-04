@@ -201,3 +201,55 @@
 .hardwareDebug > li {
   white-space: pre;
 }
+
+/* Готовность к производству (PROMPT 21 §17–§18). Статус несёт и цвет, и
+   слово: цвет здесь — усиление, а не единственный носитель смысла. */
+.readinessStatus {
+  margin: var(--sp-3) 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.readinessStatus[data-status='READY_FOR_PRODUCTION'] {
+  color: var(--color-success, #1c7c40);
+}
+
+.readinessStatus[data-status='INVALID'] {
+  color: var(--color-danger, #b3261e);
+}
+
+.readinessList {
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+
+.readinessList > li {
+  display: grid;
+  grid-template-columns: 16px 120px 1fr;
+  gap: var(--sp-2);
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 2px 0;
+}
+
+.readinessList > li[data-status='ERROR'] {
+  color: var(--color-danger, #b3261e);
+}
+
+.readinessMark {
+  font-family: var(--font-num);
+  text-align: center;
+}
+
+.readinessTitle {
+  color: var(--text-primary);
+}
+
+.readinessDetail {
+  color: var(--text-tertiary);
+}
