@@ -62,4 +62,12 @@ export {
 export type { Hit, PickOptions } from './raycast.js';
 export { intersectBox, pick, pickAll } from './raycast.js';
 
-export { buildGizmos, withGizmos, gizmoBaseValue, gripFor, MIN_GIZMO_GRIP, MAX_GIZMO_GRIP } from './gizmos.js';
+export {
+  buildGizmos,
+  withGizmos,
+  gizmoBaseValue,
+  gripFor,
+  COARSE_GRIP_SCALE,
+  MIN_GIZMO_GRIP,
+  MAX_GIZMO_GRIP,
+} from './gizmos.js';

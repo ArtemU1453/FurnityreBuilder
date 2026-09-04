@@ -31,6 +31,16 @@ import styles from './ProductionScreen.module.css';
 
 export interface ProductionScreenProps {
   readonly readiness: ProductionReadinessResult | undefined;
+  /**
+   * Плотный вид для телефона (PROMPT 28 §30, §31).
+   *
+   * Разворачивать нечего, пока не спросили: восемь разделов, у каждого
+   * до четырёх строк на каждое неподтверждённое правило, дают на
+   * телефоне экран, по которому нужно прокрутить всё, чтобы найти одну
+   * проблему. Свёрнуты при этом ТОЛЬКО уточнения — ошибки видны всегда
+   * (§33): прятать то, что мешает изготовить, за нажатием нельзя.
+   */
+  readonly compact?: boolean;
   readonly exporting: 'pdf' | 'xlsx' | null;
   readonly exportError: string | null;
   readonly onExport: (kind: 'pdf' | 'xlsx') => void;
@@ -93,18 +103,22 @@ export function ProductionScreen(props: ProductionScreenProps): React.JSX.Elemen
                     применяется и на что влияет результат. Прятать это за
                     статусом значило бы требовать подтверждения, не
                     сказав чего.
+
+                    На телефоне тот же список лежит в раскрывающемся
+                    блоке (§31): содержимое то же самое, но восемь
+                    разделов сразу не превращают экран в простыню.
+                    Заголовок при этом честный — он говорит, сколько
+                    правил ждёт уточнения, а не просто «подробнее».
                   */}
-                  {check.needsConfirmation.length === 0 ? null : (
-                    <ul className={styles.confirmations}>
-                      {check.needsConfirmation.map((item) => (
-                        <li key={item.id} className={styles.confirmation}>
-                          <span className={styles.rule}>{item.rule}</span>
-                          <span className={styles.detail}>Применяется: {item.source}</span>
-                          <span className={styles.detail}>Влияние: {item.impact}</span>
-                          <span className={styles.detail}>Идентификатор: {item.id}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  {check.needsConfirmation.length === 0 ? null : props.compact === true ? (
+                    <details className={styles.disclosure}>
+                      <summary className={styles.summary}>
+                        Требуется уточнение: {check.needsConfirmation.length}
+                      </summary>
+                      {confirmations(check.needsConfirmation)}
+                    </details>
+                  ) : (
+                    confirmations(check.needsConfirmation)
                   )}
                 </li>
               ))}
@@ -147,5 +161,23 @@ export function ProductionScreen(props: ProductionScreenProps): React.JSX.Elemen
         </p>
       </Panel>
     </>
+  );
+}
+
+/** Список неподтверждённых правил. Одна разметка на оба вида экрана. */
+function confirmations(
+  items: ProductionReadinessResult['checks'][number]['needsConfirmation'],
+): React.JSX.Element {
+  return (
+    <ul className={styles.confirmations}>
+      {items.map((item) => (
+        <li key={item.id} className={styles.confirmation}>
+          <span className={styles.rule}>{item.rule}</span>
+          <span className={styles.detail}>Применяется: {item.source}</span>
+          <span className={styles.detail}>Влияние: {item.impact}</span>
+          <span className={styles.detail}>Идентификатор: {item.id}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

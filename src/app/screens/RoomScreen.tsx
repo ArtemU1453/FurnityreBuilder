@@ -18,6 +18,9 @@ import {
   StatusIndicator,
   Switch,
 } from '../../design-system/index.js';
+import { usesSheets } from '../layout.js';
+import { useLayoutMode } from '../use-layout-mode.js';
+import { WorkspaceSlot } from './WorkspaceSlot.js';
 import { RoomPlanner } from '../editor/RoomPlanner.js';
 import { RoomInspector } from '../editor/RoomInspector.js';
 import { ROOM_STATUS } from '../status.js';
@@ -78,6 +81,15 @@ export function RoomScreen(props: RoomScreenProps): React.JSX.Element {
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [placing, setPlacing] = useState('');
 
+  // Режим раскладки и открытый лист — состояние интерфейса, как и в
+  // конструкторе: помещение, мебель и их координаты от размера экрана не
+  // зависят (PROMPT 28 §2).
+  const mode = useLayoutMode();
+  const [sheet, setSheet] = useState<'place' | 'room' | null>(null);
+  const closeSheet = (): void => {
+    setSheet(null);
+  };
+
   const room = props.room;
 
   if (room === undefined) {
@@ -100,7 +112,19 @@ export function RoomScreen(props: RoomScreenProps): React.JSX.Element {
 
   return (
     <div className={layout.workspace}>
-      <div className={layout.sidebar}>
+      {/*
+        Телефон (PROMPT 28 §28): помещение занимает экран, а расстановка и
+        свойства выбранного объекта приходят листами снизу. Панели те же
+        самые — второго планировщика для телефона не заводится.
+      */}
+      <WorkspaceSlot
+        mode={mode}
+        side="sidebar"
+        label="Расстановка"
+        title="Мебель в помещении"
+        open={sheet === 'place'}
+        onClose={closeSheet}
+      >
         <Panel id="room-place" title="Мебель в помещении">
           {props.placeable.length === 0 ? (
             <EmptyState
@@ -156,7 +180,7 @@ export function RoomScreen(props: RoomScreenProps): React.JSX.Element {
             onChange={setSnapEnabled}
           />
         </Panel>
-      </div>
+      </WorkspaceSlot>
 
       <div className={layout.canvas}>
         {status === undefined ? null : (
@@ -179,7 +203,33 @@ export function RoomScreen(props: RoomScreenProps): React.JSX.Element {
         />
       </div>
 
-      <aside className={layout.inspector} aria-label="Свойства помещения">
+      {!usesSheets(mode) ? null : (
+        <div className={layout.mobileActions}>
+          <Button
+            onClick={() => {
+              setSheet((current) => (current === 'place' ? null : 'place'));
+            }}
+          >
+            Мебель
+          </Button>
+          <Button
+            onClick={() => {
+              setSheet((current) => (current === 'room' ? null : 'room'));
+            }}
+          >
+            Помещение
+          </Button>
+        </div>
+      )}
+
+      <WorkspaceSlot
+        mode={mode}
+        side="inspector"
+        label="Свойства помещения"
+        title="Помещение"
+        open={sheet === 'room'}
+        onClose={closeSheet}
+      >
         <RoomInspector
           room={room}
           extents={props.extents}
@@ -195,7 +245,7 @@ export function RoomScreen(props: RoomScreenProps): React.JSX.Element {
           onDuplicate={props.onDuplicate}
           onRemove={props.onRemove}
         />
-      </aside>
+      </WorkspaceSlot>
     </div>
   );
 }

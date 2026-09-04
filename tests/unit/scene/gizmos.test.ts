@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildGizmos, gizmoBaseValue, withGizmos } from '../../../src/scene/gizmos.js';
+import {
+  COARSE_GRIP_SCALE,
+  MAX_GIZMO_GRIP,
+  MIN_GIZMO_GRIP,
+  buildGizmos,
+  gizmoBaseValue,
+  gripFor,
+  withGizmos,
+} from '../../../src/scene/gizmos.js';
 import { buildScene } from '../../../src/scene/adapter.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
 import { createUniformGrid } from '../../../src/domain/furniture/sections.js';
@@ -88,8 +96,9 @@ describe('ручки внутренних границ', () => {
 
   it('ручка стоит на правой границе своего ребёнка', () => {
     const target = childGizmos[0]!.gizmo as Extract<GizmoTarget, { kind: 'child-size' }>;
-    const box = geometry.cells.find((c) => c.nodeId === target.childId)?.box
-      ?? geometry.sections.find((s) => s.nodeId === target.childId)!.box;
+    const box =
+      geometry.cells.find((c) => c.nodeId === target.childId)?.box ??
+      geometry.sections.find((s) => s.nodeId === target.childId)!.box;
     expect(childGizmos[0]!.position.x).toBeCloseTo(box.min.x + box.size.x, 6);
   });
 
@@ -108,16 +117,23 @@ describe('ручки внутренних границ', () => {
 
 describe('базовое значение ручки', () => {
   it('для габарита читается из домена, а не из сцены', () => {
-    expect(gizmoBaseValue({ kind: 'furniture-width' }, simple.furniture, buildGeometry(simple))).toBe(1000);
-    expect(gizmoBaseValue({ kind: 'furniture-height' }, simple.furniture, buildGeometry(simple))).toBe(2000);
+    expect(
+      gizmoBaseValue({ kind: 'furniture-width' }, simple.furniture, buildGeometry(simple)),
+    ).toBe(1000);
+    expect(
+      gizmoBaseValue({ kind: 'furniture-height' }, simple.furniture, buildGeometry(simple)),
+    ).toBe(2000);
   });
 
   it('для секции читается посчитанная движком ширина', () => {
     const geometry = buildGeometry(grid);
-    const gizmo = buildGizmos(grid.furniture, geometry).find((g) => g.gizmo?.kind === 'child-size')!;
+    const gizmo = buildGizmos(grid.furniture, geometry).find(
+      (g) => g.gizmo?.kind === 'child-size',
+    )!;
     const target = gizmo.gizmo as Extract<GizmoTarget, { kind: 'child-size' }>;
-    const box = geometry.cells.find((c) => c.nodeId === target.childId)?.box
-      ?? geometry.sections.find((s) => s.nodeId === target.childId)!.box;
+    const box =
+      geometry.cells.find((c) => c.nodeId === target.childId)?.box ??
+      geometry.sections.find((s) => s.nodeId === target.childId)!.box;
     expect(gizmoBaseValue(target, grid.furniture, geometry)).toBe(box.size.x);
   });
 
@@ -135,5 +151,34 @@ describe('вырожденная геометрия', () => {
   it('изделие без габарита не получает ручек', () => {
     const broken = makeGeometryInput({ width: -100, height: 2000, depth: 500, panelThickness: 16 });
     expect(gizmosOf(broken)).toEqual([]);
+  });
+});
+
+describe('размер ручки под палец (PROMPT 28 §19, §22)', () => {
+  it('множитель увеличивает ручку, а не сдвигает её', () => {
+    const fine = gripFor(1600);
+    const coarse = gripFor(1600, COARSE_GRIP_SCALE);
+    expect(coarse).toBeCloseTo(fine * COARSE_GRIP_SCALE, 6);
+  });
+
+  it('множитель поднимает и нижнюю, и верхнюю границу', () => {
+    // Иначе крошечное изделие упиралось бы в тот же минимум, что на
+    // десктопе, а большое — в тот же максимум: ручка перестала бы расти
+    // ровно там, где палец и так промахивается.
+    expect(gripFor(1, COARSE_GRIP_SCALE)).toBeCloseTo(MIN_GIZMO_GRIP * COARSE_GRIP_SCALE, 6);
+    expect(gripFor(100000, COARSE_GRIP_SCALE)).toBeCloseTo(MAX_GIZMO_GRIP * COARSE_GRIP_SCALE, 6);
+  });
+
+  it('по умолчанию размер прежний: десктоп не меняется', () => {
+    expect(gripFor(1600)).toBe(gripFor(1600, 1));
+  });
+
+  it('ручка крупнее не добавляет и не убирает ни одной ручки', () => {
+    const geometry = buildGeometry(grid);
+    const fine = buildGizmos(grid.furniture, geometry);
+    const coarse = buildGizmos(grid.furniture, geometry, COARSE_GRIP_SCALE);
+    expect(coarse.map((item) => item.id)).toEqual(fine.map((item) => item.id));
+    // И ни одной детали изделия: ручка — объект сцены, а не деталь.
+    expect(coarse.every((item) => item.kind === 'gizmo')).toBe(true);
   });
 });

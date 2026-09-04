@@ -50,8 +50,37 @@ import type { GizmoTarget, SceneModel, SceneObject } from './types.js';
 export const MIN_GIZMO_GRIP: Mm = 24;
 export const MAX_GIZMO_GRIP: Mm = 120;
 
-export function gripFor(maxExtent: Mm): Mm {
-  return Math.min(MAX_GIZMO_GRIP, Math.max(MIN_GIZMO_GRIP, maxExtent * 0.04));
+/**
+ * Во сколько раз ручка крупнее там, где указатель — палец
+ * (PROMPT 28 §19, §22).
+ *
+ * Доля 0.04 даёт около 15 экранных пикселей на телефоне: холст там
+ * 366 px шириной, и 4 % габарита — это примерно пятнадцатая часть от
+ * сорока четырёх, которые нужны пальцу. Промах по ручке стоит не
+ * «неудобно», а начатой вместо изменения размера орбиты камеры.
+ *
+ * Множитель применяется к ДОЛЕ, а не к готовому значению: доля даёт
+ * примерно постоянный размер на экране при любом изделии — умножив её,
+ * мы получаем постоянный БОЛЬШИЙ размер, а не «плюс столько-то
+ * миллиметров», которые у шкафа и у тумбы значат разное.
+ *
+ * Верхняя граница остаётся: ручка не должна съесть изделие целиком.
+ */
+export const COARSE_GRIP_SCALE = 2.2;
+
+/**
+ * Размер ручки в миллиметрах.
+ *
+ * `scale` больше единицы — грубый указатель. На геометрию изделия это не
+ * влияет никак: ручка — объект сцены, а не деталь, и в деталировку,
+ * раскрой и спецификацию она не попадает. Размер изделия от устройства
+ * не зависит.
+ */
+export function gripFor(maxExtent: Mm, scale = 1): Mm {
+  return Math.min(
+    MAX_GIZMO_GRIP * scale,
+    Math.max(MIN_GIZMO_GRIP * scale, maxExtent * 0.04 * scale),
+  );
 }
 
 /** Насколько ручка выступает за габарит изделия, мм. */
@@ -89,7 +118,11 @@ function furnitureGizmos(bounds: Bounds, grip: Mm): SceneObject[] {
     {
       id: 'gizmo:furniture-width',
       kind: 'gizmo',
-      position: { x: bounds.maxX, y: center(bounds.minY, bounds.maxY), z: center(bounds.minZ, bounds.maxZ) },
+      position: {
+        x: bounds.maxX,
+        y: center(bounds.minY, bounds.maxY),
+        z: center(bounds.minZ, bounds.maxZ),
+      },
       size: { x: grip, y: height + GIZMO_OVERHANG * 2, z: depth + GIZMO_OVERHANG * 2 },
       visible: true,
       selectable: true,
@@ -99,7 +132,11 @@ function furnitureGizmos(bounds: Bounds, grip: Mm): SceneObject[] {
     {
       id: 'gizmo:furniture-height',
       kind: 'gizmo',
-      position: { x: center(bounds.minX, bounds.maxX), y: bounds.maxY, z: center(bounds.minZ, bounds.maxZ) },
+      position: {
+        x: center(bounds.minX, bounds.maxX),
+        y: bounds.maxY,
+        z: center(bounds.minZ, bounds.maxZ),
+      },
       size: { x: width + GIZMO_OVERHANG * 2, y: grip, z: depth + GIZMO_OVERHANG * 2 },
       visible: true,
       selectable: true,
@@ -122,7 +159,13 @@ function furnitureGizmos(bounds: Bounds, grip: Mm): SceneObject[] {
  * сдвигается при добавлении соседа, и ручка начинает менять не ту секцию
  * (`docs/DATA_MODEL.md` §5.7, тот же довод, что и у `SetChildSize`).
  */
-function splitGizmos(node: SectionNode, geometry: GeometryResult, bounds: Bounds, grip: Mm, out: SceneObject[]): void {
+function splitGizmos(
+  node: SectionNode,
+  geometry: GeometryResult,
+  bounds: Bounds,
+  grip: Mm,
+  out: SceneObject[],
+): void {
   if (!isSplit(node)) return;
 
   const boxes = new Map<NodeId, { min: Vec3; size: Vec3 }>();
@@ -181,11 +224,19 @@ function splitGizmos(node: SectionNode, geometry: GeometryResult, bounds: Bounds
  * сцены означало бы отдавать в отрисовку объекты, которые не мебель, и
  * при каждом обходе объяснять, что вот эти — не считаются.
  */
-export function buildGizmos(furniture: Furniture, geometry: GeometryResult): readonly SceneObject[] {
+export function buildGizmos(
+  furniture: Furniture,
+  geometry: GeometryResult,
+  /** Множитель размера ручки: > 1 там, где указатель грубый. */
+  gripScale = 1,
+): readonly SceneObject[] {
   const bounds = boundsOf(geometry);
   if (bounds.maxX <= bounds.minX || bounds.maxY <= bounds.minY) return [];
 
-  const grip = gripFor(Math.max(span(bounds.minX, bounds.maxX), span(bounds.minY, bounds.maxY)));
+  const grip = gripFor(
+    Math.max(span(bounds.minX, bounds.maxX), span(bounds.minY, bounds.maxY)),
+    gripScale,
+  );
   const out: SceneObject[] = furnitureGizmos(bounds, grip);
   splitGizmos(furniture.root, geometry, bounds, grip, out);
   return out;
@@ -197,7 +248,11 @@ export function withGizmos(scene: SceneModel, gizmos: readonly SceneObject[]): S
 }
 
 /** Текущее значение размера, которым управляет ручка. Читается из домена, не из сцены. */
-export function gizmoBaseValue(target: GizmoTarget, furniture: Furniture, geometry: GeometryResult): Mm | undefined {
+export function gizmoBaseValue(
+  target: GizmoTarget,
+  furniture: Furniture,
+  geometry: GeometryResult,
+): Mm | undefined {
   if (target.kind === 'furniture-width') return furniture.dimensions.width;
   if (target.kind === 'furniture-height') return furniture.dimensions.height;
 

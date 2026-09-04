@@ -3,6 +3,7 @@ import { formatMm } from '../../domain/index.js';
 import type { Furniture, NodeId, PartId, Vec3 } from '../../domain/index.js';
 import type { GeometryResult } from '../../geometry/index.js';
 import {
+  COARSE_GRIP_SCALE,
   buildGizmos,
   buildScene,
   cameraForPreset,
@@ -25,7 +26,9 @@ import type {
 import { createSceneRenderer } from '../../render/index.js';
 import type { ObjectState, RenderStyle, SceneRenderer } from '../../render/index.js';
 import { resizeValue } from './resize.js';
-import { SegmentedControl } from '../../design-system/index.js';
+import { SegmentedControl, Select } from '../../design-system/index.js';
+import { usesSheets } from '../layout.js';
+import { useCoarsePointer, useLayoutMode } from '../use-layout-mode.js';
 import styles from './Scene3D.module.css';
 
 /**
@@ -119,6 +122,11 @@ function readStyle(element: HTMLElement): RenderStyle {
 }
 
 export function Scene3D(props: Scene3DProps): React.JSX.Element {
+  // Режим раскладки нужен сцене ровно для одного: чем выбирать вид
+  // камеры. Ни камера, ни рендерер, ни разбор попаданий от него не
+  // зависят — мобильной модели камеры не существует (PROMPT 28 §16).
+  const layout = useLayoutMode();
+  const coarsePointer = useCoarsePointer();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<SceneRenderer | null>(null);
@@ -150,9 +158,14 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
     [props.geometry, props.materials],
   );
 
+  // Ручка под палец крупнее, чем под курсор (PROMPT 28 §19, §22): на
+  // телефоне 4 % габарита — это около 15 экранных пикселей, и промах по
+  // ней начинает орбиту камеры вместо изменения размера. На изделие это
+  // не влияет: ручка — объект сцены, а не деталь.
+  const gripScale = coarsePointer ? COARSE_GRIP_SCALE : 1;
   const gizmos = useMemo(
-    () => (props.editable ? buildGizmos(props.furniture, props.geometry) : []),
-    [props.editable, props.furniture, props.geometry],
+    () => (props.editable ? buildGizmos(props.furniture, props.geometry, gripScale) : []),
+    [props.editable, props.furniture, props.geometry, gripScale],
   );
 
   const fullScene = useMemo(() => withGizmos(scene, gizmos), [scene, gizmos]);
@@ -668,12 +681,33 @@ export function Scene3D(props: Scene3DProps): React.JSX.Element {
         кнопки в приложении.
       */}
       <div className={styles.views}>
-        <SegmentedControl
-          label="Вид камеры"
-          value={view}
-          options={VIEWS.map((item) => ({ value: item.preset, label: item.label }))}
-          onChange={setView}
-        />
+        {/*
+          На телефоне шесть сегментов переносятся на две строки и
+          забирают у сцены ещё сотню пикселей (PROMPT 28 §17). Список тем
+          же значением решает то же самое одной целью для пальца — и
+          открывается системным выбором, к которому человек привык.
+          Компонент из той же design system, а не мобильная копия (§43).
+        */}
+        {usesSheets(layout) ? (
+          <Select
+            label="Вид камеры"
+            value={view}
+            options={VIEWS.map((item) => ({ value: item.preset, label: item.label }))}
+            onChange={(value) => {
+              // Список отдаёт строку: сверяемся с известными видами, а не
+              // приводим типом. Неизвестное значение — не вид камеры.
+              const preset = VIEWS.find((item) => item.preset === value)?.preset;
+              if (preset !== undefined) setView(preset);
+            }}
+          />
+        ) : (
+          <SegmentedControl
+            label="Вид камеры"
+            value={view}
+            options={VIEWS.map((item) => ({ value: item.preset, label: item.label }))}
+            onChange={setView}
+          />
+        )}
       </div>
     </div>
   );

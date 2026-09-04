@@ -66,6 +66,7 @@ import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import {
   Button,
+  Dialog,
   EmptyState,
   Field,
   NumberInput,
@@ -76,7 +77,17 @@ import {
 } from '../design-system/index.js';
 import { AppShell, ProjectContext, StatusBar, TopActions } from './shell/index.js';
 import type { Screen } from './shell/index.js';
-import { FIRST_STEP, STEP_BY_ID, WorkflowNav, stepOfIssue, stepStates } from './workflow/index.js';
+import {
+  FIRST_STEP,
+  MobileSteps,
+  STEP_BY_ID,
+  WorkflowNav,
+  stepOfIssue,
+  stepStates,
+} from './workflow/index.js';
+import { useLayoutMode } from './use-layout-mode.js';
+import { usesFullStepRail, usesSheets } from './layout.js';
+import { WorkspaceSlot } from './screens/WorkspaceSlot.js';
 import type { StepId } from './workflow/index.js';
 import { ProductionScreen } from './screens/ProductionScreen.js';
 import { RoomScreen } from './screens/RoomScreen.js';
@@ -671,6 +682,28 @@ export function App(): React.JSX.Element {
   /** Где уже были: нужно только лестнице шагов, чтобы отличать «не открывали». */
   const [visited, setVisited] = useState<ReadonlySet<StepId>>(() => new Set([FIRST_STEP]));
 
+  /**
+   * Режим раскладки (PROMPT 28 §3).
+   *
+   * Состояние ИНТЕРФЕЙСА, и только оно: поворот телефона не меняет ни
+   * одного миллиметра изделия. Ни второй модели, ни второго рендерера
+   * под мобильный режим не заводится — меняется место панелей.
+   */
+  const layout = useLayoutMode();
+  const mobile = usesSheets(layout);
+
+  /**
+   * Какой лист открыт на телефоне (§7, §8, §24).
+   *
+   * `null` — открыт холст, и это состояние по умолчанию: на телефоне
+   * изделие важнее полей ввода. Один лист за раз: два одновременно не
+   * поместятся, а очередь из листов — способ потерять, где ты.
+   */
+  const [sheet, setSheet] = useState<'params' | 'object' | 'steps' | null>(null);
+  const closeSheet = (): void => {
+    setSheet(null);
+  };
+
   // Последний шаг в каждом разделе: чтобы возврат в раздел возвращал
   // туда же, откуда ушли.
   const lastEditorStep = STEP_BY_ID[step].screen === 'editor' ? step : lastEditorStepRef.current;
@@ -690,6 +723,10 @@ export function App(): React.JSX.Element {
     setStep(next);
     setVisited((seen) => (seen.has(next) ? seen : new Set(seen).add(next)));
     setScreen(STEP_BY_ID[next].screen);
+    // Список этапов закрывается сам: он открывался, чтобы выбрать шаг, и
+    // шаг выбран. Оставить его открытым поверх нового шага значило бы
+    // требовать второго нажатия за уже принятое решение.
+    setSheet((current) => (current === 'steps' ? null : current));
   };
 
   /**
@@ -1325,25 +1362,52 @@ export function App(): React.JSX.Element {
       ) : null}
 
       {screen === 'production' ? (
-        <div className={workspace.workspace}>
+        // `data-stacked`: производство — сплошной текст, и на планшете
+        // боковая колонка делает его вдвое длиннее (PROMPT 28 §31).
+        <div className={workspace.workspace} data-stacked="">
           {/*
             Лестница шагов видна и здесь: «Проверка» и «Производство» —
             такие же шаги сценария, как «Размеры», и уйти с них обратно в
             конструктор нужно тем же способом, каким сюда пришли.
           */}
-          <div className={workspace.sidebar}>
-            <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
-          </div>
+          {!usesFullStepRail(layout) ? null : (
+            <div className={workspace.sidebar}>
+              <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+            </div>
+          )}
           <div className={workspace.canvas}>
             <ProductionScreen
               readiness={readiness}
               exporting={exporting}
               exportError={exportError}
+              compact={mobile}
               onExport={(kind) => {
                 void runExport(kind);
               }}
             />
           </div>
+          {/*
+            На телефоне здесь та же полоса шагов, что в конструкторе
+            (PROMPT 28 §24): «Проверка» и «Производство» — такие же шаги
+            сценария, и уходить с них нужно тем же способом.
+          */}
+          {!mobile ? null : (
+            <>
+              <div className={workspace.mobileBar}>
+                <MobileSteps
+                  current={step}
+                  steps={workflowSteps}
+                  onStep={goToStep}
+                  onOpenList={() => {
+                    setSheet('steps');
+                  }}
+                />
+              </div>
+              <Dialog open={sheet === 'steps'} title="Этапы" onClose={closeSheet}>
+                <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+              </Dialog>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -1414,8 +1478,22 @@ export function App(): React.JSX.Element {
         табуляции с визуальным, и клавиатурный обход начинает прыгать.
       */}
       <div className={workspace.workspace} hidden={screen !== 'editor'}>
-        <div className={workspace.sidebar}>
-          <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+        {/*
+          Параметры шага: колонка на широком экране, лист снизу на
+          телефоне (PROMPT 28 §7). Содержимое одно и то же — те же поля и
+          те же команды; меняется только место.
+        */}
+        <WorkspaceSlot
+          mode={layout}
+          side="sidebar"
+          label="Параметры"
+          title={STEP_BY_ID[step].title}
+          open={sheet === 'params'}
+          onClose={closeSheet}
+        >
+          {!usesFullStepRail(layout) ? null : (
+            <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+          )}
 
           {step !== 'dimensions' ? null : (
             <Panel id="dimensions" title="Размеры" subtitle="Габарит изделия и толщина плиты.">
@@ -2271,7 +2349,7 @@ export function App(): React.JSX.Element {
               )}
             </Panel>
           ) : null}
-        </div>
+        </WorkspaceSlot>
         <div className={workspace.canvas}>
           {/*
             Вид холста: трёхмерная сцена или плоская схема. Это одно и то
@@ -2345,11 +2423,70 @@ export function App(): React.JSX.Element {
           )}
         </div>
 
-        <aside className={workspace.inspector} aria-label="Свойства объекта">
+        {/*
+          Полоса действий телефона (PROMPT 28 §4, §24).
+
+          Стоит между холстом и навигацией разделов — у нижнего края, там,
+          где палец. Здесь же переходы по шагам: одиннадцать шагов подряд
+          на 390 px не помещаются, поэтому виден текущий, а весь список
+          открывается листом.
+        */}
+        {!mobile ? null : (
+          <div className={workspace.mobileBar}>
+            <MobileSteps
+              current={step}
+              steps={workflowSteps}
+              onStep={goToStep}
+              onOpenList={() => {
+                setSheet('steps');
+              }}
+            />
+            <div className={workspace.mobileActions}>
+              <Button
+                onClick={() => {
+                  setSheet((current) => (current === 'params' ? null : 'params'));
+                }}
+              >
+                {STEP_BY_ID[step].title}
+              </Button>
+              <Button
+                disabled={inspector === undefined}
+                onClick={() => {
+                  setSheet((current) => (current === 'object' ? null : 'object'));
+                }}
+              >
+                Объект
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/*
+          Все этапы — тот же `WorkflowNav`, что и в колонке на широком
+          экране, а не его вторая копия: список шагов, их состояния и
+          разбор проблем по шагам общие (`workflow/steps.ts`).
+
+          Этот лист модальный: он открыт, чтобы выбрать шаг, и закрывается
+          выбором. Держать под ним рабочий холст незачем.
+        */}
+        {!mobile ? null : (
+          <Dialog open={sheet === 'steps'} title="Этапы" onClose={closeSheet}>
+            <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+          </Dialog>
+        )}
+
+        <WorkspaceSlot
+          mode={layout}
+          side="inspector"
+          label="Свойства объекта"
+          title="Выбранный объект"
+          open={sheet === 'object'}
+          onClose={closeSheet}
+        >
           {inspector === undefined ? null : (
             <Inspector model={inspector} onAction={runInspectorAction} />
           )}
-        </aside>
+        </WorkspaceSlot>
       </div>
     </AppShell>
   );

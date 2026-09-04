@@ -96,3 +96,24 @@
   font-weight: 600;
   color: var(--text-primary);
 }
+
+/*
+ * Раскрывающийся блок уточнений на телефоне (PROMPT 28 §31).
+ *
+ * Нативный <details>: он умеет открываться без скрипта, доступен с
+ * клавиатуры и сообщается скринридером сам. Своя реализация была бы
+ * хуже по всем трём пунктам.
+ */
+.disclosure {
+  margin-top: var(--sp-1);
+}
+
+.summary {
+  min-height: var(--h-control-md);
+  display: flex;
+  align-items: center;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  color: var(--tone-warning-text);
+  cursor: pointer;
+}

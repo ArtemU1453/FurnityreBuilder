@@ -2,7 +2,20 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      `interactive-widget=resizes-content`: при появлении экранной
+      клавиатуры окно уменьшается, а не перекрывается. Лист параметров
+      прижат к низу окна — без этого он оказывался бы ПОД клавиатурой
+      вместе с полем, которое правят (PROMPT 28 §10).
+
+      `viewport-fit=cover`: безопасные зоны iPhone доступны через
+      env(safe-area-inset-*) — отступы нижней навигации и листа считаются
+      от них, а не фиксированным числом (§37).
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <title>Furniture Builder — конструктор корпусной мебели</title>
     <meta
       name="description"

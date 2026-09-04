@@ -267,6 +267,10 @@ src/
     editor/                  холст, сцена, планировщик, инспекторы, библиотека
                              (чистые правила — selection.ts, resize.ts — без React)
     status.ts                единый словарь состояний: слова и тона
+    layout.ts                режимы раскладки: телефон/планшет/десктоп
+                             (чистый: ни React, ни DOM — см.
+                             docs/RESPONSIVE_ARCHITECTURE.md)
+    use-layout-mode.ts       текущий режим и грубость указателя
 tests/
   unit/{domain,geometry,validation,persistence,state,interaction,motion,architecture,render}/
   e2e/

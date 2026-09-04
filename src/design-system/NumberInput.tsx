@@ -104,6 +104,12 @@ export function NumberInput(props: NumberInputProps): React.JSX.Element {
             className={styles.input}
             type="number"
             inputMode="decimal"
+            /*
+              Клавиша подтверждения на экранной клавиатуре подписана
+              «Готово», а не «Ввод»: формы здесь нет, отправлять нечего
+              (PROMPT 28 §25).
+            */
+            enterKeyHint="done"
             value={shown}
             disabled={props.disabled ?? false}
             aria-invalid={invalid}
@@ -121,6 +127,13 @@ export function NumberInput(props: NumberInputProps): React.JSX.Element {
             }}
             onBlur={() => {
               setDraft(undefined);
+            }}
+            onKeyDown={(event) => {
+              // Enter завершает ввод: поле теряет фокус, черновик
+              // отбрасывается, экранная клавиатура убирается и открывает
+              // изделие. Без этого «Готово» на телефоне не делает ничего,
+              // и поле остаётся под клавиатурой (§25).
+              if (event.key === 'Enter') event.currentTarget.blur();
             }}
             onChange={(event) => {
               // Вставка из буфера приходит сюда же обычным change: отдельной

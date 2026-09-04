@@ -130,15 +130,19 @@ test('ошибка ведёт к своему шагу, а не просто с�
   await expect(page.getByRole('region', { name: 'Размеры' })).toBeVisible();
 });
 
-test('на телефоне лестница остаётся списком и ничего не вылезает за экран (§35)', async ({
-  page,
-}) => {
+test('на телефоне шаги остаются доступны и ничего не вылезает за экран (§35)', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
 
-  await expect(rail(page)).toBeVisible();
-  await step(page, 'Секции').click();
-  await expect(page.getByRole('region', { name: 'Секции' })).toBeVisible();
+  // С PROMPT 28 на телефоне видна не вся лестница, а текущий шаг с
+  // переходами: одиннадцать целей для пальца на 390 px не помещаются, а
+  // на 320 px лента ещё и выносила страницу вбок на 12 px. Весь список
+  // никуда не делся — он открывается листом, и это та же `WorkflowNav`
+  // (`tests/e2e/mobile.spec.ts`).
+  const bar = page.getByRole('navigation', { name: 'Этапы конструктора' });
+  await expect(bar).toContainText('Шаг 1 из 11');
+  await bar.getByRole('button', { name: 'Следующий этап' }).click();
+  await expect(bar).toContainText('Шаг 2 из 11');
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

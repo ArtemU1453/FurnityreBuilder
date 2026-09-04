@@ -35,6 +35,24 @@ import styles from './Dialog.module.css';
  *
  * При `prefers-reduced-motion` жест остаётся (это прямое управление, а
  * не анимация), а доводка становится коротким затуханием.
+ *
+ * ## Немодальный лист (PROMPT 28 §8, §9)
+ *
+ * `modal={false}` открывает то же самое через `show()` вместо
+ * `showModal()`: без подложки, без `inert` на фоне, без ловушки фокуса.
+ * Нужно это ровно для одного случая — параметров на телефоне: пока
+ * правишь ширину, изделие видно и на него можно нажать. Модальный лист
+ * закрывал бы результат правки ровно в тот момент, когда на него
+ * смотрят.
+ *
+ * Второго компонента для этого не заводится. Отличие целиком в том,
+ * забирает ли лист управление у страницы; полоса захвата, жест
+ * закрытия, заголовок, Esc и разметка — те же самые, и дублировать их
+ * значило бы дублировать и их ошибки.
+ *
+ * Esc у немодального `<dialog>` браузер не обрабатывает (`cancel` не
+ * приходит), поэтому он обработан здесь явно — иначе клавиша работала
+ * бы в одном режиме и молчала в другом.
  */
 
 export interface DialogProps {
@@ -46,6 +64,11 @@ export interface DialogProps {
   /** Кнопки. Подтверждающая — первой в разметке, чтобы она была первой в фокусе. */
   readonly actions?: ReactNode;
   readonly onClose: () => void;
+  /**
+   * Забирает ли лист управление у страницы. По умолчанию да — вопрос
+   * требует ответа. `false` оставляет холст видимым и доступным.
+   */
+  readonly modal?: boolean;
 }
 
 /** Доля высоты листа, за которой отпускание закрывает его. */
@@ -67,12 +90,17 @@ export function Dialog(props: DialogProps): React.JSX.Element | null {
 
   // Открытие и закрытие идут через методы <dialog>: только showModal()
   // делает диалог настоящим модальным — с ловушкой фокуса и inert-фоном.
+  const modal = props.modal ?? true;
+
   useEffect(() => {
     const node = ref.current;
     if (node === null) return;
-    if (props.open && !node.open) node.showModal();
+    if (props.open && !node.open) {
+      if (modal) node.showModal();
+      else node.show();
+    }
     if (!props.open && node.open) node.close();
-  }, [props.open]);
+  }, [props.open, modal]);
 
   // Сброс смещения при каждом открытии: лист не должен появиться там, где
   // его оставил предыдущий жест.
@@ -127,7 +155,17 @@ export function Dialog(props: DialogProps): React.JSX.Element | null {
     <dialog
       ref={ref}
       className={styles.dialog}
+      data-modeless={modal ? undefined : ''}
       aria-label={props.title}
+      onKeyDown={(event) => {
+        // Немодальному <dialog> браузер Esc не обрабатывает: `cancel` не
+        // приходит вовсе. Без этого клавиша закрывала бы модальный лист
+        // и молчала на немодальном — разное поведение одного элемента.
+        if (!modal && event.key === 'Escape') {
+          event.preventDefault();
+          props.onClose();
+        }
+      }}
       onCancel={(event) => {
         // Esc обрабатывается здесь, чтобы состояние `open` осталось
         // единственным источником правды: иначе браузер закрыл бы диалог,
@@ -137,8 +175,9 @@ export function Dialog(props: DialogProps): React.JSX.Element | null {
       }}
       onClick={(event) => {
         // Щелчок по подложке закрывает: цель события — сам <dialog>
-        // только тогда, когда попали мимо содержимого.
-        if (event.target === ref.current) props.onClose();
+        // только тогда, когда попали мимо содержимого. У немодального
+        // листа подложки нет, и закрывать по промаху нечему.
+        if (modal && event.target === ref.current) props.onClose();
       }}
     >
       <div
@@ -200,7 +239,30 @@ export function Dialog(props: DialogProps): React.JSX.Element | null {
         <div className={styles.grabber} aria-hidden="true">
           <span className={styles.grabberBar} />
         </div>
-        <h2 className={styles.title}>{props.title}</h2>
+        <div className={styles.header}>
+          <h2 className={styles.title}>{props.title}</h2>
+          {/*
+            Явное закрытие нужно именно немодальному листу (PROMPT 28 §8):
+            у него нет подложки, по которой можно промахнуться, а кнопка,
+            которой его открыли, оказывается ПОД ним. Без этой кнопки лист
+            закрывался бы только жестом — то есть никак для того, кто
+            работает с клавиатурой или не знает про жест.
+
+            У модального листа для этого есть подложка, Esc и собственные
+            кнопки ответа, и второй крестик рядом с «Отмена» был бы
+            вторым способом сделать одно и то же.
+          */}
+          {modal ? null : (
+            <button
+              type="button"
+              className={styles.close}
+              aria-label="Закрыть"
+              onClick={props.onClose}
+            >
+              ✕
+            </button>
+          )}
+        </div>
         {props.description === undefined ? null : (
           <p className={styles.description}>{props.description}</p>
         )}

@@ -37,8 +37,36 @@
   display: none;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--h-control-md);
+  height: var(--h-control-md);
+  background: none;
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+  font-size: var(--t-body-size);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+}
+
 .title {
   margin: 0;
+  min-width: 0;
   font-size: var(--t-title-size);
   line-height: var(--t-title-lh);
   letter-spacing: var(--t-title-ls);
@@ -60,8 +88,46 @@
   margin-top: var(--sp-2);
 }
 
-/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
-@media (max-width: 600px) {
+/*
+  Немодальный лист (PROMPT 28 §8): страница остаётся видимой и рабочей,
+  поэтому лист не растягивается на всё окно, а прижат к низу и занимает
+  не больше половины экрана — верхняя половина остаётся холсту.
+
+  `<dialog>` без showModal() позиционируется как обычный элемент потока,
+  поэтому положение задаётся здесь явно.
+*/
+.dialog[data-modeless] {
+  position: fixed;
+  /*
+    В верхний слой браузера попадает только showModal(); немодальный
+    <dialog> остаётся обычным элементом и складывается по общим
+    правилам. Без явного z-index холст сцены оказывался ПОВЕРХ листа и
+    перехватывал нажатия — кнопка закрытия была видна, но недостижима.
+
+    3 — выше содержимого и нижней навигации (1) и выше липкой шапки (2):
+    лист временно главный на экране, пока открыт.
+  */
+  z-index: 3;
+  inset: auto 0 0 0;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  max-height: 55vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+  Режим «телефон» (PROMPT 28 §3). Тот же разбор, что в `app/layout.ts`:
+  узкий экран ИЛИ низкий и не широкий — телефон в альбомной ориентации
+  (844×390) по одной ширине попадал в «планшет» и получал боковую
+  колонку, которая по высоте не помещается.
+
+  Условие продублировано текстом, а не переменной: в `@media` переменные
+  не подставляются. Оно обязано совпадать с `mediaQueryOf('mobile')`,
+  иначе CSS и React разойдутся в том, что считать телефоном.
+*/
+@media (max-width: 600px), (max-width: 900px) and (max-height: 600px) {
   /*
     Телефон: не уменьшенный диалог, а лист снизу. Он приходит оттуда же,
     куда уходит, и оказывается под большим пальцем — в отличие от окна
