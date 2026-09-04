@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 /**
  * Технический debug-renderer существует только в режиме разработки
@@ -10,6 +11,21 @@ import { expect, test } from '@playwright/test';
  * реальную отрисовку SVG в браузере и полный интерактивный путь
  * «нажатие → команда → пересчёт → перерисовка схемы».
  */
+
+/**
+ * Открыть шаг сценария (PROMPT 27 §27).
+ *
+ * Колонка параметров с PROMPT 27 показывает панель одного шага — того,
+ * что открыт. Панель «Схема (debug)» шагам не принадлежит и видна
+ * всегда, поэтому здесь достаточно дойти до шага перед тем, как
+ * трогать его органы управления.
+ */
+async function goToStep(page: Page, title: string): Promise<void> {
+  await page
+    .getByRole('navigation', { name: 'Этапы конструктора' })
+    .getByRole('button', { name: title })
+    .click();
+}
 
 test('схема появляется в режиме разработки и отражает реальную геометрию', async ({ page }) => {
   await page.goto('/');
@@ -27,8 +43,11 @@ test('схема появляется в режиме разработки и о
   await expect(schema.locator('rect')).toHaveCount(6);
 });
 
-test('применение сетки перестраивает схему: перегородки и ячейки появляются вживую', async ({ page }) => {
+test('применение сетки перестраивает схему: перегородки и ячейки появляются вживую', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await expect(schema.locator('rect')).toHaveCount(6);
@@ -59,8 +78,11 @@ test('переключатель debug-инфо показывает и скры
   await expect(schema.locator('text').filter({ hasText: 'side ·' })).toHaveCount(0);
 });
 
-test('полки появляются в схеме как отдельные детали и подписываются в debug-инфо', async ({ page }) => {
+test('полки появляются в схеме как отдельные детали и подписываются в debug-инфо', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await expect(schema.locator('rect')).toHaveCount(6);
@@ -77,11 +99,14 @@ test('полки появляются в схеме как отдельные д
   // Подпись полки в debug-инфо несёт ширину, глубину, толщину и Y
   // (PROMPT 6 §27) — и берёт их из GeometryResult, а не считает заново.
   await page.getByLabel('Показывать ID и координаты').check();
-  await expect(schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first()).toBeVisible();
+  await expect(
+    schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first(),
+  ).toBeVisible();
 });
 
 test('изменение числа секций перестраивает перегородки и подписывает секции', async ({ page }) => {
   await page.goto('/');
+  await goToStep(page, 'Секции');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await expect(schema.getByText('SECTION 1')).toBeVisible();
@@ -107,13 +132,13 @@ test('изменение числа секций перестраивает пе
 
 test('индивидуальные ширины секций применяются и видны в схеме', async ({ page }) => {
   await page.goto('/');
-
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   const stats = page.getByRole('region', { name: 'Результат расчёта' });
 
   // Габарит подбираем так, чтобы 300 + 500 + 400 сошлось с боковинами
-  // и двумя перегородками: 1200 + 32 + 32 = 1264.
+  // и двумя перегородками: 1200 + 32 + 32 = 1264. Ширина — шаг «Размеры».
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1264');
+  await goToStep(page, 'Секции');
   await page.getByLabel('Секций', { exact: true }).fill('3');
   await page.getByRole('button', { name: /Применить секций/ }).click();
   await expect(stats.getByText('Секций').locator('..')).toContainText('3');
@@ -133,7 +158,9 @@ test('индивидуальные ширины секций применяют�
   // Локатор сужен до панели проблем: с PROMPT 19 тот же текст ошибки
   // встречается ещё и в техническом выводе спецификации, и без сужения
   // локатор находит два элемента.
-  await expect(page.getByLabel('Результат расчёта').getByText(/не заполняют доступное пространство/)).toBeVisible();
+  await expect(
+    page.getByLabel('Результат расчёта').getByText(/не заполняют доступное пространство/),
+  ).toBeVisible();
 
   // Одна отмена возвращает предыдущий набор ширин целиком.
   await page.getByRole('button', { name: 'Отменить' }).click();
@@ -142,6 +169,7 @@ test('индивидуальные ширины секций применяют�
 
 test('наполнение ячейки подписано в схеме и меняется вместе с моделью', async ({ page }) => {
   await page.goto('/');
+  await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   // Новая ячейка пуста — и это видно, а не подразумевается.
@@ -156,6 +184,7 @@ test('наполнение ячейки подписано в схеме и ме
 
 test('дверь появляется в схеме и подписана содержимым ячейки (PROMPT 10 §18)', async ({ page }) => {
   await page.goto('/');
+  await goToStep(page, 'Фасады');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await expect(schema.locator('rect')).toHaveCount(6);
@@ -179,15 +208,20 @@ test('дверь появляется в схеме и подписана сод
   await expect(schema.getByText(/CONTENT: ПУСТО · ДВЕРЬ/)).toHaveCount(0);
 });
 
-test('фасады ящиков появляются в схеме и подписаны CONTENT: ЯЩИКИ (PROMPT 11 §20)', async ({ page }) => {
+test('фасады ящиков появляются в схеме и подписаны CONTENT: ЯЩИКИ (PROMPT 11 §20)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Фасады');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
 
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
-  const addDrawerButton = page.getByLabel('Ящики').getByRole('button', { name: 'Добавить ящик', exact: true });
+  const addDrawerButton = page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Добавить ящик', exact: true });
   await addDrawerButton.click();
   await addDrawerButton.click();
 
@@ -200,14 +234,21 @@ test('фасады ящиков появляются в схеме и подпи
   await page.getByLabel('Показывать ID и координаты').check();
   await expect(schema.locator('text').filter({ hasText: 'Фасад ящика' }).first()).toBeVisible();
 
-  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
-  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
+  await page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Убрать ящик', exact: true })
+    .click();
+  await page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Убрать ящик', exact: true })
+    .click();
   await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.getByText('CONTENT: ЯЩИКИ')).toHaveCount(0);
 });
 
 test('ручка появляется в схеме и подписана в CONTENT ячейки (PROMPT 12 §18)', async ({ page }) => {
   await page.goto('/');
+  await goToStep(page, 'Фасады');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await expect(schema.locator('rect')).toHaveCount(6);
@@ -242,8 +283,11 @@ test('изменение габарита в поле обновляет схе�
   await expect(schema.getByText('1400 мм').first()).toBeVisible();
 });
 
-test('материал и толщина детали подписаны в схеме, смена толщины материала видна сразу (PROMPT 13 §22–23)', async ({ page }) => {
+test('материал и толщина детали подписаны в схеме, смена толщины материала видна сразу (PROMPT 13 §22–23)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await page.getByLabel('Полок в ячейке').fill('1');
@@ -259,12 +303,19 @@ test('материал и толщина детали подписаны в сх
 
   // Смена ТОЛЩИНЫ МАТЕРИАЛА (а не толщины корпуса) пересчитывает толщину
   // полки: до PROMPT 13 материал на геометрию не влиял вообще (§17).
+  // Реестр материалов — свой шаг.
+  await goToStep(page, 'Материалы');
   await page.getByRole('spinbutton', { name: 'Корпусная плита 16 мм', exact: true }).fill('18');
-  await expect(schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first()).toContainText('Т 18 мм');
+  await expect(
+    schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first(),
+  ).toContainText('Т 18 мм');
 });
 
-test('назначение материала роли меняет материал уже построенных деталей (PROMPT 13 §23)', async ({ page }) => {
+test('назначение материала роли меняет материал уже построенных деталей (PROMPT 13 §23)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await page.getByLabel('Полок в ячейке').fill('1');
@@ -276,6 +327,7 @@ test('назначение материала роли меняет матери
 
   // Полке назначается материал задней стенки (3 мм) — единственный второй
   // материал стартового реестра: и имя, и толщина детали меняются вместе.
+  await goToStep(page, 'Материалы');
   await page.getByLabel('Материал полок').selectOption({ label: 'Задняя стенка 3 мм' });
   await expect(shelfLabel()).toContainText('Задняя стенка 3 мм');
   await expect(shelfLabel()).toContainText('Т 3 мм');
@@ -286,8 +338,11 @@ test('назначение материала роли меняет матери
   await expect(shelfLabel()).toContainText('Т 16 мм');
 });
 
-test('задняя стенка и цоколь появляются в схеме и пересчитывают корпус (PROMPT 14 §21, §27)', async ({ page }) => {
+test('задняя стенка и цоколь появляются в схеме и пересчитывают корпус (PROMPT 14 §21, §27)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Корпус');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await page.getByLabel('Показывать ID и координаты').check();
@@ -318,8 +373,11 @@ test('задняя стенка и цоколь появляются в схем
   await expect(schema.locator('rect')).toHaveCount(7);
 });
 
-test('разделение задней стенки по секциям даёт сегмент на секцию (PROMPT 14 §6–§7)', async ({ page }) => {
+test('разделение задней стенки по секциям даёт сегмент на секцию (PROMPT 14 §6–§7)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Секции');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await page.getByLabel('Секций', { exact: true }).fill('3');
@@ -329,20 +387,28 @@ test('разделение задней стенки по секциям даё�
   // 4 детали каркаса + 2 перегородки + 1 цельная стенка + 3 ячейки = 10.
   await expect(schema.locator('rect')).toHaveCount(10);
 
+  await goToStep(page, 'Корпус');
   await page.getByLabel('Разделение стенки').selectOption('per-section');
   // Цельная стенка заменилась тремя сегментами: +2 прямоугольника.
   await expect(schema.locator('rect')).toHaveCount(12);
-  await expect(schema.locator('text').filter({ hasText: 'BACK WALL' }).first()).toContainText('Секция:');
+  await expect(schema.locator('text').filter({ hasText: 'BACK WALL' }).first()).toContainText(
+    'Секция:',
+  );
 });
 
-test('модификаторы корпуса пересчитывают геометрию и видны в схеме (PROMPT 15 §16, §21)', async ({ page }) => {
+test('модификаторы корпуса пересчитывают геометрию и видны в схеме (PROMPT 15 §16, §21)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Конструкция');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await page.getByLabel('Показывать ID и координаты').check();
 
   // Конструктивная сводка показывает полосы вертикального бюджета.
-  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('Установка floor-standing');
+  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText(
+    'Установка floor-standing',
+  );
 
   // Антресоль: вторая оболочка, +4 детали (2 боковины, крышка, дно).
   await expect(schema.locator('rect')).toHaveCount(6);
@@ -358,15 +424,22 @@ test('модификаторы корпуса пересчитывают гео�
   // Зазор до потолка деталей не даёт, но виден в сводке.
   await page.getByRole('spinbutton', { name: 'Зазор до потолка', exact: true }).fill('100');
   await expect(schema.locator('rect')).toHaveCount(11);
-  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('До потолка 100');
+  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText(
+    'До потолка 100',
+  );
 
   // Отмена возвращает предыдущий шаг: зазор снят, деталей столько же.
   await page.getByRole('button', { name: 'Отменить' }).click();
-  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('До потолка 0');
+  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText(
+    'До потолка 0',
+  );
 });
 
-test('фальшпанель и режим установки проходят через команды (PROMPT 15 §13, §21)', async ({ page }) => {
+test('фальшпанель и режим установки проходят через команды (PROMPT 15 §13, §21)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Конструкция');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await page.getByLabel('Показывать ID и координаты').check();
@@ -377,22 +450,29 @@ test('фальшпанель и режим установки проходят �
   await expect(schema.locator('text').filter({ hasText: 'FALSE PANEL' }).first()).toBeVisible();
 
   await page.getByLabel('Установка').selectOption('wall-mounted');
-  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText('Установка wall-mounted');
+  await expect(schema.locator('text').filter({ hasText: 'BBOX' }).first()).toContainText(
+    'Установка wall-mounted',
+  );
 
   await page.getByRole('button', { name: 'Убрать фальшпанель' }).click();
   await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.locator('text').filter({ hasText: 'FALSE PANEL' })).toHaveCount(0);
 });
 
-test('спецификация фурнитуры пересчитывается вместе с моделью (PROMPT 16 §20, §26)', async ({ page }) => {
+test('спецификация фурнитуры пересчитывается вместе с моделью (PROMPT 16 §20, §26)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Фасады');
 
   const hardware = page.getByRole('heading', { name: 'Фурнитура (расчёт)' });
   await expect(hardware).toBeVisible();
   const list = page.locator('h3:has-text("Фурнитура (расчёт)") + ul');
 
   // Технический вывод показывает все поля, которые требует §26.
-  await expect(list.getByText('ID · DEFINITION · CATEGORY · QUANTITY · UNIT · SOURCE · RULE · REASON')).toBeVisible();
+  await expect(
+    list.getByText('ID · DEFINITION · CATEGORY · QUANTITY · UNIT · SOURCE · RULE · REASON'),
+  ).toBeVisible();
 
   // Пустой корпус: направляющих нет, зато есть внятное объяснение,
   // почему крепёж не посчитан, — вместо выдуманного числа.
@@ -401,7 +481,9 @@ test('спецификация фурнитуры пересчитывается
 
   // Два ящика — четыре направляющие, без всякой команды «пересчитать».
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
-  const addDrawerButton = page.getByLabel('Ящики').getByRole('button', { name: 'Добавить ящик', exact: true });
+  const addDrawerButton = page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Добавить ящик', exact: true });
   await addDrawerButton.click();
   await addDrawerButton.click();
   await expect(list.getByText(/ИТОГО · hw-slide · slide · 4 · pcs/)).toBeVisible();
@@ -411,14 +493,26 @@ test('спецификация фурнитуры пересчитывается
   await expect(list.getByText(/ИТОГО · hw-slide · slide · 6 · pcs/)).toBeVisible();
 
   // Убрали ящики — позиция исчезла вместе со своим источником.
-  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
-  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
-  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
+  await page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Убрать ящик', exact: true })
+    .click();
+  await page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Убрать ящик', exact: true })
+    .click();
+  await page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Убрать ящик', exact: true })
+    .click();
   await expect(list.getByText(/hw-slide/)).toHaveCount(0);
 });
 
-test('карта раскроя строится из деталей и пересчитывается вместе с ними (PROMPT 17 §30)', async ({ page }) => {
+test('карта раскроя строится из деталей и пересчитывается вместе с ними (PROMPT 17 §30)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Ячейки');
 
   await expect(page.getByRole('heading', { name: 'Карта раскроя (debug)' })).toBeVisible();
 
@@ -429,7 +523,9 @@ test('карта раскроя строится из деталей и пере
   await expect(page.getByRole('img', { name: /Задняя стенка 3 мм/ })).toHaveCount(1);
 
   // Полок в раскрое пока нет.
-  const shelvesOnSheets = page.locator('svg[aria-label^="ЛИСТ "] text').filter({ hasText: /^Полка$/ });
+  const shelvesOnSheets = page
+    .locator('svg[aria-label^="ЛИСТ "] text')
+    .filter({ hasText: /^Полка$/ });
   await expect(shelvesOnSheets).toHaveCount(0);
 
   // Добавление полок добавляет детали в раскрой само — без команды
@@ -441,12 +537,11 @@ test('карта раскроя строится из деталей и пере
   await expect(shelvesOnSheets).toHaveCount(3);
 });
 
-
-
-
-
-test('карта присадки объясняет, чего не хватает, вместо выдуманных отверстий (PROMPT 18 §28)', async ({ page }) => {
+test('карта присадки объясняет, чего не хватает, вместо выдуманных отверстий (PROMPT 18 §28)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Ячейки');
 
   await expect(page.getByRole('heading', { name: 'Присадка (расчёт)' })).toBeVisible();
   const list = page.locator('h3:has-text("Присадка (расчёт)") + ul');
@@ -464,8 +559,11 @@ test('карта присадки объясняет, чего не хватае
   await expect(list.getByText('— ни одной операции не рассчитано —')).toBeVisible();
 });
 
-test('спецификация собирается из всех расчётов и не прячет ограничений (PROMPT 19 §25)', async ({ page }) => {
+test('спецификация собирается из всех расчётов и не прячет ограничений (PROMPT 19 §25)', async ({
+  page,
+}) => {
   await page.goto('/');
+  await goToStep(page, 'Ячейки');
 
   await expect(page.getByRole('heading', { name: 'Спецификация (расчёт)' })).toBeVisible();
   const list = page.locator('h3:has-text("Спецификация (расчёт)") + ul');
@@ -479,15 +577,21 @@ test('спецификация собирается из всех расчёто
   await expect(list.getByText(/^ТРЕБУЕТ ПОДТВЕРЖДЕНИЯ · \d+/)).toBeVisible();
 
   // Две одинаковые боковины — одна строка количеством 2, а не две строки.
-  await expect(list.getByText(/Боковина · side · Корпусная плита 16 мм · 16 · 2000 · 497 · 2 ·/)).toBeVisible();
+  await expect(
+    list.getByText(/Боковина · side · Корпусная плита 16 мм · 16 · 2000 · 497 · 2 ·/),
+  ).toBeVisible();
 
   // Полки появляются в деталировке сами, одной строкой на три штуки.
   await page.getByLabel('Полок в ячейке').fill('3');
   await page.getByRole('button', { name: /Применить сетку/ }).click();
-  await expect(list.getByText(/Полка · shelf · Корпусная плита 16 мм · 16 · \d+ · \d+ · 3 ·/)).toBeVisible();
+  await expect(
+    list.getByText(/Полка · shelf · Корпусная плита 16 мм · 16 · \d+ · \d+ · 3 ·/),
+  ).toBeVisible();
 });
 
-test('debug-режим сцены показывает состав и счётчики отрисовки (PROMPT 23 §27, §31)', async ({ page }) => {
+test('debug-режим сцены показывает состав и счётчики отрисовки (PROMPT 23 §27, §31)', async ({
+  page,
+}) => {
   await page.goto('/');
 
   const canvas = page.getByRole('img', { name: /Трёхмерный вид изделия/ });

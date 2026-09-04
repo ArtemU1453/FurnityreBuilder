@@ -85,6 +85,27 @@ export function ProductionScreen(props: ProductionScreenProps): React.JSX.Elemen
                   {check.errors.length === 0 ? null : (
                     <span className={styles.detail}>{check.errors[0]?.message}</span>
                   )}
+
+                  {/*
+                    Неподтверждённые правила раскрываются, а не сводятся к
+                    слову «подтвердить» (PROMPT 27 §25). У каждого уже
+                    есть всё нужное: какое правило неизвестно, где оно
+                    применяется и на что влияет результат. Прятать это за
+                    статусом значило бы требовать подтверждения, не
+                    сказав чего.
+                  */}
+                  {check.needsConfirmation.length === 0 ? null : (
+                    <ul className={styles.confirmations}>
+                      {check.needsConfirmation.map((item) => (
+                        <li key={item.id} className={styles.confirmation}>
+                          <span className={styles.rule}>{item.rule}</span>
+                          <span className={styles.detail}>Применяется: {item.source}</span>
+                          <span className={styles.detail}>Влияние: {item.impact}</span>
+                          <span className={styles.detail}>Идентификатор: {item.id}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>

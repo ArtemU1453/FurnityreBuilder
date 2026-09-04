@@ -1,0 +1,158 @@
+/*
+ * Лестница шагов (PROMPT 27 §27).
+ *
+ * Колонка на десктопе, горизонтальная лента на телефоне: там колонка из
+ * одиннадцати строк заняла бы весь экран раньше, чем до него дойдёт
+ * содержимое шага.
+ */
+
+.nav {
+  display: grid;
+  gap: var(--sp-2);
+  align-content: start;
+  padding: var(--sp-3);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.position {
+  margin: 0;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  letter-spacing: var(--t-caption-ls);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.25em 1.5em 1fr;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-1) var(--sp-2);
+  border: var(--border-hairline) solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-color) var(--easing-standard),
+    color var(--duration-color) var(--easing-standard);
+}
+
+.step:hover {
+  background: var(--bg-sunken);
+}
+
+.step:focus-visible {
+  outline: var(--border-focus) solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.step[data-active] {
+  background: var(--tone-info-bg);
+  border-color: var(--tone-info-border);
+}
+
+.mark {
+  grid-row: 1 / span 2;
+  font-family: var(--font-num);
+  font-weight: 600;
+  color: var(--tone-neutral-text);
+}
+
+.step[data-tone='info'] .mark {
+  color: var(--tone-info-text);
+}
+.step[data-tone='success'] .mark {
+  color: var(--tone-success-text);
+}
+.step[data-tone='warning'] .mark {
+  color: var(--tone-warning-text);
+}
+.step[data-tone='danger'] .mark {
+  color: var(--tone-danger-text);
+}
+
+.index {
+  grid-row: 1 / span 2;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption-size);
+  color: var(--text-tertiary);
+}
+
+.title {
+  font-size: var(--t-label-size);
+  line-height: var(--t-label-lh);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.state {
+  grid-column: 3;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  color: var(--text-tertiary);
+}
+
+.step[data-tone='danger'] .state {
+  color: var(--tone-danger-text);
+}
+.step[data-tone='warning'] .state {
+  color: var(--tone-warning-text);
+}
+
+.moves {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.moves > * {
+  flex: 1;
+}
+
+/* Контрольная точка из tokens.css. В @media переменные не подставляются. */
+@media (max-width: 900px) {
+  /*
+    Планшет и телефон: лента вместо колонки. Одиннадцать строк по
+    вертикали отодвинули бы содержимое шага за нижний край экрана.
+  */
+  .list {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    overflow-x: auto;
+    /* Прокрутка внутри ленты, а не страницы: страница вбок не едет. */
+    scroll-snap-type: x proximity;
+    padding-bottom: var(--sp-1);
+  }
+
+  .list > li {
+    scroll-snap-align: start;
+  }
+
+  .step {
+    grid-template-columns: 1.25em auto;
+    width: auto;
+  }
+
+  .index,
+  .state {
+    display: none;
+  }
+}

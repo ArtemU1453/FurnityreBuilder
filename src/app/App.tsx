@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createDrawer,
   createEmptyLeaf,
@@ -9,6 +9,7 @@ import {
   createHandleOpeningSystem,
   createHingedFacade,
   createPushToOpenSystem,
+  createDrawersLeaf,
   createShelvesLeaf,
 } from '../domain/furniture/defaults.js';
 import {
@@ -26,11 +27,10 @@ import type {
   MaterialId,
   NodeId,
   OpeningSystem,
-  PartId,
   PartRole,
 } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
-import { buildGeometry } from '../geometry/index.js';
+import { buildGeometry, contentLabel } from '../geometry/index.js';
 import { buildCuttingView, buildDebugView, CuttingMap, DebugSchema } from '../render/index.js';
 import { calculateHardware, formatHardwareDebug } from '../hardware/index.js';
 import { calculateCutting, toProductionParts } from '../production/index.js';
@@ -55,6 +55,7 @@ import type { ExtentLookup } from '../room/index.js';
 import { createFurnitureInstance, createRectangularRoom } from '../domain/index.js';
 import type {
   Furniture,
+  Issue,
   FurnitureId,
   InstanceId,
   Project,
@@ -65,6 +66,7 @@ import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
 import {
   Button,
+  EmptyState,
   Field,
   NumberInput,
   Panel,
@@ -74,6 +76,8 @@ import {
 } from '../design-system/index.js';
 import { AppShell, ProjectContext, StatusBar, TopActions } from './shell/index.js';
 import type { Screen } from './shell/index.js';
+import { FIRST_STEP, STEP_BY_ID, WorkflowNav, stepOfIssue, stepStates } from './workflow/index.js';
+import type { StepId } from './workflow/index.js';
 import { ProductionScreen } from './screens/ProductionScreen.js';
 import { RoomScreen } from './screens/RoomScreen.js';
 import workspace from './screens/Workspace.module.css';
@@ -88,6 +92,43 @@ import styles from './App.module.css';
  * действительно работает, и что изменение габарита проходит весь путь
  * без участия React в расчётах.
  */
+
+/**
+ * Виды наполнения, доступные в интерфейсе (PROMPT 27 §12).
+ *
+ * Список короче, чем `LeafFill`, и это не упрощение ради красоты.
+ * `rod` и `rod+shelf` в модели есть, но движок помечает их
+ * `not-implemented` и деталей для них не строит (`geometry/content.ts`).
+ * Пункт, который ничего не строит, — обещание, которого приложение не
+ * выполняет; поэтому в списке его нет, а причина названа рядом текстом.
+ *
+ * Подписи берутся из `contentLabel` — того же места, откуда их берёт
+ * диагностика движка и техническая схема. Второго словаря видов
+ * наполнения не заводится.
+ */
+const UI_FILL_KINDS = ['empty', 'shelves', 'drawers'] as const;
+
+const FILL_OPTIONS = UI_FILL_KINDS.map((kind) => ({
+  value: kind,
+  label: kind === 'empty' ? 'Пусто' : contentLabel(kind),
+}));
+
+const FILL_LABELS: Readonly<Record<LeafFill['kind'], string>> = {
+  empty: 'Пусто',
+  shelves: contentLabel('shelves'),
+  drawers: contentLabel('drawers'),
+  rod: contentLabel('rod'),
+  'rod+shelf': contentLabel('rod+shelf'),
+};
+
+/** Что означает выбранный вид наполнения — одной строкой для человека. */
+const FILL_HINTS: Readonly<Record<LeafFill['kind'], string>> = {
+  empty: 'Ячейка остаётся открытой. Полок и ящиков в ней нет.',
+  shelves: 'Полки — физические детали: они попадают в деталировку, раскрой и кромку.',
+  drawers: 'Ящик добавляет короб и фасад. Дверь на ячейку с ящиками поставить нельзя.',
+  rod: 'Штанга есть в модели, но геометрией пока не строится.',
+  'rod+shelf': 'Штанга с полкой есть в модели, но геометрией пока не строится.',
+};
 
 const AXES = [
   { key: 'width', label: 'Ширина' },
@@ -270,6 +311,68 @@ export function App(): React.JSX.Element {
       : (selectedNodes.find((id) => geometry.cells.some((cell) => cell.nodeId === id)) ?? '');
   const setSelectedCellId = (id: NodeId | ''): void => {
     selectNodes(id === '' ? [] : [id]);
+  };
+
+  /**
+   * Выбранная ячейка целиком (PROMPT 27 §9).
+   *
+   * Ячейка — ПРОСТРАНСТВО, а не деталь: в деталировку, раскрой и
+   * спецификацию она не попадает. Поэтому здесь берётся `CellBox` из
+   * результата расчёта, а не деталь из `parts`.
+   */
+  const selectedCell =
+    selectedCellId === '' || geometry === undefined
+      ? undefined
+      : geometry.cells.find((cell) => cell.nodeId === selectedCellId);
+
+  /** Наполнение выбранной ячейки — из модели, а не из отдельного состояния. */
+  const selectedFillKind: LeafFill['kind'] = ((): LeafFill['kind'] => {
+    if (selectedCellId === '' || furniture === undefined) return 'empty';
+    const node = findNode(furniture.root, selectedCellId);
+    return node?.kind === 'leaf' ? node.fill.kind : 'empty';
+  })();
+
+  const selectedShelfCount =
+    selectedCellId === '' || furniture === undefined
+      ? 0
+      : ((): number => {
+          const node = findNode(furniture.root, selectedCellId);
+          return node?.kind === 'leaf' && node.fill.kind === 'shelves'
+            ? node.fill.shelves.length
+            : 0;
+        })();
+
+  /**
+   * Смена наполнения ячейки.
+   *
+   * Одна существующая команда `SetFill` и существующие доменные фабрики.
+   * Второй модели содержимого не заводится (§12): виды наполнения — это
+   * ровно те, что есть в `LeafFill`.
+   */
+  const setCellFillKind = (kind: (typeof UI_FILL_KINDS)[number]): void => {
+    if (selectedCellId === '') return;
+    const ids = createRandomIdFactory();
+    const fill: LeafFill =
+      kind === 'shelves'
+        ? createShelvesLeaf(ids, Math.max(1, selectedShelfCount)).fill
+        : kind === 'drawers'
+          ? createDrawersLeaf(ids, 1).fill
+          : { kind: 'empty' };
+    execute(
+      { type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill },
+      `Наполнение: ${FILL_LABELS[kind]}`,
+    );
+  };
+
+  /** Число полок в выбранной ячейке. Той же командой `SetFill`. */
+  const setCellShelfCount = (count: number): void => {
+    if (selectedCellId === '') return;
+    const fill: LeafFill =
+      count <= 0 ? { kind: 'empty' } : createShelvesLeaf(createRandomIdFactory(), count).fill;
+    execute(
+      { type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill },
+      `Полок в ячейке: ${String(count)}`,
+    );
   };
 
   /**
@@ -516,8 +619,22 @@ export function App(): React.JSX.Element {
     );
   };
 
-  /** Переход от текста ошибки к затронутому объекту (§29). */
-  const selectIssueTarget = (issue: { target?: { nodeId?: NodeId; partId?: PartId } }): void => {
+  /**
+   * Переход от текста ошибки к объекту и к шагу (PROMPT 22 §29,
+   * PROMPT 27 §24).
+   *
+   * Три действия подряд, и все три нужны. Выделить объект мало: человек
+   * увидит подсвеченную деталь, но останется на шаге, где её параметра
+   * нет. Поэтому сначала открывается шаг, которому проблема принадлежит,
+   * а потом выделяется сам объект — и нужное поле оказывается на экране.
+   *
+   * Шаг определяется по уже существующим полям диагностики (код и путь к
+   * полю), а не по новому полю в `Issue`: домен не должен знать
+   * устройство интерфейса.
+   */
+  const goToIssue = (issue: Issue): void => {
+    const owner = stepOfIssue(issue);
+    if (owner !== undefined) goToStep(owner);
     if (issue.target?.partId !== undefined) selectParts([issue.target.partId]);
     else if (issue.target?.nodeId !== undefined) selectNodes([issue.target.nodeId]);
   };
@@ -539,6 +656,61 @@ export function App(): React.JSX.Element {
    * навигацию рядом с переключателем.
    */
   const [screen, setScreen] = useState<Screen>('editor');
+
+  /**
+   * Текущий шаг сценария (PROMPT 27 §2, §27).
+   *
+   * Состояние ИНТЕРФЕЙСА, и только оно: копии мебели внутри сценария
+   * нет, все изменения идут существующими командами. Шаг не хранится в
+   * проекте и не отменяется по Ctrl+Z — «отменить переход на другой шаг»
+   * не значит ничего.
+   */
+  const [step, setStep] = useState<StepId>(FIRST_STEP);
+  const lastEditorStepRef = useRef<StepId>(FIRST_STEP);
+  const lastProductionStepRef = useRef<StepId>('validation');
+  /** Где уже были: нужно только лестнице шагов, чтобы отличать «не открывали». */
+  const [visited, setVisited] = useState<ReadonlySet<StepId>>(() => new Set([FIRST_STEP]));
+
+  // Последний шаг в каждом разделе: чтобы возврат в раздел возвращал
+  // туда же, откуда ушли.
+  const lastEditorStep = STEP_BY_ID[step].screen === 'editor' ? step : lastEditorStepRef.current;
+  const lastProductionStep =
+    STEP_BY_ID[step].screen === 'production' ? step : lastProductionStepRef.current;
+  lastEditorStepRef.current = lastEditorStep;
+  lastProductionStepRef.current = lastProductionStep;
+
+  /**
+   * Переход на шаг.
+   *
+   * Шаг знает свой экран, поэтому переход на «Проверку» сам открывает
+   * раздел «Производство». Иначе человек нажал бы на шаг и остался бы
+   * там же, где стоял.
+   */
+  const goToStep = (next: StepId): void => {
+    setStep(next);
+    setVisited((seen) => (seen.has(next) ? seen : new Set(seen).add(next)));
+    setScreen(STEP_BY_ID[next].screen);
+  };
+
+  /**
+   * Переход по разделам приложения (PROMPT 26 §3) с сохранением места в
+   * сценарии.
+   *
+   * Разделом можно переключиться и мимо лестницы шагов — кнопками в
+   * шапке. Тогда шаг обязан последовать за разделом: иначе в
+   * конструкторе остался бы открыт шаг «Проверка», который живёт в
+   * производстве, и боковая колонка оказалась бы пустой. Возврат идёт на
+   * ТОТ ЖЕ шаг, где человек был в этом разделе, а не в начало: терять
+   * место при переключении туда-обратно — то же, что терять работу.
+   */
+  const goToScreen = (next: Screen): void => {
+    setScreen(next);
+    if (next !== 'editor' && next !== 'production') return;
+    if (STEP_BY_ID[step].screen === next) return;
+    const restored = next === 'editor' ? lastEditorStep : lastProductionStep;
+    setStep(restored);
+    setVisited((seen) => (seen.has(restored) ? seen : new Set(seen).add(restored)));
+  };
 
   /**
    * Открытие проекта из библиотеки (§21).
@@ -640,6 +812,17 @@ export function App(): React.JSX.Element {
   // Модель вида холста — та же функция, что и у технической схемы:
   // `buildDebugView` переводит результат движка в прямоугольники и ничего
   // не считает сама. Второго построителя вида не заводится (§30).
+  /**
+   * Состояния шагов (PROMPT 27 §27).
+   *
+   * Выводятся из ТЕХ ЖЕ проблем, что показывает строка состояния: второго
+   * источника правды о том, что не так с проектом, не появляется.
+   */
+  const workflowSteps = useMemo(
+    () => stepStates({ issues: problems, current: step, visited }),
+    [problems, step, visited],
+  );
+
   const canvasView = useMemo(
     () => (geometry === undefined ? undefined : buildDebugView(geometry, project.materials)),
     [geometry, project.materials],
@@ -1099,7 +1282,7 @@ export function App(): React.JSX.Element {
   return (
     <AppShell
       screen={screen}
-      onScreen={setScreen}
+      onScreen={goToScreen}
       context={
         <ProjectContext
           name={project.name}
@@ -1126,7 +1309,7 @@ export function App(): React.JSX.Element {
           issues={problems}
           production={readiness?.status}
           storage={storage.status}
-          onSelectIssue={selectIssueTarget}
+          onSelectIssue={goToIssue}
         />
       }
     >
@@ -1142,14 +1325,26 @@ export function App(): React.JSX.Element {
       ) : null}
 
       {screen === 'production' ? (
-        <ProductionScreen
-          readiness={readiness}
-          exporting={exporting}
-          exportError={exportError}
-          onExport={(kind) => {
-            void runExport(kind);
-          }}
-        />
+        <div className={workspace.workspace}>
+          {/*
+            Лестница шагов видна и здесь: «Проверка» и «Производство» —
+            такие же шаги сценария, как «Размеры», и уйти с них обратно в
+            конструктор нужно тем же способом, каким сюда пришли.
+          */}
+          <div className={workspace.sidebar}>
+            <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+          </div>
+          <div className={workspace.canvas}>
+            <ProductionScreen
+              readiness={readiness}
+              exporting={exporting}
+              exportError={exportError}
+              onExport={(kind) => {
+                void runExport(kind);
+              }}
+            />
+          </div>
+        </div>
       ) : null}
 
       {screen === 'room' ? (
@@ -1220,36 +1415,44 @@ export function App(): React.JSX.Element {
       */}
       <div className={workspace.workspace} hidden={screen !== 'editor'}>
         <div className={workspace.sidebar}>
-          <Panel id="dimensions" title="Габариты">
-            <div className={styles.grid}>
-              {AXES.map(({ key, label }) => {
-                const value = furniture.dimensions[key];
-                const invalid = !Number.isFinite(value) || value <= 0;
-                return (
-                  <NumberInput
-                    key={key}
-                    label={label}
-                    unit="мм"
-                    value={value}
-                    min={1}
-                    status={invalid ? 'error' : 'default'}
-                    {...(invalid ? { message: 'Значение должно быть больше нуля.' } : {})}
-                    onChange={(next) => {
-                      // Без debounce: схема обязана реагировать на каждый
-                      // валидный промежуточный ввод. См. INTERACTION_MODEL §4.4.
-                      execute(
-                        { type: 'SetDimension', furnitureIndex: 0, axis: key, value: next },
-                        `Габарит: ${label}`,
-                      );
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </Panel>
+          <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
 
-          <Panel id="grid" title="Сетка">
-            <div className={styles.grid}>
+          {step !== 'dimensions' ? null : (
+            <Panel id="dimensions" title="Размеры" subtitle="Габарит изделия и толщина плиты.">
+              <div className={styles.grid}>
+                {AXES.map(({ key, label }) => {
+                  const value = furniture.dimensions[key];
+                  const invalid = !Number.isFinite(value) || value <= 0;
+                  return (
+                    <NumberInput
+                      key={key}
+                      label={label}
+                      unit="мм"
+                      value={value}
+                      min={1}
+                      status={invalid ? 'error' : 'default'}
+                      {...(invalid ? { message: 'Значение должно быть больше нуля.' } : {})}
+                      onChange={(next) => {
+                        // Без debounce: схема обязана реагировать на каждый
+                        // валидный промежуточный ввод. См. INTERACTION_MODEL §4.4.
+                        execute(
+                          { type: 'SetDimension', furnitureIndex: 0, axis: key, value: next },
+                          `Габарит: ${label}`,
+                        );
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </Panel>
+          )}
+
+          {step !== 'sections' ? null : (
+            <Panel
+              id="sections"
+              title="Секции"
+              subtitle="Вертикальное деление корпуса перегородками."
+            >
               <NumberInput
                 label="Секций"
                 value={sectionsDraft}
@@ -1259,38 +1462,14 @@ export function App(): React.JSX.Element {
                   if (next >= 1) setSectionsDraft(Math.round(next));
                 }}
               />
-              <NumberInput
-                label="Строк"
-                value={rowsDraft}
-                min={1}
-                step={1}
-                onChange={(next) => {
-                  if (next >= 1) setRowsDraft(Math.round(next));
-                }}
-              />
-              <NumberInput
-                label="Колонок"
-                value={columnsDraft}
-                min={1}
-                step={1}
-                onChange={(next) => {
-                  if (next >= 1) setColumnsDraft(Math.round(next));
-                }}
-              />
-              <NumberInput
-                label="Полок в ячейке"
-                value={shelvesDraft}
-                min={0}
-                step={1}
-                onChange={(next) => {
-                  if (next >= 0) setShelvesDraft(Math.round(next));
-                }}
-              />
-            </div>
-            <Button onClick={applySectionCount} style={{ marginTop: 'var(--sp-3)' }}>
-              Применить секций: {sectionsDraft}
-            </Button>
-            <div style={{ marginTop: 'var(--sp-3)' }}>
+              <Button onClick={applySectionCount}>Применить секций: {sectionsDraft}</Button>
+
+              {/*
+              Ширины задаются списком, а не полем на секцию: секций бывает
+              сколько угодно, а строка «300, 500, 400» читается целиком и
+              правится быстрее, чем три поля. Пусто — равные секции, и это
+              не «ноль», а отсутствие ограничения (`SizeSpec`).
+            */}
               <Field
                 label="Ширины секций, мм"
                 message="Через запятую: 300, 500, 400. Пусто — равные секции."
@@ -1310,329 +1489,503 @@ export function App(): React.JSX.Element {
                   />
                 )}
               </Field>
-            </div>
-            <Button onClick={applySectionWidths} style={{ marginTop: 'var(--sp-2)' }}>
-              Применить ширины
-            </Button>
-            <Button onClick={applyGrid} style={{ marginTop: 'var(--sp-2)' }}>
-              Применить сетку {rowsDraft}×{columnsDraft}
-            </Button>
-          </Panel>
+              <Button onClick={applySectionWidths}>Применить ширины</Button>
+            </Panel>
+          )}
 
-          <Panel id="doors" title="Двери">
-            <div className={styles.grid}>
-              <Select
-                label="Ячейка"
-                value={selectedCellId}
-                options={[
-                  { value: '', label: '— выбрать —' },
-                  ...geometry.cells.map((cell) => {
-                    const node = findNode(furniture.root, cell.nodeId);
-                    const drawerCount =
-                      node?.kind === 'leaf' && node.fill.kind === 'drawers'
-                        ? node.fill.drawers.length
-                        : 0;
-                    const door = facadeForCell(cell.nodeId) === undefined ? '' : ' — дверь';
-                    const drawers = drawerCount === 0 ? '' : ` — ящиков: ${String(drawerCount)}`;
-                    return {
-                      value: cell.nodeId,
-                      label: `${cell.nodeId} (${formatMm(cell.box.size.x)} × ${formatMm(cell.box.size.y)})${door}${drawers}`,
-                    };
-                  }),
-                ]}
-                onChange={(next) => {
-                  setSelectedCellId(next === '' ? '' : asId<'Node'>(next));
-                }}
-              />
-              {selectedFacade === undefined ? null : (
+          {step !== 'cells' ? null : (
+            <Panel
+              id="cells"
+              title="Ячейки"
+              subtitle="Ряды и колонки внутри секции. Ячейка — пространство, а не деталь: в деталировку она не попадает."
+            >
+              <div className={styles.grid}>
+                <NumberInput
+                  label="Строк"
+                  value={rowsDraft}
+                  min={1}
+                  step={1}
+                  onChange={(next) => {
+                    if (next >= 1) setRowsDraft(Math.round(next));
+                  }}
+                />
+                <NumberInput
+                  label="Колонок"
+                  value={columnsDraft}
+                  min={1}
+                  step={1}
+                  onChange={(next) => {
+                    if (next >= 1) setColumnsDraft(Math.round(next));
+                  }}
+                />
+                <NumberInput
+                  label="Полок в ячейке"
+                  value={shelvesDraft}
+                  min={0}
+                  step={1}
+                  onChange={(next) => {
+                    if (next >= 0) setShelvesDraft(Math.round(next));
+                  }}
+                />
+              </div>
+              <Button onClick={applyGrid}>
+                Применить сетку {rowsDraft}×{columnsDraft}
+              </Button>
+
+              {selectedCell === undefined ? (
+                <EmptyState
+                  compact
+                  title="Ячейка не выбрана"
+                  description="Выберите ячейку на холсте или в сцене — здесь появятся её номер, размеры и наполнение."
+                />
+              ) : (
+                <dl className={styles.stats}>
+                  <div className={styles.stat}>
+                    <dt className={styles.statLabel}>Размер</dt>
+                    <dd className={styles.statValue}>
+                      {formatMm(selectedCell.box.size.x)} × {formatMm(selectedCell.box.size.y)} мм
+                    </dd>
+                  </div>
+                  <div className={styles.stat}>
+                    <dt className={styles.statLabel}>Наполнение</dt>
+                    <dd className={styles.statValue}>{FILL_LABELS[selectedFillKind]}</dd>
+                  </div>
+                </dl>
+              )}
+            </Panel>
+          )}
+
+          {step !== 'shelves' ? null : (
+            <Panel
+              id="shelves"
+              title="Полки"
+              subtitle="Полка — физическая деталь: она попадает в деталировку, раскрой и кромку."
+            >
+              {selectedCell === undefined ? (
+                <EmptyState
+                  compact
+                  title="Ячейка не выбрана"
+                  description="Полки принадлежат ячейке. Выберите ячейку на холсте или в сцене."
+                  action={
+                    <Button
+                      onClick={() => {
+                        goToStep('cells');
+                      }}
+                    >
+                      К шагу «Ячейки»
+                    </Button>
+                  }
+                />
+              ) : (
                 <>
-                  <Select
-                    label="Сторона петель"
-                    value={selectedFacade.leaves[0]?.hingeSide ?? 'left'}
-                    options={[
-                      { value: 'left', label: 'Слева' },
-                      { value: 'right', label: 'Справа' },
-                    ]}
+                  <NumberInput
+                    label="Полок в этой ячейке"
+                    value={selectedShelfCount}
+                    min={0}
+                    step={1}
+                    hint="0 — ячейка без полок. Положение полок движок распределяет равномерно."
                     onChange={(next) => {
-                      setDoorHingeSide(next as HingeSide);
+                      if (next >= 0) setCellShelfCount(Math.round(next));
                     }}
                   />
-                  <Select
-                    label="Материал"
-                    value={selectedFacade.leaves[0]?.materialId ?? ''}
-                    options={[
-                      { value: '', label: 'по умолчанию' },
-                      ...Object.values(project.materials.items).map((material) => ({
-                        value: material.id,
-                        label: material.name,
-                      })),
-                    ]}
-                    onChange={(next) => {
-                      if (next !== '') setDoorMaterial(asId<'Material'>(next));
-                    }}
-                  />
-                  <Select
-                    label="Кромка"
+                  {/*
+                  Тип опоры («фиксированная» или «съёмная») — параметр
+                  каждой полки в модели. Схема опирания съёмной полки
+                  источником не подтверждена (T-SHF-02), поэтому выбор
+                  здесь не предлагается: он обещал бы расчёт, которого
+                  движок пока не делает.
+                */}
+                  <p className={styles.pending}>
+                    Материал и кромка полок задаются на шаге «Материалы» — назначением на роль, а не
+                    по одной полке.
+                  </p>
+                </>
+              )}
+            </Panel>
+          )}
+
+          {step !== 'fill' ? null : (
+            <Panel id="fill" title="Наполнение" subtitle="Что стоит внутри выбранной ячейки.">
+              {selectedCell === undefined ? (
+                <EmptyState
+                  compact
+                  title="Ячейка не выбрана"
+                  description="Выберите ячейку на холсте или в сцене, чтобы задать её наполнение."
+                />
+              ) : (
+                <>
+                  <SegmentedControl
+                    label="Наполнение ячейки"
                     value={
-                      selectedFacade.leaves[0]?.edge === undefined
-                        ? 'inherit'
-                        : selectedFacade.leaves[0]?.edge?.front === 0
-                          ? 'none'
-                          : 'default'
+                      // Виды, которых нет в списке (штанга), показываются
+                      // как «пусто»: переключатель обязан иметь выбранное
+                      // значение из своих же вариантов.
+                      UI_FILL_KINDS.includes(selectedFillKind as (typeof UI_FILL_KINDS)[number])
+                        ? (selectedFillKind as (typeof UI_FILL_KINDS)[number])
+                        : 'empty'
                     }
-                    options={[
-                      { value: 'inherit', label: 'по умолчанию' },
-                      { value: 'default', label: '2/0/0.4/0.4 мм' },
-                      { value: 'none', label: 'без кромки' },
-                    ]}
-                    onChange={(next) => {
-                      setDoorEdge(next as 'default' | 'none' | 'inherit');
-                    }}
+                    options={FILL_OPTIONS}
+                    onChange={setCellFillKind}
+                    stretch
                   />
+                  <p className={styles.pending}>{FILL_HINTS[selectedFillKind]}</p>
+                </>
+              )}
+
+              {/*
+              Обувной модуль в задании назван как вид наполнения, но его
+              состав — число наклонных полок, угол, шаг и крепление —
+              источником не подтверждён (T-FILL-01). Пункт, который
+              ничего не строит, был бы обещанием, поэтому в списке его
+              нет, а причина названа прямо.
+            */}
+              <p className={styles.pending}>
+                Обувной модуль пока недоступен: его состав (наклонные полки, угол и шаг) не
+                подтверждён источником — T-FILL-01 в реестре предположений.
+              </p>
+            </Panel>
+          )}
+
+          {step !== 'facades' ? null : (
+            <Panel
+              id="doors"
+              title="Двери"
+              subtitle="Дверь закрывает ячейку снаружи. То, что стоит внутри, задаётся на шаге «Наполнение»."
+            >
+              <div className={styles.grid}>
+                <Select
+                  label="Ячейка"
+                  value={selectedCellId}
+                  options={[
+                    { value: '', label: '— выбрать —' },
+                    ...geometry.cells.map((cell) => {
+                      const node = findNode(furniture.root, cell.nodeId);
+                      const drawerCount =
+                        node?.kind === 'leaf' && node.fill.kind === 'drawers'
+                          ? node.fill.drawers.length
+                          : 0;
+                      const door = facadeForCell(cell.nodeId) === undefined ? '' : ' — дверь';
+                      const drawers = drawerCount === 0 ? '' : ` — ящиков: ${String(drawerCount)}`;
+                      return {
+                        value: cell.nodeId,
+                        label: `${cell.nodeId} (${formatMm(cell.box.size.x)} × ${formatMm(cell.box.size.y)})${door}${drawers}`,
+                      };
+                    }),
+                  ]}
+                  onChange={(next) => {
+                    setSelectedCellId(next === '' ? '' : asId<'Node'>(next));
+                  }}
+                />
+                {selectedFacade === undefined ? null : (
+                  <>
+                    <Select
+                      label="Сторона петель"
+                      value={selectedFacade.leaves[0]?.hingeSide ?? 'left'}
+                      options={[
+                        { value: 'left', label: 'Слева' },
+                        { value: 'right', label: 'Справа' },
+                      ]}
+                      onChange={(next) => {
+                        setDoorHingeSide(next as HingeSide);
+                      }}
+                    />
+                    <Select
+                      label="Материал"
+                      value={selectedFacade.leaves[0]?.materialId ?? ''}
+                      options={[
+                        { value: '', label: 'по умолчанию' },
+                        ...Object.values(project.materials.items).map((material) => ({
+                          value: material.id,
+                          label: material.name,
+                        })),
+                      ]}
+                      onChange={(next) => {
+                        if (next !== '') setDoorMaterial(asId<'Material'>(next));
+                      }}
+                    />
+                    <Select
+                      label="Кромка"
+                      value={
+                        selectedFacade.leaves[0]?.edge === undefined
+                          ? 'inherit'
+                          : selectedFacade.leaves[0]?.edge?.front === 0
+                            ? 'none'
+                            : 'default'
+                      }
+                      options={[
+                        { value: 'inherit', label: 'по умолчанию' },
+                        { value: 'default', label: '2/0/0.4/0.4 мм' },
+                        { value: 'none', label: 'без кромки' },
+                      ]}
+                      onChange={(next) => {
+                        setDoorEdge(next as 'default' | 'none' | 'inherit');
+                      }}
+                    />
+                    <Select
+                      label="Открывание"
+                      value={selectedFacade.leaves[0]?.opening?.kind ?? 'none'}
+                      options={[
+                        { value: 'none', label: 'Нет' },
+                        { value: 'handle', label: 'Ручка' },
+                        { value: 'push-to-open', label: 'Push-to-open' },
+                      ]}
+                      onChange={(next) => {
+                        setDoorOpening(next as OpeningSystem['kind']);
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+              <Button
+                onClick={addDoor}
+                disabled={
+                  selectedCellId === '' ||
+                  selectedFacade !== undefined ||
+                  selectedDrawers.length > 0
+                }
+                style={{ marginTop: 'var(--sp-3)' }}
+              >
+                Добавить дверь
+              </Button>
+              <Button
+                onClick={removeDoor}
+                disabled={selectedFacade === undefined}
+                style={{ marginTop: 'var(--sp-2)' }}
+              >
+                Убрать дверь
+              </Button>
+            </Panel>
+          )}
+
+          {step !== 'facades' ? null : (
+            <Panel
+              id="drawers"
+              title="Фасады ящиков"
+              subtitle="Фасад — деталь, механизм открывания — фурнитура. Это разные сущности, и правятся они порознь."
+            >
+              <p className={styles.pending}>
+                Ячейка выбирается в панели «Двери» выше — ящик и дверь на одной ячейке несовместимы.
+              </p>
+              <ul className={styles.stats}>
+                <li className={styles.stat}>
+                  <span className={styles.statLabel}>Ящиков в выбранной ячейке</span>
+                  <span className={styles.statValue}>{selectedDrawers.length}</span>
+                </li>
+              </ul>
+              {selectedDrawers.length === 0 ? null : (
+                <div className={styles.grid}>
                   <Select
-                    label="Открывание"
-                    value={selectedFacade.leaves[0]?.opening?.kind ?? 'none'}
+                    label="Открывание (все ящики ячейки)"
+                    value={selectedDrawers[0]?.facade.opening?.kind ?? 'none'}
                     options={[
                       { value: 'none', label: 'Нет' },
                       { value: 'handle', label: 'Ручка' },
                       { value: 'push-to-open', label: 'Push-to-open' },
                     ]}
                     onChange={(next) => {
-                      setDoorOpening(next as OpeningSystem['kind']);
+                      setDrawersOpening(next as OpeningSystem['kind']);
                     }}
                   />
-                </>
+                </div>
               )}
-            </div>
-            <Button
-              onClick={addDoor}
-              disabled={
-                selectedCellId === '' || selectedFacade !== undefined || selectedDrawers.length > 0
-              }
-              style={{ marginTop: 'var(--sp-3)' }}
-            >
-              Добавить дверь
-            </Button>
-            <Button
-              onClick={removeDoor}
-              disabled={selectedFacade === undefined}
-              style={{ marginTop: 'var(--sp-2)' }}
-            >
-              Убрать дверь
-            </Button>
-          </Panel>
-
-          <Panel id="drawers" title="Ящики">
-            <p className={styles.pending}>
-              Ячейка выбирается в панели «Двери» выше — ящик и дверь на одной ячейке несовместимы.
-            </p>
-            <ul className={styles.stats}>
-              <li className={styles.stat}>
-                <span className={styles.statLabel}>Ящиков в выбранной ячейке</span>
-                <span className={styles.statValue}>{selectedDrawers.length}</span>
-              </li>
-            </ul>
-            {selectedDrawers.length === 0 ? null : (
-              <div className={styles.grid}>
-                <Select
-                  label="Открывание (все ящики ячейки)"
-                  value={selectedDrawers[0]?.facade.opening?.kind ?? 'none'}
-                  options={[
-                    { value: 'none', label: 'Нет' },
-                    { value: 'handle', label: 'Ручка' },
-                    { value: 'push-to-open', label: 'Push-to-open' },
-                  ]}
-                  onChange={(next) => {
-                    setDrawersOpening(next as OpeningSystem['kind']);
-                  }}
-                />
-              </div>
-            )}
-            <Button
-              onClick={addDrawer}
-              disabled={!canAddDrawer}
-              style={{ marginTop: 'var(--sp-3)' }}
-            >
-              Добавить ящик
-            </Button>
-            <Button
-              onClick={removeDrawer}
-              disabled={selectedDrawers.length === 0}
-              style={{ marginTop: 'var(--sp-2)' }}
-            >
-              Убрать ящик
-            </Button>
-          </Panel>
+              <Button
+                onClick={addDrawer}
+                disabled={!canAddDrawer}
+                style={{ marginTop: 'var(--sp-3)' }}
+              >
+                Добавить ящик
+              </Button>
+              <Button
+                onClick={removeDrawer}
+                disabled={selectedDrawers.length === 0}
+                style={{ marginTop: 'var(--sp-2)' }}
+              >
+                Убрать ящик
+              </Button>
+            </Panel>
+          )}
 
           {/*
           Корпус (PROMPT 14 §27). Технический минимум: задняя стенка и цоколь.
           Полноценная панель конструкции корпуса — не этот этап.
         */}
-          <Panel id="structure" title="Корпус">
-            <div className={styles.grid}>
-              <Select
-                label="Задняя стенка"
-                value={
-                  backPanel.mount.kind === 'inset-groove' ? 'inset-flush' : backPanel.mount.kind
-                }
-                options={[
-                  { value: 'overlay', label: 'Накладная' },
-                  { value: 'inset-flush', label: 'Вкладная' },
-                  { value: 'none', label: 'Нет' },
-                ]}
-                onChange={(next) => {
-                  setBackMount(next as 'none' | 'overlay' | 'inset-flush');
-                }}
-              />
-              {backPanel.mount.kind === 'none' ? null : (
-                <>
-                  <NumberInput
-                    label="Толщина стенки"
-                    unit="мм"
-                    value={backPanel.mount.thickness}
-                    min={1}
-                    onChange={setBackThickness}
-                  />
-                  <Select
-                    label="Разделение стенки"
-                    value={backPanel.segmentation}
-                    options={[
-                      { value: 'single', label: 'Цельная' },
-                      { value: 'per-section', label: 'По секциям' },
-                    ]}
-                    onChange={(next) => {
-                      setBackSegmentation(next as 'single' | 'per-section');
-                    }}
-                  />
-                </>
-              )}
-              <NumberInput
-                label="Высота цоколя"
-                unit="мм"
-                value={plinth?.height ?? 0}
-                min={0}
-                message="0 — цоколя нет."
-                onChange={(next) => {
-                  setPlinthHeight(next);
-                }}
-              />
-              {plinth === undefined ? null : (
-                <>
-                  <NumberInput
-                    label="Отступ цоколя"
-                    unit="мм"
-                    value={plinth.setback}
-                    min={0}
-                    onChange={setPlinthSetback}
-                  />
-                  <Select
-                    label="Царги цоколя"
-                    value={(plinth.parts ?? []).length > 1 ? 'sides' : 'front'}
-                    options={[
-                      { value: 'front', label: 'Только передняя' },
-                      { value: 'sides', label: 'Передняя и боковые' },
-                    ]}
-                    onChange={(next) => {
-                      togglePlinthSides(next === 'sides');
-                    }}
-                  />
-                </>
-              )}
-            </div>
-          </Panel>
+          {step !== 'carcass' ? null : (
+            <Panel
+              id="structure"
+              title="Корпус"
+              subtitle="Задняя стенка и цоколь: без них короба нет."
+            >
+              <div className={styles.grid}>
+                <Select
+                  label="Задняя стенка"
+                  value={
+                    backPanel.mount.kind === 'inset-groove' ? 'inset-flush' : backPanel.mount.kind
+                  }
+                  options={[
+                    { value: 'overlay', label: 'Накладная' },
+                    { value: 'inset-flush', label: 'Вкладная' },
+                    { value: 'none', label: 'Нет' },
+                  ]}
+                  onChange={(next) => {
+                    setBackMount(next as 'none' | 'overlay' | 'inset-flush');
+                  }}
+                />
+                {backPanel.mount.kind === 'none' ? null : (
+                  <>
+                    <NumberInput
+                      label="Толщина стенки"
+                      unit="мм"
+                      value={backPanel.mount.thickness}
+                      min={1}
+                      onChange={setBackThickness}
+                    />
+                    <Select
+                      label="Разделение стенки"
+                      value={backPanel.segmentation}
+                      options={[
+                        { value: 'single', label: 'Цельная' },
+                        { value: 'per-section', label: 'По секциям' },
+                      ]}
+                      onChange={(next) => {
+                        setBackSegmentation(next as 'single' | 'per-section');
+                      }}
+                    />
+                  </>
+                )}
+                <NumberInput
+                  label="Высота цоколя"
+                  unit="мм"
+                  value={plinth?.height ?? 0}
+                  min={0}
+                  message="0 — цоколя нет."
+                  onChange={(next) => {
+                    setPlinthHeight(next);
+                  }}
+                />
+                {plinth === undefined ? null : (
+                  <>
+                    <NumberInput
+                      label="Отступ цоколя"
+                      unit="мм"
+                      value={plinth.setback}
+                      min={0}
+                      onChange={setPlinthSetback}
+                    />
+                    <Select
+                      label="Царги цоколя"
+                      value={(plinth.parts ?? []).length > 1 ? 'sides' : 'front'}
+                      options={[
+                        { value: 'front', label: 'Только передняя' },
+                        { value: 'sides', label: 'Передняя и боковые' },
+                      ]}
+                      onChange={(next) => {
+                        togglePlinthSides(next === 'sides');
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            </Panel>
+          )}
 
           {/*
           Конструктивные модификаторы (PROMPT 15 §21). Технический минимум:
           зазор до потолка, антресоль, столешница, крепление и фальшпанели.
         */}
-          <Panel id="modifiers" title="Модификаторы">
-            <p className={styles.pending}>
-              Габарит H делится между цоколем, корпусом, столешницей, антресолью и зазором до
-              потолка.
-            </p>
-            <div className={styles.grid}>
-              <NumberInput
-                label="Зазор до потолка"
-                unit="мм"
-                value={modifiers.ceilingGap ?? 0}
-                min={0}
-                onChange={setCeilingGap}
-              />
-              <NumberInput
-                label="Высота антресоли"
-                unit="мм"
-                value={modifiers.topSection?.height ?? 0}
-                min={0}
-                message="0 — антресоли нет."
-                onChange={(next) => {
-                  setTopSectionHeight(next);
-                }}
-              />
-              <NumberInput
-                label="Толщина столешницы"
-                unit="мм"
-                value={modifiers.countertop?.thickness ?? 0}
-                min={0}
-                message="0 — столешницы нет."
-                onChange={(next) => {
-                  setCountertopThickness(next);
-                }}
-              />
-              {modifiers.countertop === undefined ? null : (
+          {step !== 'construction' ? null : (
+            <Panel
+              id="modifiers"
+              title="Конструкция"
+              subtitle="Надстройки над готовым коробом: свесы, столешница, антресоль, крепление, фальшпанели."
+            >
+              <p className={styles.pending}>
+                Габарит H делится между цоколем, корпусом, столешницей, антресолью и зазором до
+                потолка.
+              </p>
+              <div className={styles.grid}>
                 <NumberInput
-                  label="Свес столешницы"
+                  label="Зазор до потолка"
                   unit="мм"
-                  value={modifiers.countertop?.overhangFront ?? 0}
+                  value={modifiers.ceilingGap ?? 0}
                   min={0}
-                  onChange={setCountertopOverhang}
+                  onChange={setCeilingGap}
                 />
-              )}
-              <Select
-                label="Установка"
-                value={modifiers.wallMount?.mode ?? 'floor-standing'}
-                options={[
-                  { value: 'floor-standing', label: 'Напольная' },
-                  { value: 'wall-mounted', label: 'Настенная' },
-                  { value: 'suspended', label: 'Подвесная' },
-                ]}
-                onChange={(next) => {
-                  setWallMount(next as 'floor-standing' | 'wall-mounted' | 'suspended');
-                }}
-              />
-              {/*
+                <NumberInput
+                  label="Высота антресоли"
+                  unit="мм"
+                  value={modifiers.topSection?.height ?? 0}
+                  min={0}
+                  message="0 — антресоли нет."
+                  onChange={(next) => {
+                    setTopSectionHeight(next);
+                  }}
+                />
+                <NumberInput
+                  label="Толщина столешницы"
+                  unit="мм"
+                  value={modifiers.countertop?.thickness ?? 0}
+                  min={0}
+                  message="0 — столешницы нет."
+                  onChange={(next) => {
+                    setCountertopThickness(next);
+                  }}
+                />
+                {modifiers.countertop === undefined ? null : (
+                  <NumberInput
+                    label="Свес столешницы"
+                    unit="мм"
+                    value={modifiers.countertop?.overhangFront ?? 0}
+                    min={0}
+                    onChange={setCountertopOverhang}
+                  />
+                )}
+                <Select
+                  label="Установка"
+                  value={modifiers.wallMount?.mode ?? 'floor-standing'}
+                  options={[
+                    { value: 'floor-standing', label: 'Напольная' },
+                    { value: 'wall-mounted', label: 'Настенная' },
+                    { value: 'suspended', label: 'Подвесная' },
+                  ]}
+                  onChange={(next) => {
+                    setWallMount(next as 'floor-standing' | 'wall-mounted' | 'suspended');
+                  }}
+                />
+                {/*
                 Счётчик, а не поле: значение выводится из модели и не
                 правится напрямую. Поле «только для чтения» обещало бы
                 ввод, которого нет.
               */}
-              <div className={styles.stat}>
-                <span className={styles.statLabel}>Фальшпанелей</span>
-                <span className={styles.statValue}>{(modifiers.falsePanels ?? []).length}</span>
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Фальшпанелей</span>
+                  <span className={styles.statValue}>{(modifiers.falsePanels ?? []).length}</span>
+                </div>
               </div>
-            </div>
-            <Button
-              onClick={() => {
-                addFalsePanel('left');
-              }}
-              style={{ marginTop: 'var(--sp-3)' }}
-            >
-              Фальшпанель слева
-            </Button>
-            <Button
-              onClick={() => {
-                addFalsePanel('right');
-              }}
-              style={{ marginTop: 'var(--sp-2)' }}
-            >
-              Фальшпанель справа
-            </Button>
-            <Button
-              onClick={removeLastFalsePanel}
-              disabled={(modifiers.falsePanels ?? []).length === 0}
-              style={{ marginTop: 'var(--sp-2)' }}
-            >
-              Убрать фальшпанель
-            </Button>
-          </Panel>
+              <Button
+                onClick={() => {
+                  addFalsePanel('left');
+                }}
+                style={{ marginTop: 'var(--sp-3)' }}
+              >
+                Фальшпанель слева
+              </Button>
+              <Button
+                onClick={() => {
+                  addFalsePanel('right');
+                }}
+                style={{ marginTop: 'var(--sp-2)' }}
+              >
+                Фальшпанель справа
+              </Button>
+              <Button
+                onClick={removeLastFalsePanel}
+                disabled={(modifiers.falsePanels ?? []).length === 0}
+                style={{ marginTop: 'var(--sp-2)' }}
+              >
+                Убрать фальшпанель
+              </Button>
+            </Panel>
+          )}
 
           {/*
           Материалы (PROMPT 13 §23). Технический минимум: реестр материалов
@@ -1641,85 +1994,99 @@ export function App(): React.JSX.Element {
           создание и удаление материалов) — НЕ этот этап, см.
           docs/FEATURE_MATRIX.md.
         */}
-          <Panel id="materials" title="Материалы">
-            <p className={styles.pending}>
-              Толщина материала — источник геометрии: у детали без своего переопределения толщина
-              берётся отсюда.
-            </p>
-            <div className={styles.grid}>
-              {materialList.map((material) => (
-                <NumberInput
-                  key={material.id}
-                  label={material.name}
-                  unit="мм"
-                  value={material.thickness}
-                  min={1}
+          {step !== 'materials' ? null : (
+            <Panel id="materials" title="Материалы">
+              <p className={styles.pending}>
+                Толщина материала — источник геометрии: у детали без своего переопределения толщина
+                берётся отсюда.
+              </p>
+              <div className={styles.grid}>
+                {materialList.map((material) => (
+                  <NumberInput
+                    key={material.id}
+                    label={material.name}
+                    unit="мм"
+                    value={material.thickness}
+                    min={1}
+                    onChange={(next) => {
+                      setMaterialThickness(material.id, next);
+                    }}
+                  />
+                ))}
+              </div>
+              <div className={styles.grid} style={{ marginTop: 'var(--sp-3)' }}>
+                <Select
+                  label="Материал корпуса"
+                  value={project.materials.assignment.side ?? ''}
+                  options={[
+                    { value: '', label: '— не назначен —' },
+                    ...materialList.map((material) => ({
+                      value: material.id,
+                      label: material.name,
+                    })),
+                  ]}
                   onChange={(next) => {
-                    setMaterialThickness(material.id, next);
+                    if (next !== '') {
+                      assignMaterial(CARCASS_ROLES, asId<'Material'>(next), 'Материал корпуса');
+                    }
                   }}
                 />
-              ))}
-            </div>
-            <div className={styles.grid} style={{ marginTop: 'var(--sp-3)' }}>
-              <Select
-                label="Материал корпуса"
-                value={project.materials.assignment.side ?? ''}
-                options={[
-                  { value: '', label: '— не назначен —' },
-                  ...materialList.map((material) => ({ value: material.id, label: material.name })),
-                ]}
-                onChange={(next) => {
-                  if (next !== '') {
-                    assignMaterial(CARCASS_ROLES, asId<'Material'>(next), 'Материал корпуса');
-                  }
-                }}
-              />
-              <Select
-                label="Материал полок"
-                value={project.materials.assignment['shelf-adjustable'] ?? ''}
-                options={[
-                  { value: '', label: '— не назначен —' },
-                  ...materialList.map((material) => ({ value: material.id, label: material.name })),
-                ]}
-                onChange={(next) => {
-                  if (next !== '') {
-                    assignMaterial(SHELF_ROLES, asId<'Material'>(next), 'Материал полок');
-                  }
-                }}
-              />
-              <Select
-                label="Материал фасадов"
-                value={project.materials.assignment.facade ?? ''}
-                options={[
-                  { value: '', label: '— не назначен —' },
-                  ...materialList.map((material) => ({ value: material.id, label: material.name })),
-                ]}
-                onChange={(next) => {
-                  if (next !== '') {
-                    assignMaterial(['facade'], asId<'Material'>(next), 'Материал фасадов');
-                  }
-                }}
-              />
-              <Select
-                label="Материал проекта по умолчанию"
-                value={project.settings.defaultMaterialId}
-                options={[
-                  ...materialList.map((material) => ({ value: material.id, label: material.name })),
-                ]}
-                onChange={(next) => {
-                  if (next !== '') {
-                    execute(
-                      {
-                        type: 'SetDefaultMaterial',
-                        materialId: asId<'Material'>(next),
-                      },
-                      'Материал проекта',
-                    );
-                  }
-                }}
-              />
-            </div>
-          </Panel>
+                <Select
+                  label="Материал полок"
+                  value={project.materials.assignment['shelf-adjustable'] ?? ''}
+                  options={[
+                    { value: '', label: '— не назначен —' },
+                    ...materialList.map((material) => ({
+                      value: material.id,
+                      label: material.name,
+                    })),
+                  ]}
+                  onChange={(next) => {
+                    if (next !== '') {
+                      assignMaterial(SHELF_ROLES, asId<'Material'>(next), 'Материал полок');
+                    }
+                  }}
+                />
+                <Select
+                  label="Материал фасадов"
+                  value={project.materials.assignment.facade ?? ''}
+                  options={[
+                    { value: '', label: '— не назначен —' },
+                    ...materialList.map((material) => ({
+                      value: material.id,
+                      label: material.name,
+                    })),
+                  ]}
+                  onChange={(next) => {
+                    if (next !== '') {
+                      assignMaterial(['facade'], asId<'Material'>(next), 'Материал фасадов');
+                    }
+                  }}
+                />
+                <Select
+                  label="Материал проекта по умолчанию"
+                  value={project.settings.defaultMaterialId}
+                  options={[
+                    ...materialList.map((material) => ({
+                      value: material.id,
+                      label: material.name,
+                    })),
+                  ]}
+                  onChange={(next) => {
+                    if (next !== '') {
+                      execute(
+                        {
+                          type: 'SetDefaultMaterial',
+                          materialId: asId<'Material'>(next),
+                        },
+                        'Материал проекта',
+                      );
+                    }
+                  }}
+                />
+              </div>
+            </Panel>
+          )}
 
           <Panel id="result" title="Результат расчёта" tone="sunken">
             <ul className={styles.stats}>

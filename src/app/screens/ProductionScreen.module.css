@@ -64,3 +64,35 @@
   color: var(--text-tertiary);
   min-height: var(--t-caption-lh);
 }
+
+/*
+ * Неподтверждённые правила (PROMPT 27 §25).
+ *
+ * Список внутри пункта чеклиста, а не отдельная панель: правило
+ * принадлежит разделу, к которому относится, и оторванный от него
+ * перечень заставлял бы сопоставлять их глазами.
+ */
+.confirmations {
+  grid-column: 2;
+  margin: var(--sp-1) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.confirmation {
+  display: grid;
+  gap: 2px;
+  padding: var(--sp-2);
+  border-left: var(--border-emphasis) solid var(--tone-warning-border);
+  background: var(--bg-surface);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+
+.rule {
+  font-size: var(--t-label-size);
+  line-height: var(--t-label-lh);
+  font-weight: 600;
+  color: var(--text-primary);
+}

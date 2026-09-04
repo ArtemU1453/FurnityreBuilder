@@ -11,6 +11,20 @@ import type { Page } from '@playwright/test';
  * «ввод → домен → геометрия → экран» без задержек.
  */
 
+/**
+ * Открыть шаг сценария (PROMPT 27 §27).
+ *
+ * Панели конструктора с PROMPT 27 показываются по одной — той, что
+ * относится к текущему шагу. Поэтому тест, который правит двери или
+ * ящики, сначала доходит до своего шага, как это делает человек.
+ */
+async function goToStep(page: Page, title: string): Promise<void> {
+  await page
+    .getByRole('navigation', { name: 'Этапы конструктора' })
+    .getByRole('button', { name: title })
+    .click();
+}
+
 test('приложение запускается и показывает рассчитанный результат', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Furniture Builder/);
@@ -24,7 +38,9 @@ test('приложение запускается и показывает рас
   // панели экспорта, и нестрогий локатор находит два элемента.
   // Локатор сужен до панели результата: с PROMPT 22 то же слово есть и в
   // инспекторе выбранного объекта.
-  await expect(page.getByLabel('Результат расчёта').getByText('Деталей', { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel('Результат расчёта').getByText('Деталей', { exact: true }),
+  ).toBeVisible();
   // Локатор сужен до строки статистики: с PROMPT 21 слово «Деталей»
   // встречается ещё и в пояснениях чеклиста готовности.
   await expect(page.locator('li').filter({ hasText: /^Деталей\d+$/ })).toContainText('5');
@@ -79,6 +95,9 @@ test('ошибка объясняется текстом, а не только �
 
 test('интерфейс доступен с клавиатуры и имеет ссылку пропуска навигации', async ({ page }) => {
   await page.goto('/');
+  // Дождаться отрисованного интерфейса перед первым Tab: до неё фокус
+  // ещё на документе, и первое нажатие уходит в никуда.
+  await expect(page.getByRole('heading', { name: 'Новый проект' })).toBeVisible();
 
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Перейти к содержимому' })).toBeFocused();
@@ -97,6 +116,7 @@ test('кнопки отмены и возврата отключены, пока
 
 test('дверь можно добавить на выбранную ячейку и убрать (PROMPT 10 §19)', async ({ page }) => {
   await page.goto('/');
+  await goToStep(page, 'Фасады');
   await expect(page.locator('li', { hasText: 'Дверей' })).toContainText('0');
 
   const addButton = page.getByLabel('Двери').getByRole('button', { name: 'Добавить дверь' });
@@ -119,9 +139,12 @@ test('дверь можно добавить на выбранную ячейк�
 
 test('ящики можно добавлять и убирать на выбранной ячейке (PROMPT 11 §21)', async ({ page }) => {
   await page.goto('/');
+  await goToStep(page, 'Фасады');
   await expect(page.locator('li', { hasText: 'Фасадов ящиков' })).toContainText('0');
 
-  const addButton = page.getByLabel('Ящики').getByRole('button', { name: 'Добавить ящик', exact: true });
+  const addButton = page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Добавить ящик', exact: true });
   await expect(addButton).toBeDisabled();
 
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
@@ -136,9 +159,13 @@ test('ящики можно добавлять и убирать на выбра
   await expect(page.locator('li', { hasText: 'Фасадов ящиков' })).toContainText('2');
 
   // Дверь на ту же ячейку, что уже содержит ящики, недоступна.
-  await expect(page.getByLabel('Двери').getByRole('button', { name: 'Добавить дверь' })).toBeDisabled();
+  await expect(
+    page.getByLabel('Двери').getByRole('button', { name: 'Добавить дверь' }),
+  ).toBeDisabled();
 
-  const removeButton = page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true });
+  const removeButton = page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Убрать ящик', exact: true });
   await removeButton.click();
   await expect(page.locator('li', { hasText: 'Ящиков в выбранной ячейке' })).toContainText('1');
   await removeButton.click();
@@ -148,6 +175,7 @@ test('ящики можно добавлять и убирать на выбра
 
 test('способ открывания двери можно выбрать и снять (PROMPT 12 §19)', async ({ page }) => {
   await page.goto('/');
+  await goToStep(page, 'Фасады');
   await expect(page.locator('li', { hasText: 'Ручек' })).toContainText('0');
   await expect(page.locator('li', { hasText: 'Push-to-open' })).toContainText('0');
 
@@ -170,16 +198,25 @@ test('способ открывания двери можно выбрать и 
 
 test('способ открывания ящиков можно выбрать (PROMPT 12 §19)', async ({ page }) => {
   await page.goto('/');
+  await goToStep(page, 'Фасады');
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
-  await page.getByLabel('Ящики').getByRole('button', { name: 'Добавить ящик', exact: true }).click();
-  await page.getByLabel('Ящики').getByRole('button', { name: 'Добавить ящик', exact: true }).click();
+  await page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Добавить ящик', exact: true })
+    .click();
+  await page
+    .getByLabel('Фасады ящиков')
+    .getByRole('button', { name: 'Добавить ящик', exact: true })
+    .click();
 
   const opening = page.getByLabel('Открывание (все ящики ячейки)');
   await opening.selectOption('handle');
   await expect(page.locator('li', { hasText: 'Ручек' })).toContainText('2');
 });
 
-test('производственная документация скачивается и не запускается дважды (PROMPT 20 §19)', async ({ page }) => {
+test('производственная документация скачивается и не запускается дважды (PROMPT 20 §19)', async ({
+  page,
+}) => {
   await page.goto('/');
   // Производство — раздел приложения, а не панель в колонке параметров
   // (PROMPT 26 §26).
@@ -217,10 +254,9 @@ test('производственная документация скачивае
   await expect(xlsxButton).toBeEnabled();
 });
 
-
-
-
-test('чеклист готовности к производству виден и обновляется вместе с проектом (PROMPT 21 §17)', async ({ page }) => {
+test('чеклист готовности к производству виден и обновляется вместе с проектом (PROMPT 21 §17)', async ({
+  page,
+}) => {
   await page.goto('/');
   await page.getByRole('radio', { name: 'Производство' }).click();
 
@@ -234,7 +270,16 @@ test('чеклист готовности к производству виден
 
   // Все восемь разделов чеклиста на месте.
   const production = page.getByLabel('Готовность к производству');
-  for (const title of ['Геометрия', 'Материалы', 'Кромка', 'Фурнитура', 'Присадка', 'Раскрой', 'Спецификация', 'Документация']) {
+  for (const title of [
+    'Геометрия',
+    'Материалы',
+    'Кромка',
+    'Фурнитура',
+    'Присадка',
+    'Раскрой',
+    'Спецификация',
+    'Документация',
+  ]) {
     await expect(production.getByText(title, { exact: true })).toBeVisible();
   }
 
@@ -260,7 +305,6 @@ test('чеклист готовности к производству виден
   ).toBeVisible();
 });
 
-
 /**
  * Плоская схема — не вид по умолчанию с PROMPT 23: холст открывается
  * трёхмерной сценой. Тесты двумерного холста переключаются на схему
@@ -282,7 +326,9 @@ async function openSchema(page: Page): Promise<void> {
  * проверена отдельно и без браузера (tests/unit/app/resize.test.ts).
  */
 
-test('щелчок по детали на холсте показывает её в инспекторе (PROMPT 22 §5–§6)', async ({ page }) => {
+test('щелчок по детали на холсте показывает её в инспекторе (PROMPT 22 §5–§6)', async ({
+  page,
+}) => {
   await openSchema(page);
 
   const canvas = page.getByRole('application', { name: /Схема изделия/ });
@@ -305,7 +351,10 @@ test('щелчок по пустому месту холста снимает в
   await openSchema(page);
 
   const canvas = page.getByRole('application', { name: /Схема изделия/ });
-  await canvas.getByRole('button', { name: /^Боковина/ }).first().click();
+  await canvas
+    .getByRole('button', { name: /^Боковина/ })
+    .first()
+    .click();
   await expect(page.getByLabel('Свойства объекта').getByRole('heading')).toContainText('Боковина');
 
   // Поле вокруг изделия принадлежит самому холсту: щелчок по нему
@@ -319,7 +368,10 @@ test('щелчок по пустому месту холста снимает в
 test('объект на холсте выбирается с клавиатуры (PROMPT 22 §26)', async ({ page }) => {
   await openSchema(page);
 
-  const side = page.getByRole('application', { name: /Схема изделия/ }).getByRole('button', { name: /^Боковина/ }).first();
+  const side = page
+    .getByRole('application', { name: /Схема изделия/ })
+    .getByRole('button', { name: /^Боковина/ })
+    .first();
   await side.focus();
   await page.keyboard.press('Enter');
 
@@ -327,13 +379,17 @@ test('объект на холсте выбирается с клавиатур�
   await expect(page.getByLabel('Свойства объекта').getByRole('heading')).toContainText('Боковина');
 });
 
-test('ширина изделия меняется перетаскиванием ручки на холсте (PROMPT 22 §21–§23)', async ({ page }) => {
+test('ширина изделия меняется перетаскиванием ручки на холсте (PROMPT 22 §21–§23)', async ({
+  page,
+}) => {
   await openSchema(page);
 
   const widthField = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
   await expect(widthField).toHaveValue('1000');
 
-  const handle = page.getByRole('application', { name: /Схема изделия/ }).locator('[aria-label="Изменить ширину изделия перетаскиванием"]');
+  const handle = page
+    .getByRole('application', { name: /Схема изделия/ })
+    .locator('[aria-label="Изменить ширину изделия перетаскиванием"]');
   const box = (await handle.boundingBox())!;
   const startX = box.x + box.width / 2;
   const startY = box.y + box.height / 2;
@@ -367,7 +423,9 @@ test('Esc отменяет жест изменения габарита до о�
   await openSchema(page);
 
   const widthField = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
-  const handle = page.getByRole('application', { name: /Схема изделия/ }).locator('[aria-label="Изменить ширину изделия перетаскиванием"]');
+  const handle = page
+    .getByRole('application', { name: /Схема изделия/ })
+    .locator('[aria-label="Изменить ширину изделия перетаскиванием"]');
   const box = (await handle.boundingBox())!;
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -383,7 +441,9 @@ test('Esc отменяет жест изменения габарита до о�
   await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled();
 });
 
-test('проект сохраняется и восстанавливается после перезагрузки (PROMPT 22 §28)', async ({ page }) => {
+test('проект сохраняется и восстанавливается после перезагрузки (PROMPT 22 §28)', async ({
+  page,
+}) => {
   await page.goto('/');
 
   // Состояние сохранения живёт в верхней строке рядом с именем проекта
@@ -402,7 +462,9 @@ test('проект сохраняется и восстанавливается 
   await expect(saveState).toContainText('Сохранено');
 });
 
-test('строка состояния ведёт от текста ошибки к затронутому объекту (PROMPT 22 §29)', async ({ page }) => {
+test('строка состояния ведёт от текста ошибки к затронутому объекту (PROMPT 22 §29)', async ({
+  page,
+}) => {
   await page.goto('/');
 
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('-100');
