@@ -1,7 +1,7 @@
 import { formatMm } from '../domain/index.js';
-import type { FurnitureId, MaterialLibrary, Room, Vec3 } from '../domain/index.js';
+import type { MaterialLibrary, Room, Vec3 } from '../domain/index.js';
 import type { GeometryResult } from '../geometry/index.js';
-import { footprintOf, roomFootprint, wallBox } from '../room/index.js';
+import { footprintOf, instanceKey, roomFootprint, wallBox } from '../room/index.js';
 import { buildScene } from './adapter.js';
 import { sceneMaterialOf } from './materials.js';
 import { EMPTY_SCENE, FALLBACK_MATERIAL } from './types.js';
@@ -44,8 +44,11 @@ export function instanceIdOf(sceneObjectId: string): string | undefined {
 }
 
 export interface RoomSceneOptions {
-  /** Геометрия каждого изделия проекта. Планировщик её не считает. */
-  readonly geometries: ReadonlyMap<FurnitureId, GeometryResult>;
+  /**
+   * Геометрия изделий, доступных комнате, по ключу «проект/изделие»
+   * (`instanceKey`). Планировщик её не считает — получает готовой.
+   */
+  readonly geometries: ReadonlyMap<string, GeometryResult>;
   readonly materials: MaterialLibrary;
   /**
    * Стены полупрозрачны, чтобы видеть мебель внутри (§22).
@@ -298,18 +301,19 @@ export function buildRoomScene(room: Room, options: RoomSceneOptions): SceneMode
   // стоящий в комнате трижды, разбирается на детали единожды. Без этого
   // кэша обещание «мебель не пересобирается» было бы неправдой — и
   // именно так оно и было написано до первой проверки.
-  const furnitureScenes = new Map<FurnitureId, SceneModel>();
+  const furnitureScenes = new Map<string, SceneModel>();
   for (const instance of room.furnitureInstances) {
-    const geometry = options.geometries.get(instance.furnitureId);
+    const key = instanceKey(instance);
+    const geometry = options.geometries.get(key);
     // Геометрии нет — изделия в проекте нет. Рисовать «примерную
     // коробку» вместо него нельзя: пользователь принял бы её за мебель.
     // Об отсутствии сообщает `validateRoom`.
     if (geometry === undefined) continue;
 
-    let furnitureScene = furnitureScenes.get(instance.furnitureId);
+    let furnitureScene = furnitureScenes.get(key);
     if (furnitureScene === undefined) {
       furnitureScene = buildScene(geometry, options.materials);
-      furnitureScenes.set(instance.furnitureId, furnitureScene);
+      furnitureScenes.set(key, furnitureScene);
     }
     objects.push(...instanceObjects(room, instance, geometry, furnitureScene));
   }

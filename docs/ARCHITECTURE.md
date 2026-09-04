@@ -91,6 +91,7 @@ const LAYERS = [
   { type: 'render',       pattern: 'src/render/**/*' },   // PROMPT 4
   { type: 'room',         pattern: 'src/room/**/*' },
   { type: 'scene',        pattern: 'src/scene/**/*' },
+  { type: 'library',      pattern: 'src/library/**/*' }, // PROMPT 25
   { type: 'app',          pattern: 'src/app/**/*' },
   { type: 'entry',        pattern: 'src/main.tsx' },
 ];
@@ -107,6 +108,10 @@ const rules = [
   // render — презентационный слой: видит уже посчитанную геометрию,
   // но не state/interaction. Команды и хранилище остаются заботой app.
   { from: 'render',        allow: ['render', 'domain', 'geometry', 'design-system'] },
+  // library — библиотека проектов (PROMPT 25). Читает сводки из
+  // хранилища и строит превью через движок и модель сцены. Обратной
+  // стрелки нет: хранилище о библиотеке не знает.
+  { from: 'library',       allow: ['library', 'persistence', 'scene', 'geometry', 'domain'] },
   { from: 'app',           allow: ['*'] },
   { from: 'entry',         allow: ['*'] },
 ];
@@ -247,6 +252,8 @@ src/
                              проверка помещения (чистый слой)
   scene/                     модель сцены: SceneObject, камера, луч, ручки
                              (чистый слой: ни React, ни WebGL, ни DOM)
+  library/                   библиотека проектов: поиск, порядок, превью
+                             (чистый слой; хранилища не видит)
   app/                       оболочка приложения
     editor/                  редактор: холст, инспектор, тулбар, строка состояния
                              (чистые правила — selection.ts, resize.ts — без React)

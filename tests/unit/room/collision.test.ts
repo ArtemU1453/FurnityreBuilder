@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COLLISION_CODES, PROXIMITY_MM, detectCollisions } from '../../../src/room/index.js';
+import { COLLISION_CODES, PROXIMITY_MM, detectCollisions, extentKey } from '../../../src/room/index.js';
 import type { ClearanceRule, ExtentLookup } from '../../../src/room/index.js';
 import {
   createFurnitureInstance,
@@ -8,7 +8,7 @@ import {
   createRectangularRoom,
 } from '../../../src/domain/room/defaults.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
-import type { Furniture, Room, Vec3 } from '../../../src/domain/index.js';
+import type { Furniture, ProjectId, Room, Vec3 } from '../../../src/domain/index.js';
 
 /**
  * Проверка размещения (PROMPT 24 §17–§18).
@@ -21,7 +21,11 @@ import type { Furniture, Room, Vec3 } from '../../../src/domain/index.js';
 const ids = createSequentialIdFactory('c');
 const furniture = (id: string): Furniture => ({ id } as unknown as Furniture);
 const EXTENT: Vec3 = { x: 1000, y: 2000, z: 600 };
-const extents: ExtentLookup = new Map([['f-1', EXTENT], ['f-2', EXTENT]]);
+const PROJECT = 'project:test' as ProjectId;
+const extents: ExtentLookup = new Map([
+  [extentKey(PROJECT, 'f-1'), EXTENT],
+  [extentKey(PROJECT, 'f-2'), EXTENT],
+]);
 
 const base = (): Room =>
   createRectangularRoom({ ids: createSequentialIdFactory('r'), width: 4000, depth: 3000, height: 2700, wallThickness: 100 });
@@ -32,7 +36,7 @@ const withInstances = (room: Room, ...instances: ReturnType<typeof createFurnitu
 });
 
 const place = (furnitureId: string, x: number, z: number, rotation = 0) =>
-  createFurnitureInstance(ids, furniture(furnitureId), { x, y: 0, z }, rotation);
+  createFurnitureInstance(ids, PROJECT, furniture(furnitureId), { x, y: 0, z }, rotation);
 
 const codes = (room: Room, rules?: readonly ClearanceRule[]) =>
   detectCollisions(room, { extents, ...(rules === undefined ? {} : { clearanceRules: rules }) }).issues.map((i) => i.code);

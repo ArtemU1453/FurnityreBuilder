@@ -38,6 +38,21 @@ export interface DocumentState {
 
   /** Полная замена документа: открытие или импорт проекта. Историю сбрасывает. */
   readonly replaceProject: (project: Project) => void;
+
+  /**
+   * Отметка о записи в хранилище (PROMPT 25 §3, §23).
+   *
+   * Меняет только то, что появляется ПРИ СОХРАНЕНИИ и не является
+   * правкой пользователя: время изменения и превью. История не
+   * трогается намеренно — «отменить сохранение» не значит ничего, а
+   * сброс истории после каждого сохранения отнимал бы у пользователя
+   * возможность отменить работу, которую он только что сохранил.
+   *
+   * Отдельное действие, а не `replaceProject`, ровно потому, что у них
+   * разный смысл: одно открывает другой проект, другое отмечает тот же
+   * самый записанным.
+   */
+  readonly markSaved: (project: Project) => void;
 }
 
 export const createDocumentStore = (initial?: Project) =>
@@ -140,6 +155,10 @@ export const createDocumentStore = (initial?: Project) =>
 
     replaceProject: (project) => {
       set({ project, history: emptyHistory(), transaction: undefined });
+    },
+
+    markSaved: (project) => {
+      set({ project });
     },
   }));
 

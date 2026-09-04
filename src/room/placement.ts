@@ -25,6 +25,21 @@ import type { GeometryResult } from '../geometry/index.js';
  * нет поворота вовсе (`docs/3D_RENDERER_ARCHITECTURE.md` §5).
  */
 
+/**
+ * Ключ габарита экземпляра: проект + изделие (PROMPT 25 §13).
+ *
+ * Одного `furnitureId` мало с появлением библиотеки: два разных проекта
+ * могут содержать изделия с совпадающими идентификаторами — например,
+ * копия проекта, у которой внутренние id намеренно сохранены. Ключом
+ * служит пара, потому что ссылка экземпляра — тоже пара.
+ */
+export function instanceKey(instance: Pick<FurnitureInstance, 'projectId' | 'furnitureId'>): string {
+  return `${instance.projectId}/${instance.furnitureId}`;
+}
+
+/** Тот же ключ по составляющим: нужен, когда экземпляра ещё нет. */
+export const extentKey = (projectId: string, furnitureId: string): string => `${projectId}/${furnitureId}`;
+
 /** Прямоугольник на плане: минимальный угол и размер по X и Z. */
 export interface Footprint {
   readonly x: Mm;

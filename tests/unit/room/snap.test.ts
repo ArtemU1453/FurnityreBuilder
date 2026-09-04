@@ -17,7 +17,7 @@ const room = (width = 4000, depth = 3000, thickness = 100) =>
 
 const extent: Vec3 = { x: 1000, y: 2000, z: 600 };
 const box = (position: Vec3, rotation = 0) =>
-  instanceFootprint({ id: 'i' as never, furnitureId: 'f' as never, position, rotation, locked: false, visible: true }, extent);
+  instanceFootprint({ id: 'i' as never, projectId: 'p' as never, furnitureId: 'f' as never, position, rotation, locked: false, visible: true }, extent);
 
 describe('кандидаты привязки', () => {
   const r = room();

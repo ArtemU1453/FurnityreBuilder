@@ -39,11 +39,23 @@ UI → Application layer → ProjectRepository → Storage
 interface ProjectRepository {
   list(): Promise<ProjectSummary[]>;
   load(id: ProjectId): Promise<ProjectDocument | undefined>;
-  save(project: Project): Promise<void>;
+  /** Возвращает записанное: `updatedAt` ставится здесь и больше нигде. */
+  save(project: Project): Promise<Project>;
   delete(id: ProjectId): Promise<void>;
+  // Добавлено на PROMPT 25 — к этому же интерфейсу, а не рядом с ним.
+  has(id: ProjectId): Promise<boolean>;
+  create(project: Project): Promise<Project>;
+  duplicate(id: ProjectId, ids: IdFactory, name?: string): Promise<Project | undefined>;
+  rename(id: ProjectId, name: string): Promise<Project | undefined>;
   isPersistent(): boolean;
 }
 ```
+
+Операции библиотеки выражаются через `load` и `save` целиком и потому
+написаны один раз — в `BaseProjectRepository`, от которого наследуются
+обе реализации. Правило «что такое переименовать проект» при этом живёт
+в домене (`renameProject`, `duplicateProject`), а не в хранилище:
+хранилище умеет положить и достать, а ЧТО оно кладёт — решает домен.
 
 Что это даёт на практике:
 
@@ -148,8 +160,9 @@ export const SCHEMA_VERSION = 1;
 | ~~Автосохранение с дебаунсом и по `pagehide`~~ — отклонено на PROMPT 22 | — |
 | Явное сохранение и восстановление последнего проекта | сделано (PROMPT 22) |
 | Кольцевой буфер ревизий и восстановление | 17 |
-| Список проектов в интерфейсе | 17 |
-| Импорт перетаскиванием файла в окно | 18 |
+| ~~Список проектов в интерфейсе~~ — сделано (PROMPT 25) | — |
+| ~~Импорт и экспорт файлом~~ — сделано (PROMPT 25) | — |
+| Импорт перетаскиванием файла в окно | — отклонено: второй способ того же действия |
 | Определение переполнения квоты | 17 |
 
 ---

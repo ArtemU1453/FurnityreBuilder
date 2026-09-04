@@ -5,6 +5,7 @@ import {
   footprintGap,
   instanceBox,
   instanceFootprint,
+  instanceKey,
   obstacleBox,
   wallBox,
 } from './placement.js';
@@ -85,7 +86,12 @@ export const DEFAULT_CLEARANCE_RULES: readonly ClearanceRule[] = [];
  */
 export const PROXIMITY_MM: Mm = 50;
 
-/** Габарит одного изделия. Планировщик получает их готовыми, а не считает. */
+/**
+ * Габариты изделий, доступных комнате. Планировщик получает их готовыми.
+ *
+ * Ключ — пара «проект/изделие» (`instanceKey`), а не один `furnitureId`:
+ * с появлением библиотеки одного идентификатора изделия недостаточно.
+ */
 export type ExtentLookup = ReadonlyMap<string, Vec3>;
 
 export interface CollisionOptions {
@@ -171,7 +177,8 @@ export function detectCollisions(room: Room, options: CollisionOptions): Collisi
   const floor = room.floor.elevation;
 
   const visible = room.furnitureInstances.filter((instance) => instance.visible);
-  const extentOf = (furnitureId: string): Vec3 | undefined => options.extents.get(furnitureId);
+  const extentOf = (instance: Room['furnitureInstances'][number]): Vec3 | undefined =>
+    options.extents.get(instanceKey(instance));
 
   const roomPrint = ((): Footprint => {
     let minX = Infinity;
@@ -192,9 +199,9 @@ export function detectCollisions(room: Room, options: CollisionOptions): Collisi
   })();
 
   for (const instance of visible) {
-    const extent = extentOf(instance.furnitureId);
-    // Габарита нет — значит изделие, на которое ссылается экземпляр, не
-    // построено. Это ошибка ссылочной целостности, и её сообщает
+    const extent = extentOf(instance);
+    // Габарита нет — значит проект или изделие, на которое ссылается
+    // экземпляр, недоступно. Это ошибка ссылочной целостности, и её сообщает
     // `validateRoom`; здесь такой экземпляр просто не участвует в
     // геометрических проверках, чтобы не выдать вторую ошибку о том же.
     if (extent === undefined) continue;
@@ -254,7 +261,7 @@ export function detectCollisions(room: Room, options: CollisionOptions): Collisi
   for (let i = 0; i < visible.length; i += 1) {
     const a = visible[i];
     if (a === undefined) continue;
-    const extentA = extentOf(a.furnitureId);
+    const extentA = extentOf(a);
     if (extentA === undefined) continue;
     const printA = instanceFootprint(a, extentA);
     const boxA = instanceBox(a, extentA, floor);
@@ -262,7 +269,7 @@ export function detectCollisions(room: Room, options: CollisionOptions): Collisi
     for (let j = i + 1; j < visible.length; j += 1) {
       const b = visible[j];
       if (b === undefined) continue;
-      const extentB = extentOf(b.furnitureId);
+      const extentB = extentOf(b);
       if (extentB === undefined) continue;
       const printB = instanceFootprint(b, extentB);
 

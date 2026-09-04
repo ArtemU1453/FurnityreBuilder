@@ -40,6 +40,9 @@ import { exportPdf, exportXlsx } from './export-actions.js';
 import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
+import { useProjectLibrary } from './use-project-library.js';
+import { useLinkedProjects } from './use-linked-projects.js';
+import { ProjectLibrary } from './editor/ProjectLibrary.js';
 import { EditorCanvas } from './editor/EditorCanvas.js';
 import { Scene3D } from './editor/Scene3D.js';
 import { RoomPlanner, rotateQuarter } from './editor/RoomPlanner.js';
@@ -50,10 +53,10 @@ import { Toolbar } from './editor/Toolbar.js';
 import { describeSelection, resolveSelection } from './editor/selection.js';
 import type { InspectorAction } from './editor/selection.js';
 import type { GizmoTarget } from '../scene/index.js';
-import { findPlacement, furnitureExtent, validateRoom } from '../room/index.js';
+import { extentKey, findPlacement, furnitureExtent, validateRoom } from '../room/index.js';
 import type { ExtentLookup } from '../room/index.js';
 import { createFurnitureInstance, createRectangularRoom } from '../domain/index.js';
-import type { FurnitureId, InstanceId, Vec3 } from '../domain/index.js';
+import type { Furniture, FurnitureId, InstanceId, Project, ProjectId, Vec3 } from '../domain/index.js';
 import editorStyles from './editor/EditorPanels.module.css';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
@@ -112,6 +115,7 @@ export function App(): React.JSX.Element {
   const redo = useDocumentStore((s) => s.redo);
   const history = useDocumentStore((s) => s.history);
   const replaceProject = useDocumentStore((s) => s.replaceProject);
+  const markSaved = useDocumentStore((s) => s.markSaved);
 
   // Черновые значения полей сетки: рабочий проект не трогается до нажатия
   // «Применить» — перестроение дерева секций является отдельным осознанным
@@ -322,26 +326,38 @@ export function App(): React.JSX.Element {
    * идёт при изменении изделий, а не при движении мебели по комнате
    * (§32) — от того, что шкаф подвинули, его детали не меняются.
    */
+  /**
+   * Проекты, размещённые в помещении помимо открытого (PROMPT 25 §13).
+   *
+   * Помещение может содержать изделия из нескольких проектов сразу;
+   * загружаются они из того же хранилища и держатся в кэше, пока нужны.
+   */
+  const linked = useLinkedProjects(room, project.id);
+
   const furnitureGeometries = useMemo(() => {
-    const map = new Map<FurnitureId, ReturnType<typeof buildGeometry>>();
-    for (const item of project.furniture) {
-      map.set(
-        item.id,
-        buildGeometry({
-          furniture: item,
-          scheme: project.settings.construction,
-          tolerances: project.settings.tolerances,
-          materials: project.materials,
-          edgeSizing: project.settings.edgeSizing,
-        }),
-      );
+    const map = new Map<string, ReturnType<typeof buildGeometry>>();
+    // Открытый проект и все связанные — одним и тем же способом. Второго
+    // пути построения геометрии «для чужого проекта» не появляется.
+    for (const source of [project, ...linked.projects.values()]) {
+      for (const item of source.furniture) {
+        map.set(
+          extentKey(source.id, item.id),
+          buildGeometry({
+            furniture: item,
+            scheme: source.settings.construction,
+            tolerances: source.settings.tolerances,
+            materials: source.materials,
+            edgeSizing: source.settings.edgeSizing,
+          }),
+        );
+      }
     }
     return map;
-  }, [project.furniture, project.settings, project.materials]);
+  }, [project, linked.projects]);
 
   const roomExtents: ExtentLookup = useMemo(() => {
     const map = new Map<string, Vec3>();
-    for (const [id, result] of furnitureGeometries) map.set(id, furnitureExtent(result));
+    for (const [key, result] of furnitureGeometries) map.set(key, furnitureExtent(result));
     return map;
   }, [furnitureGeometries]);
 
@@ -350,10 +366,13 @@ export function App(): React.JSX.Element {
     [room, roomExtents],
   );
 
-  const furnitureNames = useMemo(
-    () => new Map(project.furniture.map((item) => [item.id as string, item.name])),
-    [project.furniture],
-  );
+  const furnitureNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const source of [project, ...linked.projects.values()]) {
+      for (const item of source.furniture) map.set(item.id, item.name);
+    }
+    return map;
+  }, [project, linked.projects]);
 
   const createRoom = (): void => {
     execute(
@@ -366,10 +385,22 @@ export function App(): React.JSX.Element {
     setCanvasMode('room');
   };
 
-  const addFurnitureToRoom = (furnitureId: FurnitureId): void => {
-    const item = project.furniture.find((entry) => entry.id === furnitureId);
+  /**
+   * Изделие по паре «проект + изделие» (PROMPT 25 §13).
+   *
+   * Ищет и в открытом проекте, и в связанных: ссылка экземпляра
+   * полностью квалифицирована, и разбирать её двумя разными способами
+   * значило бы завести два вида ссылок.
+   */
+  const furnitureOf = (projectId: ProjectId, furnitureId: FurnitureId): Furniture | undefined => {
+    const source = projectId === project.id ? project : linked.projects.get(projectId);
+    return source?.furniture.find((entry) => entry.id === furnitureId);
+  };
+
+  const placeInRoom = (projectId: ProjectId, furnitureId: FurnitureId, label: string): void => {
+    const item = furnitureOf(projectId, furnitureId);
     if (item === undefined || room === undefined) return;
-    const extent = roomExtents.get(furnitureId);
+    const extent = roomExtents.get(extentKey(projectId, furnitureId));
 
     // Новая мебель ставится в первое СВОБОДНОЕ место — угол, затем
     // стену, — а не в начало координат: оно лежит на осевой линии стен,
@@ -378,25 +409,48 @@ export function App(): React.JSX.Element {
     const placed =
       extent === undefined
         ? { position: { x: 0, y: 0, z: 0 }, rotation: 0 }
-        : findPlacement(room, furnitureId, extent, roomExtents);
+        : findPlacement(room, projectId, furnitureId, extent, roomExtents);
 
     execute(
       {
         type: 'AddFurnitureInstance',
         instance: {
-          ...createFurnitureInstance(createRandomIdFactory(), item, placed.position),
+          ...createFurnitureInstance(createRandomIdFactory(), projectId, item, placed.position),
           rotation: placed.rotation,
         },
       },
-      'Добавить мебель в помещение',
+      label,
     );
+  };
+
+  const addFurnitureToRoom = (furnitureId: FurnitureId): void => {
+    placeInRoom(project.id, furnitureId, 'Добавить мебель в помещение');
+  };
+
+  /**
+   * Разместить в помещении проект из библиотеки (§13, §14).
+   *
+   * Проект сначала загружается — без него неизвестен ни его габарит, ни
+   * его изделия. Размещается первое изделие: остальные добавляются
+   * отдельно, каждым своим действием, и повторить это действие можно
+   * сколько угодно раз (§14) — одинаковых экземпляров у одного проекта
+   * может быть много, и ничего в модели этому не мешает.
+   */
+  const addProjectToRoom = (projectId: ProjectId): void => {
+    void (async () => {
+      const source = projectId === project.id ? project : await linked.link(projectId);
+      const first = source?.furniture[0];
+      if (first === undefined) return;
+      placeInRoom(projectId, first.id, 'Разместить проект в помещении');
+    })();
   };
 
   const duplicateInstance = (instanceId: InstanceId): void => {
     const source = room?.furnitureInstances.find((item) => item.id === instanceId);
-    const item = project.furniture.find((entry) => entry.id === source?.furnitureId);
-    if (source === undefined || item === undefined) return;
-    const extent = roomExtents.get(source.furnitureId);
+    if (source === undefined) return;
+    const item = furnitureOf(source.projectId, source.furnitureId);
+    if (item === undefined) return;
+    const extent = roomExtents.get(extentKey(source.projectId, source.furnitureId));
     // Копия ставится рядом, а не поверх оригинала: два объекта в одной
     // точке выглядят как один, и пользователь решил бы, что ничего не
     // произошло. Смещение — на собственную ширину копии, а не на
@@ -406,7 +460,7 @@ export function App(): React.JSX.Element {
       {
         type: 'AddFurnitureInstance',
         instance: {
-          ...createFurnitureInstance(createRandomIdFactory(), item, {
+          ...createFurnitureInstance(createRandomIdFactory(), source.projectId, item, {
             x: source.position.x + offset,
             y: source.position.y,
             z: source.position.z,
@@ -451,7 +505,71 @@ export function App(): React.JSX.Element {
     else if (issue.target?.nodeId !== undefined) selectNodes([issue.target.nodeId]);
   };
 
-  const storage = useProjectStorage(project);
+  const storage = useProjectStorage(project, { onStored: markSaved });
+
+  // ── Библиотека проектов (PROMPT 25) ───────────────────────────────────────
+
+  const library = useProjectLibrary();
+  /** Открыта ли библиотека. Состояние интерфейса: в проект не идёт. */
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  /** Выбранный в планировщике проект для размещения. Тоже состояние интерфейса. */
+  const [placingProjectId, setPlacingProjectId] = useState('');
+
+  /**
+   * Открытие проекта из библиотеки (§21).
+   *
+   * Документ заменяется целиком, история сбрасывается — открыт другой
+   * проект, и отменять в нём правки предыдущего было бы бессмыслицей.
+   * `markClean` нужен, чтобы только что открытый проект не показывался
+   * несохранённым: на диске лежит ровно он.
+   */
+  const openProject = (opened: Project): void => {
+    replaceProject(opened);
+    storage.markClean(opened);
+    setLibraryOpen(false);
+  };
+
+  /**
+   * Выгрузка проекта файлом (§20).
+   *
+   * Blob и ссылка — всё, что нужно: файл собирается в браузере и никуда
+   * не отправляется. Адрес объекта освобождается сразу, иначе вкладка
+   * держала бы его до закрытия.
+   */
+  const exportProjectFile = (source: Project): void => {
+    const { text, fileName } = library.exportProject(source);
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.append(link);
+    link.click();
+    // Уборка — следующим кадром, а не сразу: у оторванной от документа
+    // ссылки браузер игнорирует `download` и сохраняет файл под именем
+    // «download», а немедленный `revokeObjectURL` успевает отменить саму
+    // загрузку.
+    requestAnimationFrame(() => {
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+  };
+
+  /**
+   * Список библиотеки перечитывается после записи.
+   *
+   * `updatedAt` меняется ровно в двух случаях: проект сохранён и проект
+   * открыт (§3). И то и другое — момент, когда список на экране мог
+   * устареть. Подписываться на само сохранение было бы вторым сигналом
+   * о том же событии.
+   */
+  const refreshLibrary = library.refresh;
+  useEffect(() => {
+    void refreshLibrary();
+  }, [refreshLibrary, project.metadata.updatedAt]);
+
+  /** Сколько раз проект размещён в открытом помещении (§12). */
+  const placementsOf = (id: ProjectId): number =>
+    room?.furnitureInstances.filter((instance) => instance.projectId === id).length ?? 0;
 
   // Восстановление последнего сохранённого проекта при открытии вкладки
   // (§28). Регистрации нет, «моих проектов» нет — но и терять работу
@@ -967,6 +1085,10 @@ export function App(): React.JSX.Element {
         storageMessage={storage.message}
         production={readiness?.status}
         exporting={exporting}
+        libraryOpen={libraryOpen}
+        onToggleLibrary={() => {
+          setLibraryOpen((open) => !open);
+        }}
         onUndo={undo}
         onRedo={redo}
         onSave={() => {
@@ -977,7 +1099,20 @@ export function App(): React.JSX.Element {
         }}
       />
 
-      <div className={editorStyles.workspace}>
+      {libraryOpen ? (
+        <div className={editorStyles.workspace}>
+          <ProjectLibrary
+            library={library}
+            currentProjectId={project.id}
+            currentIsDirty={storage.status === 'unsaved'}
+            onOpen={openProject}
+            onExport={exportProjectFile}
+            placementsOf={placementsOf}
+          />
+        </div>
+      ) : null}
+
+      <div className={editorStyles.workspace} hidden={libraryOpen}>
         {/*
           Порядок в разметке совпадает с порядком на экране: параметры,
           холст, инспектор. Раскладывать колонки сеткой в один порядок, а
@@ -2054,6 +2189,53 @@ export function App(): React.JSX.Element {
                   Добавить «{item.name}»
                 </button>
               ))}
+            </div>
+          )}
+
+          {/*
+            Выбор проекта для размещения (PROMPT 25 §13–§14).
+
+            Список — из библиотеки, а не из открытого проекта: в
+            помещение ставят готовые изделия, и большинство из них
+            сделаны не в этом же документе. Кнопка не блокируется после
+            нажатия: один и тот же проект размещается сколько угодно раз,
+            и каждый экземпляр — самостоятельный объект (§14).
+          */}
+          {canvasMode !== 'room' || room === undefined ? null : (
+            <div className={editorStyles.viewSwitch} role="group" aria-label="Разместить проект из библиотеки">
+              <label>
+                <span>Проект из библиотеки </span>
+                <select
+                  value={placingProjectId}
+                  aria-label="Проект для размещения"
+                  onChange={(event) => {
+                    setPlacingProjectId(event.target.value);
+                  }}
+                >
+                  <option value="">— выберите —</option>
+                  {library.summaries
+                    .filter((summary) => summary.furnitureCount > 0)
+                    .map((summary) => (
+                      <option key={summary.id} value={summary.id}>
+                        {summary.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={placingProjectId === ''}
+                onClick={() => {
+                  if (placingProjectId !== '') addProjectToRoom(placingProjectId as ProjectId);
+                }}
+              >
+                Разместить в помещении
+              </button>
+              {linked.missing.size === 0 ? null : (
+                <span role="status">
+                  Недоступных проектов в расстановке: {String(linked.missing.size)}
+                </span>
+              )}
             </div>
           )}
 

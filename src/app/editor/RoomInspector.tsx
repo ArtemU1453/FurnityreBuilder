@@ -1,6 +1,6 @@
 import { formatMm } from '../../domain/index.js';
 import type { FurnitureInstance, InstanceId, Room, Vec3 } from '../../domain/index.js';
-import { isRectangular, roomSize } from '../../room/index.js';
+import { instanceKey, isRectangular, roomSize } from '../../room/index.js';
 import type { ExtentLookup, RoomStatus } from '../../room/index.js';
 import { Button } from '../../design-system/index.js';
 import { footprintLabel } from './RoomPlanner.js';
@@ -49,7 +49,7 @@ export function RoomInspector(props: RoomInspectorProps): React.JSX.Element {
   const size = roomSize(props.room);
   const rectangular = isRectangular(props.room);
   const selected = props.selected;
-  const extent = selected === undefined ? undefined : props.extents.get(selected.furnitureId);
+  const extent = selected === undefined ? undefined : props.extents.get(instanceKey(selected));
 
   return (
     <aside className={styles.inspector} aria-label="Свойства помещения">

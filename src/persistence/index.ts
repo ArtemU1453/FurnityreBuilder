@@ -1,5 +1,6 @@
 export type { ProjectRepository, ProjectSummary } from './repository.js';
-export { summarize, byUpdatedAtDesc } from './repository.js';
+export { summarize, byUpdatedAtDesc, RepositoryError } from './repository.js';
+export { BaseProjectRepository } from './base-repository.js';
 export { InMemoryProjectRepository } from './memory-repository.js';
 export {
   IndexedDbProjectRepository,
@@ -18,3 +19,12 @@ export {
 export { migrateDocument, MigrationError, MIGRATIONS } from './migrations/index.js';
 export type { Migration } from './migrations/index.js';
 export { projectSchema, projectDocumentSchema } from './schema.js';
+export { normalizeProject } from './normalize.js';
+export {
+  importProjectFromText,
+  exportProjectToText,
+  exportFileName,
+  collectImportWarnings,
+  PROJECT_STATUS_LABELS,
+} from './transfer.js';
+export type { ImportResult, ProjectStatus } from './transfer.js';

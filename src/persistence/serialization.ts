@@ -1,6 +1,7 @@
 import type { Project, ProjectDocument } from '../domain/index.js';
 import { SCHEMA_VERSION } from '../domain/index.js';
 import { migrateDocument } from './migrations/index.js';
+import { normalizeProject } from './normalize.js';
 import { projectDocumentSchema, versionProbeSchema } from './schema.js';
 
 export class DeserializationError extends Error {
@@ -62,7 +63,10 @@ export function deserializeDocument(raw: unknown): ProjectDocument {
     );
   }
 
-  return parsed.data as unknown as ProjectDocument;
+  const document = parsed.data as unknown as ProjectDocument;
+  // Нормализация — последний шаг разбора: она достраивает то, что схема
+  // проверить не могла, потому что зависит от проекта целиком (§19).
+  return { ...document, project: normalizeProject(document.project) };
 }
 
 export function fromJson(text: string): ProjectDocument {

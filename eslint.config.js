@@ -38,6 +38,10 @@ const LAYERS = [
   // командах, ни об экране.
   { type: 'room', pattern: 'src/room/**/*' },
   { type: 'scene', pattern: 'src/scene/**/*' },
+  // library — библиотека проектов (PROMPT 25 §2). Поиск, сортировка и
+  // построение превью. Слой чистый: он не хранит проекты (это делает
+  // persistence) и не рисует их на экране (это делает app).
+  { type: 'library', pattern: 'src/library/**/*' },
   { type: 'render', pattern: 'src/render/**/*' },
   { type: 'app', pattern: 'src/app/**/*' },
   { type: 'entry', pattern: 'src/main.tsx' },
@@ -66,6 +70,10 @@ const PURE_LAYERS = [
   // PROMPT 24 §2: планировщик размещает объекты и проверяет помещение.
   // Ни экрана, ни команд, ни браузера он не знает.
   'src/room/**/*.ts',
+  // PROMPT 25 §7, §28: превью строится из геометрии детерминированно.
+  // Ни canvas, ни WebGL, ни React — иначе его нельзя было бы проверить
+  // тестом и нельзя было бы построить вне браузера.
+  'src/library/**/*.ts',
 ];
 
 const UI_FRAMEWORK_IMPORTS = {
@@ -173,6 +181,11 @@ export default tseslint.config(
             // конструкцию мебели не пересчитывает и командой не является.
             { from: 'room', allow: ['room', 'geometry', 'domain'] },
             { from: 'scene', allow: ['scene', 'room', 'geometry', 'domain'] },
+            // Библиотека читает сводки проектов и строит превью: ей нужны
+            // домен, движок геометрии, модель сцены и тип записи списка из
+            // хранилища. Обратной стрелки нет: хранилище о библиотеке не
+            // знает и знать не должно (PROMPT 25 §28).
+            { from: 'library', allow: ['library', 'persistence', 'scene', 'geometry', 'domain'] },
             { from: 'render', allow: ['render', 'scene', 'room', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'bom', 'design-system'] },
             { from: 'app', allow: ['*'] },
             { from: 'entry', allow: ['*'] },

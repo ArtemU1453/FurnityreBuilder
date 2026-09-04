@@ -1,7 +1,8 @@
 import type { Project, ProjectDocument, ProjectId } from '../domain/index.js';
 import { serializeProject } from './serialization.js';
-import type { ProjectRepository, ProjectSummary } from './repository.js';
+import type { ProjectSummary } from './repository.js';
 import { byUpdatedAtDesc, summarize } from './repository.js';
+import { BaseProjectRepository } from './base-repository.js';
 
 /**
  * Хранилище в памяти.
@@ -11,7 +12,7 @@ import { byUpdatedAtDesc, summarize } from './repository.js';
  * что изменения не переживут перезагрузку (`isPersistent() === false`).
  * Он же используется в тестах домена — без эмуляции браузера.
  */
-export class InMemoryProjectRepository implements ProjectRepository {
+export class InMemoryProjectRepository extends BaseProjectRepository {
   private readonly store = new Map<string, ProjectDocument>();
 
   list(): Promise<ProjectSummary[]> {
@@ -26,7 +27,7 @@ export class InMemoryProjectRepository implements ProjectRepository {
     return Promise.resolve(found === undefined ? undefined : structuredClone(found));
   }
 
-  save(project: Project): Promise<void> {
+  protected write(project: Project): Promise<void> {
     this.store.set(project.id, structuredClone(serializeProject(project)));
     return Promise.resolve();
   }

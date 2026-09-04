@@ -1,0 +1,193 @@
+/*
+ * Библиотека проектов (PROMPT 25 §6, §25–§27).
+ *
+ * Раскладка карточек, а не таблица: у проекта есть картинка, и она
+ * главное, по чему его узнают. Таблица со столбцами показала бы имя и
+ * дату, то есть ровно то, что человек помнит хуже всего.
+ */
+
+.library {
+  display: grid;
+  gap: var(--sp-3);
+  align-content: start;
+  padding: var(--sp-3);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--t-heading-size);
+  line-height: var(--t-heading-lh);
+  letter-spacing: var(--t-heading-ls);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.search,
+.sort {
+  height: var(--h-control-md);
+  padding: 0 var(--sp-2);
+  font: inherit;
+  font-size: var(--t-label-size);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-default);
+  border-radius: var(--r-sm);
+}
+
+.search:focus-visible,
+.sort:focus-visible {
+  outline: var(--border-focus) solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.search {
+  min-width: 180px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 560px) {
+  /* Телефон: одна колонка. Две карточки по 110 px нечитаемы. */
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.card {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-md);
+  transition: box-shadow var(--duration-color) var(--easing-standard);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-2);
+}
+
+.cardCurrent {
+  border-color: var(--accent-500);
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: var(--bg-sunken);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.preview > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.previewEmpty {
+  display: grid;
+  place-items: center;
+  font-size: var(--t-caption-size);
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--sp-2);
+}
+
+.name {
+  margin: 0;
+  font-size: var(--t-label-size);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--t-caption-size);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.status {
+  margin: 0;
+  font-size: var(--t-caption-size);
+  color: var(--text-secondary);
+}
+
+.statusWarning {
+  color: var(--warning-500);
+}
+
+.statusInvalid {
+  color: var(--danger-500);
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.empty,
+.error {
+  margin: 0;
+  font-size: var(--t-body-size);
+  color: var(--text-secondary);
+}
+
+.error {
+  color: var(--danger-500);
+}
+
+.notice {
+  margin: 0;
+  font-size: var(--t-caption-size);
+  color: var(--warning-500);
+}
+
+.recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recentLabel {
+  font-size: var(--t-caption-size);
+  color: var(--text-tertiary);
+}
+
+.hiddenInput {
+  display: none;
+}

@@ -335,6 +335,22 @@ export const projectSchema = z.object({
     updatedAt: z.string(),
     appVersion: z.string(),
   }),
+  /*
+    Превью проекта (PROMPT 25 §7–§8). Хранится, потому что список
+    библиотеки не должен считать геометрию всех проектов, чтобы
+    показать карточки. Это НЕ второй источник правды: `sourceFingerprint`
+    говорит, из какого состояния превью построено, и расходящееся с
+    проектом превью помечается устаревшим, а не выдаётся за текущее.
+  */
+  preview: z
+    .object({
+      svg: z.string(),
+      width: z.number().finite().positive(),
+      height: z.number().finite().positive(),
+      sourceFingerprint: z.string(),
+      generatedAt: z.string(),
+    })
+    .optional(),
   materials: z.object({
     items: z.record(z.string(), material),
     assignment: z.record(z.string(), id),
@@ -413,6 +429,15 @@ export const projectSchema = z.object({
         .array(
           z.object({
             id,
+            /*
+              Ссылка на проект (PROMPT 25 §3, §13). Необязательна: файлы,
+              сохранённые до библиотеки, знали только `furnitureId`,
+              потому что проект был один. Недостающее значение
+              подставляет `normalizeProject` — из проекта-хозяина, то
+              есть ровно то, чем оно и было. Схема остаётся первой
+              версии: миграции здесь нечего делать, поле выводится.
+            */
+            projectId: id.optional(),
             furnitureId: id,
             position: vec3,
             rotation: z.number().finite(),

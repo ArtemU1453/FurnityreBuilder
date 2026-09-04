@@ -3,7 +3,7 @@ import { createDocumentStore } from '../../../src/state/document-store.js';
 import { createProject } from '../../../src/domain/project/factory.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
 import { createFurnitureInstance, createRectangularRoom } from '../../../src/domain/room/defaults.js';
-import { findPlacement, furnitureExtent, roomFootprint, validateRoom } from '../../../src/room/index.js';
+import { extentKey, findPlacement, furnitureExtent, roomFootprint, validateRoom } from '../../../src/room/index.js';
 import type { ExtentLookup } from '../../../src/room/index.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
 import { toJson, fromJson } from '../../../src/persistence/serialization.js';
@@ -40,7 +40,7 @@ const geometriesOf = (project: Project) => {
 
 const extentsOf = (project: Project): ExtentLookup => {
   const map = new Map<string, Vec3>();
-  for (const [id, geometry] of geometriesOf(project)) map.set(id, furnitureExtent(geometry));
+  for (const [id, geometry] of geometriesOf(project)) map.set(extentKey(project.id, id), furnitureExtent(geometry));
   return map;
 };
 
@@ -63,13 +63,13 @@ describe('создать → добавить → переместить → п�
     const project = s.getState().project;
     const furniture = project.furniture[0]!;
     const extents = extentsOf(project);
-    const extent = extents.get(furniture.id)!;
+    const extent = extents.get(extentKey(project.id, furniture.id))!;
 
-    const placement = findPlacement(roomOf(s), furniture.id, extent, extents);
+    const placement = findPlacement(roomOf(s), project.id, furniture.id, extent, extents);
     expect(placement.free).toBe(true);
 
     const instance = {
-      ...createFurnitureInstance(ids, furniture, placement.position),
+      ...createFurnitureInstance(ids, s.getState().project.id, furniture, placement.position),
       rotation: placement.rotation,
     };
     s.getState().execute({ type: 'AddFurnitureInstance', instance }, 'Добавить');
@@ -99,7 +99,7 @@ describe('создать → добавить → переместить → п�
     const s = scenario();
     const project = s.getState().project;
     const extents = extentsOf(project);
-    const instance = createFurnitureInstance(ids, project.furniture[0]!, { x: 9000, y: 0, z: 9000 });
+    const instance = createFurnitureInstance(ids, project.id, project.furniture[0]!, { x: 9000, y: 0, z: 9000 });
     s.getState().execute({ type: 'AddFurnitureInstance', instance });
     const errors = validateRoom(roomOf(s), { extents }).issues.filter((i) => i.severity === 'error');
     expect(errors.length).toBeGreaterThan(0);
@@ -114,13 +114,13 @@ describe('комната ↔ изделие', () => {
     for (const x of [200, 2200]) {
       s.getState().execute({
         type: 'AddFurnitureInstance',
-        instance: createFurnitureInstance(ids, furniture, { x, y: 0, z: 100 }),
+        instance: createFurnitureInstance(ids, s.getState().project.id, furniture, { x, y: 0, z: 100 }),
       });
     }
 
-    const before = extentsOf(s.getState().project).get(furniture.id)!;
+    const before = extentsOf(s.getState().project).get(extentKey(s.getState().project.id, furniture.id))!;
     s.getState().execute({ type: 'SetDimension', furnitureIndex: 0, axis: 'width', value: 1600 });
-    const after = extentsOf(s.getState().project).get(furniture.id)!;
+    const after = extentsOf(s.getState().project).get(extentKey(s.getState().project.id, furniture.id))!;
 
     expect(before.x).toBe(1000);
     expect(after.x).toBe(1600);
@@ -133,7 +133,7 @@ describe('комната ↔ изделие', () => {
     const furniture = s.getState().project.furniture[0]!;
     s.getState().execute({
       type: 'AddFurnitureInstance',
-      instance: createFurnitureInstance(ids, furniture, { x: 50, y: 0, z: 50 }),
+      instance: createFurnitureInstance(ids, s.getState().project.id, furniture, { x: 50, y: 0, z: 50 }),
     });
     expect(validateRoom(roomOf(s), { extents: extentsOf(s.getState().project) }).status).not.toBe('INVALID');
 
@@ -147,11 +147,70 @@ describe('комната ↔ изделие', () => {
     const furniture = s.getState().project.furniture[0]!;
     s.getState().execute({
       type: 'AddFurnitureInstance',
-      instance: createFurnitureInstance(ids, furniture, { x: 200, y: 0, z: 100 }),
+      instance: createFurnitureInstance(ids, s.getState().project.id, furniture, { x: 200, y: 0, z: 100 }),
     });
     // Изделия в словаре габаритов больше нет — как если бы его удалили.
-    const result = validateRoom(roomOf(s), { extents: new Map() });
+    // Проект известен, изделия в нём больше нет — именно этот случай, а
+    // не «проект недоступен».
+    const other = new Map([[extentKey(s.getState().project.id, 'иное-изделие'), { x: 100, y: 100, z: 100 }]]);
+    const result = validateRoom(roomOf(s), { extents: other });
     expect(result.issues.map((i) => i.code)).toContain('ROOM_INSTANCE_FURNITURE_NOT_FOUND');
+  });
+});
+
+describe('один проект в помещении несколько раз (PROMPT 25 §14)', () => {
+  it('одно и то же изделие размещается трижды и остаётся одним изделием', () => {
+    const s = scenario();
+    const furniture = s.getState().project.furniture[0]!;
+    for (const x of [200, 1400, 2600]) {
+      s.getState().execute({
+        type: 'AddFurnitureInstance',
+        instance: createFurnitureInstance(ids, s.getState().project.id, furniture, { x, y: 0, z: 100 }),
+      });
+    }
+
+    const instances = roomOf(s).furnitureInstances;
+    expect(instances).toHaveLength(3);
+    // Ссылка одна и та же, идентификаторы экземпляров — разные.
+    expect(new Set(instances.map((i) => `${i.projectId}/${i.furnitureId}`)).size).toBe(1);
+    expect(new Set(instances.map((i) => i.id)).size).toBe(3);
+    expect(s.getState().project.furniture).toHaveLength(1);
+  });
+
+  it('перемещение одного экземпляра не двигает остальные', () => {
+    const s = scenario();
+    const furniture = s.getState().project.furniture[0]!;
+    for (const x of [200, 1400]) {
+      s.getState().execute({
+        type: 'AddFurnitureInstance',
+        instance: createFurnitureInstance(ids, s.getState().project.id, furniture, { x, y: 0, z: 100 }),
+      });
+    }
+    const first = roomOf(s).furnitureInstances[0]!;
+    s.getState().execute({
+      type: 'TransformFurnitureInstance',
+      instanceId: first.id,
+      position: { x: 900, y: 0, z: 900 },
+    });
+    expect(roomOf(s).furnitureInstances[0]?.position).toEqual({ x: 900, y: 0, z: 900 });
+    expect(roomOf(s).furnitureInstances[1]?.position).toEqual({ x: 1400, y: 0, z: 100 });
+  });
+
+  it('экземпляр чужого проекта команда принимает: его целостность проверяет размещение', () => {
+    // Документ не видит библиотеку и не может подтвердить чужую ссылку.
+    // Тихо отказать значило бы сделать размещение невозможным вовсе.
+    const s = scenario();
+    const foreign = createFurnitureInstance(
+      ids,
+      'project:из-библиотеки' as never,
+      s.getState().project.furniture[0]!,
+      { x: 500, y: 0, z: 500 },
+    );
+    s.getState().execute({ type: 'AddFurnitureInstance', instance: foreign });
+    expect(roomOf(s).furnitureInstances).toHaveLength(1);
+
+    const codes = validateRoom(roomOf(s), { extents: extentsOf(s.getState().project) }).issues.map((i) => i.code);
+    expect(codes).toContain('ROOM_INSTANCE_PROJECT_NOT_FOUND');
   });
 });
 
@@ -162,7 +221,7 @@ describe('сохранение и загрузка', () => {
     s.getState().execute({
       type: 'AddFurnitureInstance',
       instance: {
-        ...createFurnitureInstance(ids, furniture, { x: 700, y: 0, z: 400 }),
+        ...createFurnitureInstance(ids, s.getState().project.id, furniture, { x: 700, y: 0, z: 400 }),
         rotation: Math.PI / 2,
         locked: true,
       },

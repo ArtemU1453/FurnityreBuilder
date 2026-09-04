@@ -1,4 +1,4 @@
-import type { FurnitureId, Room, Vec3 } from '../domain/index.js';
+import type { FurnitureId, ProjectId, Room, Vec3 } from '../domain/index.js';
 import { detectCollisions } from './collision.js';
 import type { ExtentLookup } from './collision.js';
 import { roomFootprint } from './placement.js';
@@ -44,6 +44,7 @@ export interface Placement {
  */
 export function findPlacement(
   room: Room,
+  projectId: ProjectId,
   furnitureId: FurnitureId,
   extent: Vec3,
   extents: ExtentLookup,
@@ -60,6 +61,7 @@ export function findPlacement(
         ...room.furnitureInstances,
         {
           id: 'probe' as Room['furnitureInstances'][number]['id'],
+          projectId,
           furnitureId,
           position: candidate.position,
           rotation: candidate.rotation,

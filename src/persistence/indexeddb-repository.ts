@@ -5,6 +5,7 @@ import { SCHEMA_VERSION } from '../domain/index.js';
 import { deserializeDocument, serializeProject } from './serialization.js';
 import type { ProjectRepository, ProjectSummary } from './repository.js';
 import { byUpdatedAtDesc, summarize } from './repository.js';
+import { BaseProjectRepository } from './base-repository.js';
 
 export const DB_NAME = 'furniture-builder';
 export const DB_VERSION = 1;
@@ -16,6 +17,16 @@ interface StoredProject {
   readonly updatedAt: string;
   readonly schemaVersion: number;
   readonly document: unknown;
+  /**
+   * Сводка для списка (PROMPT 25 §6).
+   *
+   * Необязательна: записи, сделанные до библиотеки, её не содержат.
+   * Тогда список разбирает документ этой записи — медленнее, но
+   * правильно; и при первом же сохранении запись обновится и станет
+   * быстрой. Подставлять вместо неё нули значило бы показать в карточке
+   * неправду.
+   */
+  readonly summary?: ProjectSummary;
 }
 
 interface FurnitureBuilderDb extends DBSchema {
@@ -42,7 +53,7 @@ interface FurnitureBuilderDb extends DBSchema {
  * Сводные поля (`name`, `updatedAt`) продублированы рядом с документом,
  * чтобы список проектов строился без разбора каждого проекта целиком.
  */
-export class IndexedDbProjectRepository implements ProjectRepository {
+export class IndexedDbProjectRepository extends BaseProjectRepository {
   private dbPromise: Promise<IDBPDatabase<FurnitureBuilderDb>> | undefined;
 
   private db(): Promise<IDBPDatabase<FurnitureBuilderDb>> {
@@ -63,14 +74,25 @@ export class IndexedDbProjectRepository implements ProjectRepository {
   async list(): Promise<ProjectSummary[]> {
     const db = await this.db();
     const rows = await db.getAll('projects');
-    return rows
-      .map((row) => ({
-        id: row.id as ProjectId,
-        name: row.name,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      }))
-      .sort(byUpdatedAtDesc);
+    const summaries = rows.map((row) => this.summaryOf(row));
+    return summaries.filter((item): item is ProjectSummary => item !== undefined).sort(byUpdatedAtDesc);
+  }
+
+  /**
+   * Сводка записи: готовая, если она есть, иначе выведенная из документа.
+   *
+   * Битая запись пропускается, а не роняет весь список: один
+   * повреждённый проект не должен закрывать пользователю доступ к
+   * остальным (§22).
+   */
+  private summaryOf(row: StoredProject): ProjectSummary | undefined {
+    if (row.summary !== undefined) return row.summary;
+    try {
+      const document = deserializeDocument(row.document);
+      return summarize(document.project);
+    } catch {
+      return undefined;
+    }
   }
 
   async load(id: ProjectId): Promise<ProjectDocument | undefined> {
@@ -82,7 +104,7 @@ export class IndexedDbProjectRepository implements ProjectRepository {
     return deserializeDocument(row.document);
   }
 
-  async save(project: Project): Promise<void> {
+  protected async write(project: Project): Promise<void> {
     const db = await this.db();
     const document = serializeProject(project);
     const summary = summarize(project);
@@ -93,7 +115,14 @@ export class IndexedDbProjectRepository implements ProjectRepository {
       updatedAt: summary.updatedAt,
       schemaVersion: SCHEMA_VERSION,
       document,
+      summary,
     });
+  }
+
+  /** Существование проверяется ключом, без разбора документа. */
+  override async has(id: ProjectId): Promise<boolean> {
+    const db = await this.db();
+    return (await db.getKey('projects', id)) !== undefined;
   }
 
   async delete(id: ProjectId): Promise<void> {

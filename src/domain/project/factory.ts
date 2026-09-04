@@ -48,8 +48,3 @@ export function createProject(options: Partial<CreateProjectOptions> = {}): Proj
 export function createProjectDocument(project: Project): ProjectDocument {
   return { schemaVersion: SCHEMA_VERSION, project };
 }
-
-/** Отметка времени изменения. Единственное место, где `updatedAt` меняется. */
-export function touchProject(project: Project, now: () => string): Project {
-  return { ...project, metadata: { ...project.metadata, updatedAt: now() } };
-}

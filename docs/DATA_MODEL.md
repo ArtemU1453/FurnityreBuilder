@@ -121,12 +121,24 @@ export interface Project {
   readonly furniture: readonly Furniture[];  // сейчас 1; массив — задел под планировщик
   readonly room?: Room;
   readonly settings: ProjectSettings;
+  /** Превью для библиотеки (PROMPT 25). Производное, а не источник правды. */
+  readonly preview?: ProjectPreview;
 }
 
 export interface ProjectMetadata {
   readonly createdAt: string;   // ISO 8601
+  /** Меняется ровно в момент записи в хранилище — и больше нигде. */
   readonly updatedAt: string;
   readonly appVersion: string;
+}
+
+export interface ProjectPreview {
+  readonly svg: string;
+  readonly width: number;
+  readonly height: number;
+  /** Отпечаток состояния, из которого построена картинка: по нему видно, что она устарела. */
+  readonly sourceFingerprint: string;
+  readonly generatedAt: string;
 }
 
 export interface ProjectSettings {

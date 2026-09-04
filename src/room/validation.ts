@@ -2,7 +2,7 @@ import { hasErrors, issue, roundMm } from '../domain/index.js';
 import type { Issue, Room, Vec3 } from '../domain/index.js';
 import { detectCollisions } from './collision.js';
 import type { ClearanceRule, ExtentLookup } from './collision.js';
-import { roomFootprint } from './placement.js';
+import { instanceKey, roomFootprint } from './placement.js';
 
 /**
  * Проверка помещения (PROMPT 24 §19–§20).
@@ -44,6 +44,7 @@ export const ROOM_CODES = {
   openingSize: 'ROOM_OPENING_SIZE_INVALID',
   obstacleSize: 'ROOM_OBSTACLE_SIZE_INVALID',
   instanceFurnitureMissing: 'ROOM_INSTANCE_FURNITURE_NOT_FOUND',
+  instanceProjectMissing: 'ROOM_INSTANCE_PROJECT_NOT_FOUND',
   instanceTooTall: 'ROOM_INSTANCE_TALLER_THAN_CEILING',
   duplicateId: 'ROOM_DUPLICATE_ID',
 } as const;
@@ -172,17 +173,24 @@ function checkObstacles(room: Room, issues: Issue[]): void {
 }
 
 function checkInstances(room: Room, extents: ExtentLookup, issues: Issue[]): void {
+  // Какие проекты вообще известны: по ним различаются «нет проекта» и
+  // «проект есть, но такого изделия в нём нет». Для пользователя это
+  // разные события и разные действия.
+  const knownProjects = new Set([...extents.keys()].map((key) => key.split('/')[0]));
   for (const instance of room.furnitureInstances) {
-    const extent = extents.get(instance.furnitureId);
+    const extent = extents.get(instanceKey(instance));
     if (extent === undefined) {
-      // Ссылочная целостность: экземпляр указывает на изделие, которого
-      // в проекте нет. Молча убрать экземпляр нельзя — пользователь
-      // потеряет расстановку, не поняв почему.
+      // Ссылочная целостность: экземпляр указывает на проект или изделие,
+      // которого нет. Молча убрать экземпляр нельзя — пользователь
+      // потеряет расстановку, не поняв почему (PROMPT 25 §12, вариант C).
+      const projectKnown = knownProjects.has(instance.projectId);
       issues.push(
         issue(
-          ROOM_CODES.instanceFurnitureMissing,
+          projectKnown ? ROOM_CODES.instanceFurnitureMissing : ROOM_CODES.instanceProjectMissing,
           'error',
-          'Экземпляр ссылается на несуществующее изделие',
+          projectKnown
+            ? 'Экземпляр ссылается на несуществующее изделие'
+            : 'Проект, размещённый в помещении, недоступен: он удалён или не загружен',
           at(`room.furnitureInstances.${instance.id}`),
         ),
       );

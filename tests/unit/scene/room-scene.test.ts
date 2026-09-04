@@ -7,9 +7,10 @@ import {
   createRectangularRoom,
 } from '../../../src/domain/room/defaults.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
+import { extentKey } from '../../../src/room/index.js';
 import { buildGeometry } from '../../../src/geometry/engine.js';
 import { makeGeometryInput } from '../geometry/helpers.js';
-import type { FurnitureId, Room } from '../../../src/domain/index.js';
+import type { Room } from '../../../src/domain/index.js';
 import type { GeometryResult } from '../../../src/geometry/index.js';
 
 /**
@@ -24,7 +25,8 @@ const ids = createSequentialIdFactory('s');
 const input = makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 });
 const geometry: GeometryResult = buildGeometry(input);
 const FURNITURE_ID = input.furniture.id;
-const geometries = new Map<FurnitureId, GeometryResult>([[FURNITURE_ID, geometry]]);
+const PROJECT_ID = 'project:test';
+const geometries = new Map<string, GeometryResult>([[extentKey(PROJECT_ID, FURNITURE_ID), geometry]]);
 
 const room = (): Room =>
   createRectangularRoom({ ids: createSequentialIdFactory('r'), width: 4000, depth: 3000, height: 2700, wallThickness: 100 });
@@ -97,7 +99,7 @@ describe('мебель в комнате', () => {
     return {
       ...r,
       furnitureInstances: [
-        createFurnitureInstance(ids, { id: FURNITURE_ID } as never, { x, y: 0, z }, rotation),
+        createFurnitureInstance(ids, PROJECT_ID as never, { id: FURNITURE_ID } as never, { x, y: 0, z }, rotation),
       ],
     };
   };
@@ -149,7 +151,7 @@ describe('мебель в комнате', () => {
     const r = room();
     const orphan = {
       ...r,
-      furnitureInstances: [createFurnitureInstance(ids, { id: 'нет-такого' } as never, { x: 0, y: 0, z: 0 })],
+      furnitureInstances: [createFurnitureInstance(ids, PROJECT_ID as never, { id: 'нет-такого' } as never, { x: 0, y: 0, z: 0 })],
     };
     expect(scene(orphan).objects.filter((o) => o.id.startsWith(ROOM_PREFIX.instance))).toEqual([]);
   });
@@ -159,9 +161,9 @@ describe('мебель в комнате', () => {
     const three = {
       ...r,
       furnitureInstances: [
-        createFurnitureInstance(ids, { id: FURNITURE_ID } as never, { x: 200, y: 0, z: 200 }),
-        createFurnitureInstance(ids, { id: FURNITURE_ID } as never, { x: 1500, y: 0, z: 200 }),
-        createFurnitureInstance(ids, { id: FURNITURE_ID } as never, { x: 2800, y: 0, z: 200 }),
+        createFurnitureInstance(ids, PROJECT_ID as never, { id: FURNITURE_ID } as never, { x: 200, y: 0, z: 200 }),
+        createFurnitureInstance(ids, PROJECT_ID as never, { id: FURNITURE_ID } as never, { x: 1500, y: 0, z: 200 }),
+        createFurnitureInstance(ids, PROJECT_ID as never, { id: FURNITURE_ID } as never, { x: 2800, y: 0, z: 200 }),
       ],
     };
     const objects = scene(three).objects.filter((o) => o.id.startsWith(ROOM_PREFIX.instance));
@@ -203,7 +205,7 @@ describe('детерминизм и порядок', () => {
       ...r,
       openings: [opening],
       obstacles: [obstacle],
-      furnitureInstances: [createFurnitureInstance(ids, { id: FURNITURE_ID } as never, { x: 500, y: 0, z: 500 })],
+      furnitureInstances: [createFurnitureInstance(ids, PROJECT_ID as never, { id: FURNITURE_ID } as never, { x: 500, y: 0, z: 500 })],
     };
     const idList = scene(full).objects.map((o) => o.id);
     expect(new Set(idList).size).toBe(idList.length);

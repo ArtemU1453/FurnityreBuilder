@@ -7,6 +7,8 @@
  */
 export type { Footprint, RoomBox } from './placement.js';
 export {
+  instanceKey,
+  extentKey,
   furnitureExtent,
   footprintOf,
   instanceFootprint,

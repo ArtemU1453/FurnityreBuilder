@@ -28,3 +28,4 @@ export * from './furniture/layout.js';
 export * from './project/types.js';
 export * from './room/defaults.js';
 export * from './project/factory.js';
+export * from './project/operations.js';

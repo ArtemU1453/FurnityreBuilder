@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROOM_CODES, roomSize, statusOf, validateRoom } from '../../../src/room/index.js';
+import { ROOM_CODES, extentKey, roomSize, statusOf, validateRoom } from '../../../src/room/index.js';
 import type { ExtentLookup } from '../../../src/room/index.js';
 import {
   createFurnitureInstance,
@@ -9,7 +9,7 @@ import {
 } from '../../../src/domain/room/defaults.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
 import { issue } from '../../../src/domain/index.js';
-import type { Furniture, Room, Vec3 } from '../../../src/domain/index.js';
+import type { Furniture, ProjectId, Room, Vec3 } from '../../../src/domain/index.js';
 
 /**
  * Проверка помещения и статус (PROMPT 24 §19–§20).
@@ -21,7 +21,8 @@ import type { Furniture, Room, Vec3 } from '../../../src/domain/index.js';
 
 const ids = createSequentialIdFactory('v');
 const EXTENT: Vec3 = { x: 1000, y: 2000, z: 600 };
-const extents: ExtentLookup = new Map([['f-1', EXTENT]]);
+const PROJECT = 'project:test' as ProjectId;
+const extents: ExtentLookup = new Map([[extentKey(PROJECT, 'f-1'), EXTENT]]);
 const furniture = (id: string): Furniture => ({ id } as unknown as Furniture);
 
 const room = (): Room =>
@@ -105,14 +106,40 @@ describe('экземпляры мебели', () => {
   it('ссылка на несуществующее изделие — ошибка, а не тихое удаление', () => {
     // Молча убрать экземпляр нельзя: пользователь потеряет расстановку,
     // не поняв почему.
-    const instance = createFurnitureInstance(ids, furniture('нет-такого'), { x: 500, y: 0, z: 500 });
+    const instance = createFurnitureInstance(ids, PROJECT, furniture('нет-такого'), { x: 500, y: 0, z: 500 });
     expect(codesOf({ ...room(), furnitureInstances: [instance] })).toContain(ROOM_CODES.instanceFurnitureMissing);
   });
 
   it('изделие выше потолка — ошибка', () => {
-    const tall: ExtentLookup = new Map([['f-1', { x: 1000, y: 2900, z: 600 }]]);
-    const instance = createFurnitureInstance(ids, furniture('f-1'), { x: 500, y: 0, z: 500 });
+    const tall: ExtentLookup = new Map([[extentKey(PROJECT, 'f-1'), { x: 1000, y: 2900, z: 600 }]]);
+    const instance = createFurnitureInstance(ids, PROJECT, furniture('f-1'), { x: 500, y: 0, z: 500 });
     expect(codesOf({ ...room(), furnitureInstances: [instance] }, tall)).toContain(ROOM_CODES.instanceTooTall);
+  });
+
+  it('удалённый проект — отдельная ошибка, а не «нет такого изделия» (PROMPT 25 §12)', () => {
+    // Разные события и разные действия: одно чинится внутри проекта,
+    // другое — возвращением проекта в библиотеку.
+    const orphan = createFurnitureInstance(ids, 'project:удалён' as never, furniture('f-1'), {
+      x: 500,
+      y: 0,
+      z: 500,
+    });
+    const codes = codesOf({ ...room(), furnitureInstances: [orphan] });
+    expect(codes).toContain(ROOM_CODES.instanceProjectMissing);
+    expect(codes).not.toContain(ROOM_CODES.instanceFurnitureMissing);
+  });
+
+  it('экземпляры разных проектов не путаются по совпадающему furnitureId', () => {
+    // Ключ габарита — пара «проект + изделие», поэтому одинаковый
+    // внутренний id в двух проектах ничему не мешает.
+    const mine = createFurnitureInstance(ids, PROJECT, furniture('f-1'), { x: 500, y: 0, z: 500 });
+    const theirs = createFurnitureInstance(ids, 'project:другой' as never, furniture('f-1'), {
+      x: 2000,
+      y: 0,
+      z: 500,
+    });
+    const codes = codesOf({ ...room(), furnitureInstances: [mine, theirs] });
+    expect(codes.filter((code) => code === ROOM_CODES.instanceProjectMissing)).toHaveLength(1);
   });
 
   it('уровень пола учитывается при проверке высоты', () => {
@@ -120,14 +147,14 @@ describe('экземпляры мебели', () => {
     // может упереться в потолок.
     const r = room();
     const podium = { ...r, floor: { elevation: 800 } };
-    const instance = createFurnitureInstance(ids, furniture('f-1'), { x: 500, y: 0, z: 500 });
+    const instance = createFurnitureInstance(ids, PROJECT, furniture('f-1'), { x: 500, y: 0, z: 500 });
     expect(codesOf({ ...podium, furnitureInstances: [instance] })).toContain(ROOM_CODES.instanceTooTall);
   });
 });
 
 describe('статус помещения', () => {
   it('без правил зазоров статус — NEEDS_CONFIRMATION', () => {
-    const instance = createFurnitureInstance(ids, furniture('f-1'), { x: 500, y: 0, z: 500 });
+    const instance = createFurnitureInstance(ids, PROJECT, furniture('f-1'), { x: 500, y: 0, z: 500 });
     expect(validateRoom({ ...room(), furnitureInstances: [instance] }, { extents }).status).toBe('NEEDS_CONFIRMATION');
   });
 

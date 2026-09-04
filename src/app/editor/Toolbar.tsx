@@ -26,6 +26,9 @@ export interface ToolbarProps {
   readonly storageMessage: string;
   readonly production: ProductionStatus | undefined;
   readonly exporting: 'pdf' | 'xlsx' | null;
+  /** Открыта ли библиотека проектов (PROMPT 25 §6). */
+  readonly libraryOpen: boolean;
+  readonly onToggleLibrary: () => void;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
   readonly onSave: () => void;
@@ -45,6 +48,15 @@ export function Toolbar(props: ToolbarProps): React.JSX.Element {
 
       <span className={styles.toolbarSpacer} />
 
+      {/*
+        Библиотека — переключатель, а не отдельный экран со своим
+        адресом: маршрутизации в приложении нет, и заводить её ради
+        одной панели значило бы построить вторую навигацию рядом с
+        существующим переключателем видов (PROMPT 25 §1).
+      */}
+      <Button onClick={props.onToggleLibrary} pressed={props.libraryOpen} aria-expanded={props.libraryOpen}>
+        Мои проекты
+      </Button>
       <Button onClick={props.onUndo} disabled={!props.canUndo} aria-label="Отменить">
         Отменить
       </Button>

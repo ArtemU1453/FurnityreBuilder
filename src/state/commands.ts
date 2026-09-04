@@ -995,9 +995,13 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
     case 'AddFurnitureInstance': {
       const room = draft.room;
       if (room === undefined) return;
-      // Экземпляр обязан ссылаться на изделие, которое в проекте есть:
-      // добавить ссылку в никуда — значит создать ошибку самой командой.
-      if (!draft.furniture.some((item) => item.id === command.instance.furnitureId)) return;
+      // Ссылку в никуда команда не создаёт. Но проверить она может
+      // только СВОЙ проект: экземпляр чужого проекта живёт в библиотеке,
+      // которой документ не видит (PROMPT 25 §13). Для него ссылочную
+      // целостность проверяет `validateRoom`, и результат — видимая
+      // ошибка, а не тихий отказ (§12, вариант C).
+      const ownProject = command.instance.projectId === draft.id;
+      if (ownProject && !draft.furniture.some((item) => item.id === command.instance.furnitureId)) return;
       if (room.furnitureInstances.some((item) => item.id === command.instance.id)) return;
       room.furnitureInstances.push(command.instance);
       return;

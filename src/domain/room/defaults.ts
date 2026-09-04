@@ -1,4 +1,4 @@
-import type { IdFactory, MaterialId, Mm, Vec3 } from '../index.js';
+import type { IdFactory, MaterialId, Mm, ProjectId, Vec3 } from '../index.js';
 import type {
   Ceiling,
   Floor,
@@ -101,15 +101,23 @@ export function createRectangularRoom(options: RectangularRoomOptions): Room {
   };
 }
 
-/** Экземпляр мебели в комнате. Ссылка и положение — больше ничего. */
+/**
+ * Экземпляр мебели в комнате. Ссылка и положение — больше ничего.
+ *
+ * `projectId` обязателен: экземпляр обязан знать, из какого проекта
+ * библиотеки взято изделие (PROMPT 25 §13). Для изделия текущего
+ * документа это его собственный идентификатор.
+ */
 export function createFurnitureInstance(
   ids: IdFactory,
+  projectId: ProjectId,
   furniture: Furniture,
   position: Vec3 = { x: 0, y: 0, z: 0 },
   rotation = 0,
 ): FurnitureInstance {
   return {
     id: ids.next<'Instance'>(),
+    projectId,
     furnitureId: furniture.id,
     position,
     rotation,

@@ -129,7 +129,7 @@ describe('проёмы и препятствия', () => {
 describe('экземпляры мебели', () => {
   const withInstance = () => {
     const s = store();
-    const instance = createFurnitureInstance(ids, s.getState().project.furniture[0]!, { x: 500, y: 0, z: 500 });
+    const instance = createFurnitureInstance(ids, s.getState().project.id, s.getState().project.furniture[0]!, { x: 500, y: 0, z: 500 });
     s.getState().execute({ type: 'AddFurnitureInstance', instance }, 'Добавить мебель');
     return { s, instance };
   };
@@ -143,7 +143,7 @@ describe('экземпляры мебели', () => {
 
   it('ссылку в никуда команда не создаёт', () => {
     const s = store();
-    const orphan = createFurnitureInstance(ids, { id: 'нет-такого' } as never, { x: 0, y: 0, z: 0 });
+    const orphan = createFurnitureInstance(ids, s.getState().project.id, { id: 'нет-такого' } as never, { x: 0, y: 0, z: 0 });
     s.getState().execute({ type: 'AddFurnitureInstance', instance: orphan });
     expect(roomOf(s).furnitureInstances).toHaveLength(0);
   });
@@ -152,14 +152,14 @@ describe('экземпляры мебели', () => {
     const { s } = withInstance();
     const stored = roomOf(s).furnitureInstances[0]!;
     expect(Object.keys(stored).sort()).toEqual(
-      ['furnitureId', 'id', 'locked', 'position', 'rotation', 'visible'].sort(),
+      ['projectId', 'furnitureId', 'id', 'locked', 'position', 'rotation', 'visible'].sort(),
     );
     expect(JSON.stringify(stored)).not.toContain('dimensions');
   });
 
   it('один и тот же шкаф размещается дважды', () => {
     const { s } = withInstance();
-    const second = createFurnitureInstance(ids, s.getState().project.furniture[0]!, { x: 2000, y: 0, z: 500 });
+    const second = createFurnitureInstance(ids, s.getState().project.id, s.getState().project.furniture[0]!, { x: 2000, y: 0, z: 500 });
     s.getState().execute({ type: 'AddFurnitureInstance', instance: second });
     const instances = roomOf(s).furnitureInstances;
     expect(instances).toHaveLength(2);
@@ -220,7 +220,7 @@ describe('экземпляры мебели', () => {
 describe('отмена и повтор работают без своей системы', () => {
   it('добавление мебели отменяется одним шагом', () => {
     const s = store();
-    const instance = createFurnitureInstance(ids, s.getState().project.furniture[0]!, { x: 500, y: 0, z: 500 });
+    const instance = createFurnitureInstance(ids, s.getState().project.id, s.getState().project.furniture[0]!, { x: 500, y: 0, z: 500 });
     s.getState().execute({ type: 'AddFurnitureInstance', instance }, 'Добавить мебель');
     expect(roomOf(s).furnitureInstances).toHaveLength(1);
     s.getState().undo();
@@ -231,7 +231,7 @@ describe('отмена и повтор работают без своей сис
 
   it('перемещение отменяется до исходного положения', () => {
     const s = store();
-    const instance = createFurnitureInstance(ids, s.getState().project.furniture[0]!, { x: 500, y: 0, z: 500 });
+    const instance = createFurnitureInstance(ids, s.getState().project.id, s.getState().project.furniture[0]!, { x: 500, y: 0, z: 500 });
     s.getState().execute({ type: 'AddFurnitureInstance', instance });
     s.getState().execute(
       { type: 'TransformFurnitureInstance', instanceId: instance.id, position: { x: 2000, y: 0, z: 900 } },
@@ -245,7 +245,7 @@ describe('отмена и повтор работают без своей сис
     // Ровно то, ради чего существуют транзакции: перетаскивание даёт
     // десятки команд, а отмена обязана вернуть в состояние до жеста.
     const s = store();
-    const instance = createFurnitureInstance(ids, s.getState().project.furniture[0]!, { x: 500, y: 0, z: 500 });
+    const instance = createFurnitureInstance(ids, s.getState().project.id, s.getState().project.furniture[0]!, { x: 500, y: 0, z: 500 });
     s.getState().execute({ type: 'AddFurnitureInstance', instance });
 
     s.getState().beginTransaction('Переместить');

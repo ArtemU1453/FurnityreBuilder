@@ -102,14 +102,14 @@ describe('след на плане', () => {
   });
 
   it('след экземпляра считается по его собственному повороту', () => {
-    const instance = createFurnitureInstance(ids(), { id: 'f-1' } as never, at, Math.PI / 2);
+    const instance = createFurnitureInstance(ids(), 'project:test' as never, { id: 'f-1' } as never, at, Math.PI / 2);
     expect(instanceFootprint(instance, extent).width).toBe(500);
   });
 });
 
 describe('объёмы', () => {
   it('объём экземпляра поднят на уровень пола', () => {
-    const instance = createFurnitureInstance(ids(), { id: 'f-1' } as never, { x: 0, y: 0, z: 0 }, 0);
+    const instance = createFurnitureInstance(ids(), 'project:test' as never, { id: 'f-1' } as never, { x: 0, y: 0, z: 0 }, 0);
     expect(instanceBox(instance, extent, 150).min.y).toBe(150);
     expect(instanceBox(instance, extent, 150).size.y).toBe(extent.y);
   });

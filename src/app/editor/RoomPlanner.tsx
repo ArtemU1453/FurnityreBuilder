@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatMm } from '../../domain/index.js';
-import type { FurnitureId, InstanceId, Room, Vec3 } from '../../domain/index.js';
+import type { InstanceId, Room, Vec3 } from '../../domain/index.js';
 import type { GeometryResult } from '../../geometry/index.js';
 import {
   applySnap,
   furnitureExtent,
   instanceFootprint,
+  instanceKey,
   roomSize,
   snapRotationToQuarter,
   validateRoom,
@@ -60,7 +61,8 @@ type Intent =
 
 export interface RoomPlannerProps {
   readonly room: Room;
-  readonly geometries: ReadonlyMap<FurnitureId, GeometryResult>;
+  /** Геометрии по ключу «проект/изделие» (`instanceKey`). */
+  readonly geometries: ReadonlyMap<string, GeometryResult>;
   readonly materials: Parameters<typeof buildRoomScene>[1]['materials'];
   readonly selectedInstances: readonly InstanceId[];
   readonly cutawayWalls: boolean;
@@ -130,7 +132,7 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
   /** Габариты изделий: берутся из уже посчитанной геометрии (§13). */
   const extents: ExtentLookup = useMemo(() => {
     const map = new Map<string, Vec3>();
-    for (const [id, geometry] of props.geometries) map.set(id, furnitureExtent(geometry));
+    for (const [key, geometry] of props.geometries) map.set(key, furnitureExtent(geometry));
     return map;
   }, [props.geometries]);
 
@@ -401,7 +403,7 @@ export function RoomPlanner(props: RoomPlannerProps): React.JSX.Element {
           ndc === undefined ? undefined : floorPoint(camera, renderer.aspect, ndc.x, ndc.y, props.room.floor.elevation);
         if (point !== undefined) {
           const instance = props.room.furnitureInstances.find((item) => item.id === current.instanceId);
-          const extent = instance === undefined ? undefined : extents.get(instance.furnitureId);
+          const extent = instance === undefined ? undefined : extents.get(instanceKey(instance));
           if (instance !== undefined && extent !== undefined) {
             // Смещение от ТОЧКИ ЗАХВАТА, а не от центра: объект остаётся
             // взятым там, где его взяли.
