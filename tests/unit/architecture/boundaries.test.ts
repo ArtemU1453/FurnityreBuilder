@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ESLint } from 'eslint';
 
@@ -201,6 +201,31 @@ describe('архитектурные границы', () => {
       "export const probe = (): string | null => localStorage.getItem('x');\n",
     );
     expect(rules).toContain('no-restricted-globals');
+  });
+
+  it('запрещает движку зависеть от редактора: geometry → app', { timeout: 60_000 }, async () => {
+    // PROMPT 22 §30: интерфейс — потребитель движка, а не его часть.
+    // Обратная зависимость означала бы, что мебель считается в React, и
+    // расчёт больше нельзя ни вынести в Worker, ни проверить без DOM.
+    const rules = await lintSource(
+      'geometry',
+      'probe.ts',
+      "import { resizeValue } from '../../app/editor/resize.js';\nexport const probe = resizeValue;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
+  it('держит правила редактора вне React: selection и resize — чистые модули', () => {
+    // PROMPT 22 §30. Линтер здесь не помощник: слою `app` React разрешён,
+    // и разрешён обоснованно — рядом лежат компоненты. Гарантию даёт сам
+    // факт, что эти два модуля импортируются в окружении `node` (см.
+    // tests/unit/app/*) и не тянут ни React, ни DOM. Проверяется исходник,
+    // потому что случайный `import { useMemo }` компилируется молча.
+    for (const file of ['selection.ts', 'resize.ts']) {
+      const source = readFileSync(join(ROOT, 'src', 'app', 'editor', file), 'utf8');
+      expect(source).not.toMatch(/from 'react'/);
+      expect(source).not.toMatch(/\.module\.css/);
+    }
   });
 
   it('разрешает законное направление: geometry → domain', { timeout: 60_000 }, async () => {

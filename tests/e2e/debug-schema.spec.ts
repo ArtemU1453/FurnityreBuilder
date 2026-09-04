@@ -162,7 +162,7 @@ test('дверь появляется в схеме и подписана сод
   await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
 
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
-  await page.getByRole('button', { name: 'Добавить дверь' }).click();
+  await page.getByLabel('Двери').getByRole('button', { name: 'Добавить дверь' }).click();
 
   // 4 детали каркаса + 1 дверь = 5 деталей, плюс 1 ячейка = 6 прямоугольников.
   await expect(schema.locator('rect')).toHaveCount(7);
@@ -174,7 +174,7 @@ test('дверь появляется в схеме и подписана сод
   await page.getByLabel('Сторона петель').selectOption('right');
   await expect(schema.locator('text').filter({ hasText: 'петли справа' }).first()).toBeVisible();
 
-  await page.getByRole('button', { name: 'Убрать дверь' }).click();
+  await page.getByLabel('Двери').getByRole('button', { name: 'Убрать дверь' }).click();
   await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.getByText(/CONTENT: ПУСТО · ДВЕРЬ/)).toHaveCount(0);
 });
@@ -187,7 +187,7 @@ test('фасады ящиков появляются в схеме и подпи
   await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
 
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
-  const addDrawerButton = page.getByRole('button', { name: 'Добавить ящик' });
+  const addDrawerButton = page.getByLabel('Ящики').getByRole('button', { name: 'Добавить ящик', exact: true });
   await addDrawerButton.click();
   await addDrawerButton.click();
 
@@ -200,8 +200,8 @@ test('фасады ящиков появляются в схеме и подпи
   await page.getByLabel('Показывать ID и координаты').check();
   await expect(schema.locator('text').filter({ hasText: 'Фасад ящика' }).first()).toBeVisible();
 
-  await page.getByRole('button', { name: 'Убрать ящик' }).click();
-  await page.getByRole('button', { name: 'Убрать ящик' }).click();
+  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
+  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
   await expect(schema.locator('rect')).toHaveCount(6);
   await expect(schema.getByText('CONTENT: ЯЩИКИ')).toHaveCount(0);
 });
@@ -213,7 +213,7 @@ test('ручка появляется в схеме и подписана в CON
   await expect(schema.locator('rect')).toHaveCount(6);
 
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
-  await page.getByRole('button', { name: 'Добавить дверь' }).click();
+  await page.getByLabel('Двери').getByRole('button', { name: 'Добавить дверь' }).click();
   // 4 детали каркаса + 1 дверь = 5, плюс 1 ячейка = 6 прямоугольников.
   await expect(schema.locator('rect')).toHaveCount(7);
 
@@ -401,7 +401,7 @@ test('спецификация фурнитуры пересчитывается
 
   // Два ящика — четыре направляющие, без всякой команды «пересчитать».
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
-  const addDrawerButton = page.getByRole('button', { name: 'Добавить ящик' });
+  const addDrawerButton = page.getByLabel('Ящики').getByRole('button', { name: 'Добавить ящик', exact: true });
   await addDrawerButton.click();
   await addDrawerButton.click();
   await expect(list.getByText(/ИТОГО · hw-slide · slide · 4 · pcs/)).toBeVisible();
@@ -411,9 +411,9 @@ test('спецификация фурнитуры пересчитывается
   await expect(list.getByText(/ИТОГО · hw-slide · slide · 6 · pcs/)).toBeVisible();
 
   // Убрали ящики — позиция исчезла вместе со своим источником.
-  await page.getByRole('button', { name: 'Убрать ящик' }).click();
-  await page.getByRole('button', { name: 'Убрать ящик' }).click();
-  await page.getByRole('button', { name: 'Убрать ящик' }).click();
+  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
+  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
+  await page.getByLabel('Ящики').getByRole('button', { name: 'Убрать ящик', exact: true }).click();
   await expect(list.getByText(/hw-slide/)).toHaveCount(0);
 });
 

@@ -44,6 +44,12 @@ export interface SessionState {
   readonly storageEphemeral: boolean;
 
   readonly selectNodes: (ids: readonly NodeId[]) => void;
+  /**
+   * Выделение ДЕТАЛЕЙ. Отдельно от узлов дерева: деталь производна, у неё
+   * свой идентификатор, и выбор полки не должен означать выбор ячейки, в
+   * которой она стоит (PROMPT 22 §5).
+   */
+  readonly selectParts: (ids: readonly PartId[]) => void;
   readonly toggleNode: (id: NodeId) => void;
   readonly clearSelection: () => void;
   readonly setHovered: (id: NodeId | undefined) => void;
@@ -72,7 +78,11 @@ export const createSessionStore = () =>
     notifications: [],
     storageEphemeral: false,
 
-    selectNodes: (ids) => set({ selectedNodes: [...ids] }),
+    // Выбор узла снимает выбор детали и наоборот: одновременно выбранными
+    // ячейкой и деталью инспектор показать не может, а «последний выбор
+    // побеждает» — предсказуемое поведение прямого манипулирования.
+    selectNodes: (ids) => set({ selectedNodes: [...ids], selectedParts: [] }),
+    selectParts: (ids) => set({ selectedParts: [...ids], selectedNodes: [] }),
     toggleNode: (id) =>
       set((state) => ({
         selectedNodes: state.selectedNodes.includes(id)

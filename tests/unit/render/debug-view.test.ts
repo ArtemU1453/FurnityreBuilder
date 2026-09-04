@@ -160,11 +160,15 @@ describe('buildDebugView: подписи объектов в debug-инфо (PRO
     ),
   );
   const view = buildDebugView(geometry, DEFAULT_MATERIALS);
-  const detailOf = (role: string) => view.rects.find((r) => r.role === role)?.detail ?? '';
+  // Подпись ищется по id детали, а не по «первой с такой ролью»: с
+  // PROMPT 22 порядок прямоугольников задан площадью (см. `byPaintOrder`),
+  // и «первая полка в порядке движка» больше не совпадает с «первой
+  // полкой в виде». Роль здесь и не нужна — id однозначен.
+  const detailOf = (id: string) => view.rects.find((r) => r.id === id)?.detail ?? '';
 
   it('перегородка: id, X, толщина, высота', () => {
     const partition = geometry.parts.find((p) => p.role === 'partition')!;
-    const detail = detailOf('partition');
+    const detail = detailOf(partition.id);
     expect(detail).toContain(partition.id);
     expect(detail).toContain(`X ${String(partition.position.x)}`);
     expect(detail).toContain(`Т ${String(partition.size.x)}`);
@@ -173,7 +177,7 @@ describe('buildDebugView: подписи объектов в debug-инфо (PRO
 
   it('полка: id, X, Y, ширина, глубина', () => {
     const shelf = geometry.parts.find((p) => p.role === 'shelf-adjustable')!;
-    const detail = detailOf('shelf-adjustable');
+    const detail = detailOf(shelf.id);
     expect(detail).toContain(shelf.id);
     expect(detail).toContain(`X ${String(shelf.position.x)}`);
     expect(detail).toContain(`Y ${String(shelf.position.y)}`);
@@ -398,5 +402,40 @@ describe('buildDebugView: пустой результат (фатальная о
     expect(view.sectionLabels).toHaveLength(0);
     expect(view.totalWidth).toBe(0);
     expect(view.totalHeight).toBe(0);
+  });
+});
+
+describe('порядок отрисовки: крупное под мелким (PROMPT 22 §5)', () => {
+  const geometry = buildGeometry(makeGeometryInput({ width: 1000, height: 2000, depth: 500, panelThickness: 16 }));
+  const view = buildDebugView(geometry, DEFAULT_MATERIALS);
+
+  it('задняя стенка лежит ниже всего, что она перекрывает', () => {
+    // В SVG порядок в документе — это и порядок наложения, и порядок
+    // попадания указателя. Задняя стенка на фронтальном виде накрывает
+    // изделие целиком: пока она рисовалась последней, щелчок по боковине
+    // доставался ей, и выбрать боковину было невозможно (найдено сквозным
+    // тестом выделения).
+    const back = view.rects.findIndex((rect) => rect.role === 'back');
+    const side = view.rects.findIndex((rect) => rect.role === 'side');
+    expect(back).toBeGreaterThanOrEqual(0);
+    expect(side).toBeGreaterThan(back);
+  });
+
+  it('площадь не возрастает вдоль порядка отрисовки', () => {
+    const areas = view.rects.map((rect) => rect.width * rect.height);
+    for (let i = 1; i < areas.length; i += 1) {
+      expect(areas[i]!).toBeLessThanOrEqual(areas[i - 1]!);
+    }
+  });
+
+  it('сортировка ничего не теряет и не добавляет', () => {
+    const ids = new Set(view.rects.map((rect) => rect.id));
+    expect(ids.size).toBe(view.rects.length);
+    expect(view.rects.length).toBe(geometry.parts.length + geometry.cells.length);
+  });
+
+  it('порядок детерминирован: одинаковый вход — одинаковый вид', () => {
+    const again = buildDebugView(geometry, DEFAULT_MATERIALS);
+    expect(again.rects.map((rect) => rect.id)).toEqual(view.rects.map((rect) => rect.id));
   });
 });

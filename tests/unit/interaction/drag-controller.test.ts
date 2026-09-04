@@ -11,8 +11,6 @@ function fakeElement(): CapturableElement & { captured: number[] } {
   const captured: number[] = [];
   return {
     captured,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
     setPointerCapture: (id: number) => {
       captured.push(id);
     },

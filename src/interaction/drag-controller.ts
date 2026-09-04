@@ -17,10 +17,17 @@ import { VelocityTracker } from './velocity-tracker.js';
  * фиксации. См. docs/STATE_ARCHITECTURE.md §4.
  */
 
-/** Минимальная поверхность DOM, нужная контроллеру. Упрощает тесты. */
+/**
+ * Минимальная поверхность DOM, нужная контроллеру. Упрощает тесты.
+ *
+ * Требуются ровно три метода захвата указателя — те, которые контроллер
+ * действительно вызывает. Объявленные здесь ранее `addEventListener` и
+ * `removeEventListener` контроллер не использует, а их присутствие делало
+ * интерфейс несовместимым с настоящим DOM-элементом: сигнатура
+ * `addEventListener` в lib.dom шире, и React-элемент не проходил проверку
+ * типов (найдено при подключении холста, PROMPT 22).
+ */
 export interface CapturableElement {
-  addEventListener(type: string, listener: (event: never) => void, options?: unknown): void;
-  removeEventListener(type: string, listener: (event: never) => void, options?: unknown): void;
   setPointerCapture(pointerId: number): void;
   releasePointerCapture(pointerId: number): void;
   hasPointerCapture(pointerId: number): boolean;

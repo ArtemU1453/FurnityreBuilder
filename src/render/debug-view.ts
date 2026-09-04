@@ -167,6 +167,24 @@ function partDetail(part: GeometryResult['parts'][number], materials: MaterialLi
   return `${role} · ${part.id} · ${at}${mat}`;
 }
 
+/**
+ * Порядок отрисовки на фронтальном виде: крупное — раньше мелкого.
+ *
+ * В SVG нет `z-index`: что нарисовано позже, то и лежит сверху, и оно же
+ * ловит указатель. В порядке движка задняя стенка идёт после боковин, а
+ * на фронтальном виде она перекрывает изделие целиком — щёлкнуть по
+ * боковине становится физически невозможно (найдено сквозным тестом
+ * выделения, PROMPT 22 §5).
+ *
+ * Сортировка по убыванию площади решает это без исключений «для задней
+ * стенки»: перекрыть соседа может только деталь крупнее него, а она
+ * теперь всегда оказывается ниже. При равной площади порядок сохраняется
+ * прежним — сортировка стабильна, и вид остаётся детерминированным.
+ */
+export function byPaintOrder(rects: readonly DebugRect[]): DebugRect[] {
+  return [...rects].sort((a, b) => b.width * b.height - a.width * a.height);
+}
+
 export function buildDebugView(geometry: GeometryResult, materials: MaterialLibrary): DebugSchemaView {
   const { totalWidth, totalHeight } = geometry.boundingBox;
 
@@ -319,7 +337,7 @@ export function buildDebugView(geometry: GeometryResult, materials: MaterialLibr
   return {
     totalWidth,
     totalHeight,
-    rects: [...partRects, ...cellRects],
+    rects: byPaintOrder([...partRects, ...cellRects]),
     dimensions,
     sectionLabels,
     structure,

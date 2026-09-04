@@ -1,0 +1,111 @@
+/*
+ * Холст редактора (PROMPT 22 §4, §24).
+ *
+ * Оформление подчинено читаемости конструкции: выделение усиливает
+ * обводку и не перекрашивает деталь, потому что цвет детали несёт свой
+ * смысл (материал и роль). Анимаций нет ни одной — размер, «доезжающий»
+ * до значения, был бы ложью о конструкции.
+ */
+
+.canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg-canvas);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-md);
+  touch-action: none; /* жест ведёт указатель, а не прокрутка страницы */
+}
+
+.part {
+  fill: var(--part-fill);
+  stroke: var(--part-stroke);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+
+.cell {
+  fill: none;
+  stroke: var(--cell-outline);
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  /* Пустая ячейка должна ловить указатель: иначе выбрать её нельзя. */
+  pointer-events: all;
+}
+
+.part:focus-visible,
+.cell:focus-visible {
+  outline: none;
+  stroke: var(--focus-ring, #2563eb);
+  stroke-width: 3;
+}
+
+.selected {
+  stroke: var(--focus-ring, #2563eb);
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+
+.hovered {
+  stroke: var(--focus-ring, #2563eb);
+  stroke-width: 2;
+}
+
+.preview,
+.previewSnapped {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-dasharray: 10 6;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.preview {
+  stroke: var(--dim-line);
+}
+
+/* Сработавший магнит виден сразу: сплошная линия вместо пунктира. */
+.previewSnapped {
+  stroke: var(--focus-ring, #2563eb);
+  stroke-dasharray: none;
+}
+
+.previewLabel {
+  fill: var(--text-secondary);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.handleVertical,
+.handleHorizontal {
+  fill: transparent;
+  stroke: none;
+  touch-action: none;
+}
+
+.handleVertical {
+  cursor: ew-resize;
+}
+
+.handleHorizontal {
+  cursor: ns-resize;
+}
+
+.handleVertical:hover,
+.handleHorizontal:hover {
+  fill: color-mix(in srgb, var(--focus-ring, #2563eb) 18%, transparent);
+}
+
+.emptyText {
+  fill: var(--text-tertiary);
+  font-family: var(--font-num);
+  font-size: 14px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
