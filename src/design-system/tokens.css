@@ -139,6 +139,22 @@
      отдельной системой обводки. */
   --shelf-fill: rgb(200 130 14 / 0.22);
 
+  /* Трёхмерная сцена (PROMPT 23 §29–§30).
+
+     Рендерер работает на WebGL и не умеет читать CSS: цвета передаются
+     ему числами. Но задавать их в коде рендерера значило бы завести
+     вторую палитру, которая молча разойдётся с темой. Поэтому они
+     объявлены здесь, как обычные токены, а компонент считывает их через
+     getComputedStyle и передаёт дальше.
+
+     Формат ОБЯЗАН быть #rrggbb: rgb() и относительные цвета рендерер не
+     разбирает — он и не должен, разбор CSS не его работа. */
+  --scene-bg: #eceae6;
+  --scene-selection: #2f6fed;
+  --scene-hover: #8fb6ff;
+  --scene-invalid: #c0392b;
+  --scene-guide: #c9c5be;
+
   color-scheme: light dark;
 }
 
@@ -160,6 +176,13 @@
     --accent-500: #5b93ff;
     --accent-600: #7aa8ff;
     --surface-floating-bg: rgb(20 24 31 / 0.72);
+    /* Сцена в тёмной теме: фон темнее панелей, чтобы светлая плита
+       читалась как плита, а не как подсвеченный прямоугольник. */
+    --scene-bg: #171b22;
+    --scene-selection: #5b93ff;
+    --scene-hover: #7aa8ff;
+    --scene-invalid: #e06c5c;
+    --scene-guide: #333a45;
   }
 }
 
@@ -180,6 +203,11 @@
   --accent-500: #5b93ff;
   --accent-600: #7aa8ff;
   --surface-floating-bg: rgb(20 24 31 / 0.72);
+  --scene-bg: #171b22;
+  --scene-selection: #5b93ff;
+  --scene-hover: #7aa8ff;
+  --scene-invalid: #e06c5c;
+  --scene-guide: #333a45;
 }
 
 /* Reduced transparency: стекло становится непрозрачным, размытие снимается. */

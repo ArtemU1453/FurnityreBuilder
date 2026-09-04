@@ -29,6 +29,11 @@ const LAYERS = [
   { type: 'motion', pattern: 'src/motion/**/*' },
   { type: 'interaction', pattern: 'src/interaction/**/*' },
   { type: 'design-system', pattern: 'src/design-system/**/*' },
+  // scene — модель сцены и её математика (PROMPT 23 §3). Слой чистый:
+  // ни React, ни WebGL, ни DOM. Именно поэтому преобразование геометрии
+  // в объекты сцены, камера и попадание луча проверяются обычными
+  // тестами, а не разглядыванием картинки.
+  { type: 'scene', pattern: 'src/scene/**/*' },
   { type: 'render', pattern: 'src/render/**/*' },
   { type: 'app', pattern: 'src/app/**/*' },
   { type: 'entry', pattern: 'src/main.tsx' },
@@ -51,6 +56,9 @@ const PURE_LAYERS = [
   'src/export/**/*.ts',
   // PROMPT 21 §3: проверка готовности — доменная функция, не интерфейс.
   'src/workflow/**/*.ts',
+  // PROMPT 23 §3: модель сцены — представление для отрисовки, а не сам
+  // рендерер. Ни WebGL, ни canvas, ни React здесь быть не должно.
+  'src/scene/**/*.ts',
 ];
 
 const UI_FRAMEWORK_IMPORTS = {
@@ -149,7 +157,12 @@ export default tseslint.config(
             // render — презентационный слой: получает уже посчитанную
             // геометрию и рисует её. Не видит state/interaction — команды
             // и хранилище остаются заботой app, render только показывает.
-            { from: 'render', allow: ['render', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'bom', 'design-system'] },
+            // scene — представление геометрии для отрисовки (PROMPT 23 §3).
+            // Читает домен и результат движка, не знает ни о рендерере,
+            // ни о команде, ни о состоянии сессии: адаптер обязан быть
+            // проверяемым без браузера.
+            { from: 'scene', allow: ['scene', 'geometry', 'domain'] },
+            { from: 'render', allow: ['render', 'scene', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'bom', 'design-system'] },
             { from: 'app', allow: ['*'] },
             { from: 'entry', allow: ['*'] },
           ],

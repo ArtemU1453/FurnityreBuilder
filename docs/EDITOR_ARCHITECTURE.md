@@ -26,15 +26,19 @@
 
 ## 2. Поток данных
 
+Холст имеет два вида одного и того же изделия. По умолчанию открыт
+трёхмерный (PROMPT 23), плоская схема доступна переключателем.
+
 ```
 Project (документ)                 src/state/document-store.ts
   ↓ buildGeometry
 GeometryResult                     src/geometry/
-  ↓ buildDebugView
-DebugSchemaView (прямоугольники)   src/render/debug-view.ts
-  ↓
-EditorCanvas                       src/app/editor/EditorCanvas.tsx
+  ├─ buildScene → SceneModel       src/scene/       → Scene3D  (3D)
+  └─ buildDebugView → DebugSchemaView  src/render/  → EditorCanvas (схема)
 ```
+
+Выделение, команды и история у обоих видов ОБЩИЕ: второго состояния для
+3D не заводится (`docs/3D_RENDERER_ARCHITECTURE.md` §2).
 
 ```
 selectedNodes / selectedParts      src/state/session-store.ts

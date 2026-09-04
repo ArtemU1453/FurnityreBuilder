@@ -89,6 +89,7 @@ const LAYERS = [
   { type: 'interaction',  pattern: 'src/interaction/**/*' },
   { type: 'design-system', pattern: 'src/design-system/**/*' },
   { type: 'render',       pattern: 'src/render/**/*' },   // PROMPT 4
+  { type: 'scene',        pattern: 'src/scene/**/*' },
   { type: 'app',          pattern: 'src/app/**/*' },
   { type: 'entry',        pattern: 'src/main.tsx' },
 ];
@@ -241,6 +242,8 @@ src/
   render/                    Domain Geometry → Render Model → SVG (только технический debug-вид)
     debug-view.ts            buildDebugView: GeometryResult → прямоугольники + размерные линии
     DebugSchema.tsx           отрисовка, инверсия оси Y, showDebugInfo
+  scene/                     модель сцены: SceneObject, камера, луч, ручки
+                             (чистый слой: ни React, ни WebGL, ни DOM)
   app/                       оболочка приложения
     editor/                  редактор: холст, инспектор, тулбар, строка состояния
                              (чистые правила — selection.ts, resize.ts — без React)
@@ -851,7 +854,25 @@ transform="scale(1,-1)">` — это отразило бы и подписи, п
 > debug-слой целиком; проверка в отчётах ищет литералы, переживающие
 > минификацию (`dim-total-width`, `cellRect`, «нет геометрии»).
 
-### 10.2 Холст редактора (PROMPT 22) и дальнейший план
+### 10.2 Трёхмерная сцена (PROMPT 23)
+
+Реализована на PROMPT 23 и является видом холста по умолчанию.
+Собственный рендерер на WebGL 2 (`src/render/gl/`) поверх чистого слоя
+модели сцены (`src/scene/`). Готовая 3D-библиотека не добавлялась: вся
+сцена — коробки, выровненные по осям, с плоскими материалами, и цена
+собственного рендерера оказалась +32 КБ к сборке против сотен килобайт
+у библиотеки. То же решение и по тем же основаниям, что собственный
+пружинный движок (§3) и собственные генераторы ZIP и XLSX (§9).
+
+Подробности — `docs/3D_RENDERER_ARCHITECTURE.md`, координаты —
+`docs/3D_COORDINATE_SYSTEM.md`, жесты — `docs/3D_INTERACTION.md`,
+производительность — `docs/3D_PERFORMANCE.md`.
+
+Ключевое: рендерер отображает уже посчитанную геометрию и вторым
+геометрическим движком не является. Единственное арифметическое действие
+слоя сцены — перевод минимального угла коробки в её центр.
+
+### 10.3 Холст редактора (PROMPT 22) и дальнейший план
 
 Реализовано на PROMPT 22: `src/app/editor/EditorCanvas.tsx` — тот же
 `DebugSchemaView`, что и у технической схемы, но интерактивный: выбор

@@ -486,3 +486,37 @@ test('спецификация собирается из всех расчёто
   await page.getByRole('button', { name: /Применить сетку/ }).click();
   await expect(list.getByText(/Полка · shelf · Корпусная плита 16 мм · 16 · \d+ · \d+ · 3 ·/)).toBeVisible();
 });
+
+test('debug-режим сцены показывает состав и счётчики отрисовки (PROMPT 23 §27, §31)', async ({ page }) => {
+  await page.goto('/');
+
+  const canvas = page.getByRole('img', { name: /Трёхмерный вид изделия/ });
+  await expect(canvas).toBeVisible();
+
+  const debug = page.locator('li', { hasText: 'Загрузок геометрии' });
+  await expect(debug).toBeVisible();
+
+  // Геометрия загружается в видеопамять РОВНО один раз за жизнь рендерера:
+  // единичный куб. Любое другое число означало бы, что где-то появилось
+  // создание геометрии на React-рендер (§31).
+  await expect(debug).toContainText('1');
+
+  await expect(page.locator('li', { hasText: 'Объектов сцены' })).toBeVisible();
+  await expect(page.locator('li', { hasText: 'Вызовов отрисовки' })).toBeVisible();
+
+  // Счётчик не должен расти от вращения: сцена та же, объекты те же.
+  const before = await page.locator('li', { hasText: 'Вызовов отрисовки' }).textContent();
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2 + 20, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await expect(page.locator('li', { hasText: 'Вызовов отрисовки' })).toHaveText(before ?? '');
+  await expect(page.locator('li', { hasText: 'Загрузок геометрии' })).toContainText('1');
+
+  // Изменение модели меняет состав сцены — и это видно в тех же счётчиках.
+  await page.getByLabel('Ширина, мм').fill('1600');
+  await expect(page.locator('li', { hasText: 'Объектов сцены' })).toBeVisible();
+  await expect(page.locator('li', { hasText: 'Загрузок геометрии' })).toContainText('1');
+});

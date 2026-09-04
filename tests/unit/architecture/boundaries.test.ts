@@ -215,6 +215,51 @@ describe('архитектурные границы', () => {
     expect(rules).toContain('boundaries/element-types');
   });
 
+  it('запрещает React в модели сцены', { timeout: 60_000 }, async () => {
+    // PROMPT 23 §3: `SceneObject` — представление для отрисовки, а не
+    // часть компонента. Без этого правила разбор сцены, камера и луч
+    // нельзя проверить без браузера, а именно там и живут их ошибки.
+    const rules = await lintSource(
+      'scene',
+      'probe.ts',
+      "import { useMemo } from 'react';\nexport const probe = useMemo;\n",
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('запрещает сцене трогать модель: scene → state', { timeout: 60_000 }, async () => {
+    // Сцена читает результат движка и не отправляет команд: команда —
+    // забота слоя app, иначе выбор детали смог бы изменить мебель.
+    const rules = await lintSource(
+      'scene',
+      'probe.ts',
+      "import { PLANNED_COMMANDS } from '../../state/commands.js';\nexport const probe = PLANNED_COMMANDS;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
+  it('запрещает сцене обращаться к WebGL и DOM', { timeout: 60_000 }, async () => {
+    // Модель сцены не знает, чем её будут рисовать. Иначе адаптер
+    // нельзя выполнить в тесте, а его результат — сравнить.
+    const rules = await lintSource(
+      'scene',
+      'probe.ts',
+      'export const probe = (): number => window.devicePixelRatio;\n',
+    );
+    expect(rules).toContain('no-restricted-globals');
+  });
+
+  it('запрещает движку зависеть от сцены: geometry → scene', { timeout: 60_000 }, async () => {
+    // Направление строго одностороннее: сцена — производная от
+    // геометрии, а не наоборот (PROMPT 23 §2).
+    const rules = await lintSource(
+      'geometry',
+      'probe.ts',
+      "import { buildScene } from '../../scene/adapter.js';\nexport const probe = buildScene;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
   it('держит правила редактора вне React: selection и resize — чистые модули', () => {
     // PROMPT 22 §30. Линтер здесь не помощник: слою `app` React разрешён,
     // и разрешён обоснованно — рядом лежат компоненты. Гарантию даёт сам

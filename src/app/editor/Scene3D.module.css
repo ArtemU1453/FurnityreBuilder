@@ -1,0 +1,161 @@
+/*
+ * Трёхмерная сцена (PROMPT 23 §24, §28, §35).
+ *
+ * Всё, что здесь есть поверх холста, — надписи и кнопки видов. Никаких
+ * декоративных эффектов: сцена и так несёт много информации, и рамки со
+ * свечением отнимали бы внимание у изделия.
+ */
+
+.wrapper {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.host {
+  position: relative;
+  /*
+   * Пропорция вместо фиксированной высоты: на телефоне сцена не должна
+   * съедать весь экран, а на большом мониторе — вырождаться в полоску.
+   */
+  aspect-ratio: 4 / 3;
+  min-height: 240px;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--scene-bg);
+  border: var(--border-hairline) solid var(--border-subtle);
+  /*
+   * Жесты сцены обрабатываются самой сценой: без этого браузер на
+   * касании начинает прокручивать страницу, и вращение срывается на
+   * первом же движении пальца.
+   */
+  touch-action: none;
+  cursor: grab;
+}
+
+.host:active {
+  cursor: grabbing;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Числовой отсчёт во время жеста: значение всегда рядом с изделием. */
+.readout {
+  position: absolute;
+  top: var(--sp-2);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-md);
+  background: var(--surface-floating-bg);
+  backdrop-filter: var(--surface-floating-blur);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.dimensions {
+  position: absolute;
+  left: var(--sp-2);
+  bottom: var(--sp-2);
+  display: flex;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-md);
+  background: var(--surface-floating-bg);
+  backdrop-filter: var(--surface-floating-blur);
+  pointer-events: none;
+}
+
+.dimensions div {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.dimensions dt {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.dimensions dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.debug {
+  position: absolute;
+  right: var(--sp-2);
+  top: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  list-style: none;
+  border-radius: var(--r-md);
+  background: var(--surface-floating-bg);
+  backdrop-filter: var(--surface-floating-blur);
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.viewButton {
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  border: var(--border-hairline) solid var(--border-subtle);
+  background: var(--bg-surface-raised);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.viewButton[aria-pressed='true'] {
+  border-color: var(--accent-500);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.viewButton:focus-visible {
+  outline: var(--border-focus) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/*
+ * Отсутствие WebGL — не поломка редактора: все размеры правятся полями и
+ * инспектором (§34). Сообщение объясняет, что именно недоступно и что
+ * делать дальше, а не извиняется.
+ */
+.fallback {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  border-radius: var(--r-lg);
+  border: var(--border-hairline) dashed var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.fallbackTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.fallback p {
+  margin: 0;
+}

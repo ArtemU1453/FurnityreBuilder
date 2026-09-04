@@ -41,11 +41,13 @@ import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
 import { EditorCanvas } from './editor/EditorCanvas.js';
+import { Scene3D } from './editor/Scene3D.js';
 import { Inspector } from './editor/Inspector.js';
 import { StatusBar } from './editor/StatusBar.js';
 import { Toolbar } from './editor/Toolbar.js';
 import { describeSelection, resolveSelection } from './editor/selection.js';
 import type { InspectorAction } from './editor/selection.js';
+import type { GizmoTarget } from '../scene/index.js';
 import editorStyles from './editor/EditorPanels.module.css';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
@@ -290,6 +292,39 @@ export function App(): React.JSX.Element {
         );
         return;
     }
+  };
+
+  /**
+   * Вид холста. Состояние ИНТЕРФЕЙСА: в проект не сохраняется и по
+   * Ctrl+Z не отменяется — как и выделение (PROMPT 22 §5, PROMPT 23 §36).
+   */
+  const [canvasMode, setCanvasMode] = useState<'3d' | '2d'>('3d');
+
+  /**
+   * Ручка на сцене изменила размер (PROMPT 23 §23).
+   *
+   * Обе операции выражаются УЖЕ СУЩЕСТВУЮЩИМИ командами: габарит —
+   * `SetDimension`, ширина секции и высота ряда — `SetChildSize` по id
+   * ребёнка деления. Ни одной новой команды 3D-сцена не потребовала, и
+   * это ожидаемо: она показывает ту же модель, а не другую.
+   */
+  const runGizmoResize = (target: GizmoTarget, value: number): void => {
+    if (target.kind === 'furniture-width') {
+      execute({ type: 'SetDimension', furnitureIndex: 0, axis: 'width', value }, 'Ширина изделия');
+      return;
+    }
+    if (target.kind === 'furniture-height') {
+      execute({ type: 'SetDimension', furnitureIndex: 0, axis: 'height', value }, 'Высота изделия');
+      return;
+    }
+    // `fixed` осознанно: пользователь только что задал этому ребёнку
+    // конкретный размер руками. Оставить его `flex` значило бы, что
+    // размер немедленно уедет при следующем изменении габарита, и жест
+    // окажется бессмысленным (`SizeSpec`, T-DIM-04).
+    execute(
+      { type: 'SetChildSize', furnitureIndex: 0, childId: target.childId, size: { mode: 'fixed', value } },
+      target.axis === 'x' ? 'Ширина секции' : 'Высота ряда',
+    );
   };
 
   /** Переход от текста ошибки к затронутому объекту (§29). */
@@ -1809,7 +1844,60 @@ export function App(): React.JSX.Element {
           ) : null}
         </main>
         <div className={editorStyles.canvasArea}>
-          {geometry === undefined || furniture === undefined || canvasView === undefined ? null : (
+          {/*
+            Вид холста: трёхмерная сцена или плоская схема. Это одно и то
+            же изделие, показанное по-разному, поэтому и выделение, и
+            команды у них общие — второго состояния для 3D не заводится
+            (§19). Переключатель, а не две панели рядом: две картинки
+            одного шкафа отнимают место и заставляют выбирать, куда
+            смотреть.
+          */}
+          <div className={editorStyles.viewSwitch} role="group" aria-label="Вид изделия">
+            <button
+              type="button"
+              aria-pressed={canvasMode === '3d'}
+              onClick={() => {
+                setCanvasMode('3d');
+              }}
+            >
+              3D
+            </button>
+            <button
+              type="button"
+              aria-pressed={canvasMode === '2d'}
+              onClick={() => {
+                setCanvasMode('2d');
+              }}
+            >
+              Схема
+            </button>
+          </div>
+
+          {canvasMode !== '3d' || geometry === undefined || furniture === undefined ? null : (
+            <Scene3D
+              furniture={furniture}
+              geometry={geometry}
+              materials={project.materials}
+              selectedParts={selectedParts}
+              selectedNodes={selectedNodes}
+              hoveredNode={hoveredNode}
+              editable
+              showGrid
+              showAxes={import.meta.env.DEV}
+              debug={import.meta.env.DEV}
+              limits={{ min: 100, max: 6000 }}
+              onSelectPart={(id) => {
+                selectParts([id]);
+              }}
+              onSelectNode={(id) => {
+                selectNodes([id]);
+              }}
+              onClearSelection={clearSelection}
+              onResizeCommit={runGizmoResize}
+            />
+          )}
+
+          {canvasMode !== '2d' || geometry === undefined || furniture === undefined || canvasView === undefined ? null : (
             <EditorCanvas
               view={canvasView}
               selectedParts={selectedParts}

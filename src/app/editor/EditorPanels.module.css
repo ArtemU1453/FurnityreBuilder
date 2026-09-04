@@ -200,3 +200,41 @@
   outline: 2px solid var(--focus-ring, #2563eb);
   outline-offset: 2px;
 }
+
+/*
+ * Переключатель вида холста (PROMPT 23). Сегментированный контрол, а не
+ * вкладки: вкладка обещает разное содержимое, а здесь одно и то же
+ * изделие, показанное двумя способами.
+ */
+.viewSwitch {
+  display: inline-flex;
+  align-self: start;
+  border-radius: var(--r-md);
+  border: var(--border-hairline) solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.viewSwitch button {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.viewSwitch button + button {
+  border-left: var(--border-hairline) solid var(--border-subtle);
+}
+
+.viewSwitch button[aria-pressed='true'] {
+  background: var(--accent-500);
+  color: var(--text-inverse);
+  font-weight: 600;
+}
+
+.viewSwitch button:focus-visible {
+  outline: var(--border-focus) solid var(--focus-ring);
+  outline-offset: -2px;
+}

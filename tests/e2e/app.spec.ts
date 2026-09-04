@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 /**
  * Сквозные проверки фундамента.
@@ -241,6 +242,18 @@ test('чеклист готовности к производству виден
 
 
 /**
+ * Плоская схема — не вид по умолчанию с PROMPT 23: холст открывается
+ * трёхмерной сценой. Тесты двумерного холста переключаются на схему
+ * явно; проверяют они при этом ровно то же, что и раньше, — выделение,
+ * жест и отмену на SVG-схеме.
+ */
+async function openSchema(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Схема', exact: true }).click();
+  await expect(page.getByRole('application', { name: /Схема изделия/ })).toBeVisible();
+}
+
+/**
  * Редактор конструктора (PROMPT 22).
  *
  * Эти проверки намеренно сквозные: выделение, жест на холсте, отмена и
@@ -250,7 +263,7 @@ test('чеклист готовности к производству виден
  */
 
 test('щелчок по детали на холсте показывает её в инспекторе (PROMPT 22 §5–§6)', async ({ page }) => {
-  await page.goto('/');
+  await openSchema(page);
 
   const canvas = page.getByRole('application', { name: /Схема изделия/ });
   await expect(canvas).toBeVisible();
@@ -269,7 +282,7 @@ test('щелчок по детали на холсте показывает её
 });
 
 test('щелчок по пустому месту холста снимает выделение', async ({ page }) => {
-  await page.goto('/');
+  await openSchema(page);
 
   const canvas = page.getByRole('application', { name: /Схема изделия/ });
   await canvas.getByRole('button', { name: /^Боковина/ }).first().click();
@@ -284,7 +297,7 @@ test('щелчок по пустому месту холста снимает в
 });
 
 test('объект на холсте выбирается с клавиатуры (PROMPT 22 §26)', async ({ page }) => {
-  await page.goto('/');
+  await openSchema(page);
 
   const side = page.getByRole('application', { name: /Схема изделия/ }).getByRole('button', { name: /^Боковина/ }).first();
   await side.focus();
@@ -295,7 +308,7 @@ test('объект на холсте выбирается с клавиатур�
 });
 
 test('ширина изделия меняется перетаскиванием ручки на холсте (PROMPT 22 §21–§23)', async ({ page }) => {
-  await page.goto('/');
+  await openSchema(page);
 
   const widthField = page.getByLabel('Ширина, мм');
   await expect(widthField).toHaveValue('1000');
@@ -331,7 +344,7 @@ test('ширина изделия меняется перетаскивание�
 });
 
 test('Esc отменяет жест изменения габарита до отпускания', async ({ page }) => {
-  await page.goto('/');
+  await openSchema(page);
 
   const widthField = page.getByLabel('Ширина, мм');
   const handle = page.getByRole('application', { name: /Схема изделия/ }).locator('[aria-label="Изменить ширину изделия перетаскиванием"]');
