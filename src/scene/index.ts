@@ -16,6 +16,8 @@ export type {
 export { EMPTY_SCENE, FALLBACK_MATERIAL, TRANSPARENT_KINDS, partIdOf, nodeIdOf } from './types.js';
 
 export { buildScene, findSceneObject, cellsOfSection } from './adapter.js';
+export { buildRoomScene, instanceIdOf, ROOM_PREFIX } from './room-scene.js';
+export type { RoomSceneOptions } from './room-scene.js';
 export { toSceneMaterial, sceneMaterialOf, buildSceneMaterials } from './materials.js';
 
 export type { Mat4 } from './math.js';

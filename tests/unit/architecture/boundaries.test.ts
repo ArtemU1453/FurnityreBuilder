@@ -215,6 +215,41 @@ describe('архитектурные границы', () => {
     expect(rules).toContain('boundaries/element-types');
   });
 
+  it('запрещает React в планировщике помещения', { timeout: 60_000 }, async () => {
+    // PROMPT 24 §2: планировщик считает размещение, а не рисует его.
+    // Без этого правила привязку и пересечения нельзя проверить без
+    // браузера, а именно там и живут их ошибки.
+    const rules = await lintSource(
+      'room',
+      'probe.ts',
+      "import { useMemo } from 'react';\nexport const probe = useMemo;\n",
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('запрещает планировщику отправлять команды: room → state', { timeout: 60_000 }, async () => {
+    // Комната читает домен и результат движка. Команда — забота слоя
+    // app: иначе проверка размещения смогла бы сама подвинуть мебель.
+    const rules = await lintSource(
+      'room',
+      'probe.ts',
+      "import { PLANNED_COMMANDS } from '../../state/commands.js';\nexport const probe = PLANNED_COMMANDS;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
+  it('запрещает движку мебели зависеть от планировщика: geometry → room', { timeout: 60_000 }, async () => {
+    // Разделение ответственности (§2) строго одностороннее: планировщик
+    // знает о мебели, мебель о комнате — нет. Иначе расчёт шкафа начал
+    // бы зависеть от того, в какой комнате он стоит.
+    const rules = await lintSource(
+      'geometry',
+      'probe.ts',
+      "import { roomFootprint } from '../../room/placement.js';\nexport const probe = roomFootprint;\n",
+    );
+    expect(rules).toContain('boundaries/element-types');
+  });
+
   it('запрещает React в модели сцены', { timeout: 60_000 }, async () => {
     // PROMPT 23 §3: `SceneObject` — представление для отрисовки, а не
     // часть компонента. Без этого правила разбор сцены, камера и луч

@@ -89,6 +89,7 @@ const LAYERS = [
   { type: 'interaction',  pattern: 'src/interaction/**/*' },
   { type: 'design-system', pattern: 'src/design-system/**/*' },
   { type: 'render',       pattern: 'src/render/**/*' },   // PROMPT 4
+  { type: 'room',         pattern: 'src/room/**/*' },
   { type: 'scene',        pattern: 'src/scene/**/*' },
   { type: 'app',          pattern: 'src/app/**/*' },
   { type: 'entry',        pattern: 'src/main.tsx' },
@@ -242,6 +243,8 @@ src/
   render/                    Domain Geometry → Render Model → SVG (только технический debug-вид)
     debug-view.ts            buildDebugView: GeometryResult → прямоугольники + размерные линии
     DebugSchema.tsx           отрисовка, инверсия оси Y, showDebugInfo
+  room/                      планировщик: размещение, привязка, пересечения,
+                             проверка помещения (чистый слой)
   scene/                     модель сцены: SceneObject, камера, луч, ручки
                              (чистый слой: ни React, ни WebGL, ни DOM)
   app/                       оболочка приложения
@@ -854,7 +857,22 @@ transform="scale(1,-1)">` — это отразило бы и подписи, п
 > debug-слой целиком; проверка в отчётах ищет литералы, переживающие
 > минификацию (`dim-total-width`, `cellRect`, «нет геометрии»).
 
-### 10.2 Трёхмерная сцена (PROMPT 23)
+### 10.2 Планировщик помещения (PROMPT 24)
+
+Комната собирается в ту же `SceneModel` и рисуется тем же рендерером:
+стена, пол, потолок, проём и препятствие — обычные `SceneObject`.
+Второго рендерера, второй камеры и второго состояния выделения не
+появилось.
+
+`Room` и `Wall` существовали в домене с PROMPT 2 и были расширены, а не
+заведены заново; `Project.furniture` с тех же пор помечен как «задел под
+планировщик» и им же и стал. Мебель в комнату не копируется:
+`FurnitureInstance` хранит ссылку и положение.
+
+Подробности — `docs/ROOM_MODEL.md`, `docs/ROOM_PLANNER.md`,
+`docs/ROOM_COLLISION.md`, `docs/FURNITURE_INSTANCE.md`.
+
+### 10.3 Трёхмерная сцена (PROMPT 23)
 
 Реализована на PROMPT 23 и является видом холста по умолчанию.
 Собственный рендерер на WebGL 2 (`src/render/gl/`) поверх чистого слоя
@@ -872,7 +890,7 @@ transform="scale(1,-1)">` — это отразило бы и подписи, п
 геометрическим движком не является. Единственное арифметическое действие
 слоя сцены — перевод минимального угла коробки в её центр.
 
-### 10.3 Холст редактора (PROMPT 22) и дальнейший план
+### 10.4 Холст редактора (PROMPT 22) и дальнейший план
 
 Реализовано на PROMPT 22: `src/app/editor/EditorCanvas.tsx` — тот же
 `DebugSchemaView`, что и у технической схемы, но интерактивный: выбор

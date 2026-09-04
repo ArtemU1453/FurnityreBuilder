@@ -33,6 +33,10 @@ const LAYERS = [
   // ни React, ни WebGL, ни DOM. Именно поэтому преобразование геометрии
   // в объекты сцены, камера и попадание луча проверяются обычными
   // тестами, а не разглядыванием картинки.
+  // room — планировщик помещения (PROMPT 24). Слой чистый: он считает
+  // размещение, привязку и пересечения, но не знает ни о рендерере, ни о
+  // командах, ни об экране.
+  { type: 'room', pattern: 'src/room/**/*' },
   { type: 'scene', pattern: 'src/scene/**/*' },
   { type: 'render', pattern: 'src/render/**/*' },
   { type: 'app', pattern: 'src/app/**/*' },
@@ -59,6 +63,9 @@ const PURE_LAYERS = [
   // PROMPT 23 §3: модель сцены — представление для отрисовки, а не сам
   // рендерер. Ни WebGL, ни canvas, ни React здесь быть не должно.
   'src/scene/**/*.ts',
+  // PROMPT 24 §2: планировщик размещает объекты и проверяет помещение.
+  // Ни экрана, ни команд, ни браузера он не знает.
+  'src/room/**/*.ts',
 ];
 
 const UI_FRAMEWORK_IMPORTS = {
@@ -150,7 +157,7 @@ export default tseslint.config(
             { from: 'workflow', allow: ['workflow', 'export', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'validation', allow: ['validation', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'persistence', allow: ['persistence', 'domain'] },
-            { from: 'state', allow: ['state', 'persistence', 'validation', 'workflow', 'export', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
+            { from: 'state', allow: ['state', 'room', 'persistence', 'validation', 'workflow', 'export', 'bom', 'drilling', 'production', 'hardware', 'geometry', 'domain'] },
             { from: 'motion', allow: ['motion'] },
             { from: 'interaction', allow: ['interaction', 'motion', 'state', 'domain'] },
             { from: 'design-system', allow: ['design-system', 'motion'] },
@@ -161,8 +168,12 @@ export default tseslint.config(
             // Читает домен и результат движка, не знает ни о рендерере,
             // ни о команде, ни о состоянии сессии: адаптер обязан быть
             // проверяемым без браузера.
-            { from: 'scene', allow: ['scene', 'geometry', 'domain'] },
-            { from: 'render', allow: ['render', 'scene', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'bom', 'design-system'] },
+            // room — размещение и проверка помещения (PROMPT 24 §2).
+            // Читает домен и результат движка мебели; внутреннюю
+            // конструкцию мебели не пересчитывает и командой не является.
+            { from: 'room', allow: ['room', 'geometry', 'domain'] },
+            { from: 'scene', allow: ['scene', 'room', 'geometry', 'domain'] },
+            { from: 'render', allow: ['render', 'scene', 'room', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'bom', 'design-system'] },
             { from: 'app', allow: ['*'] },
             { from: 'entry', allow: ['*'] },
           ],

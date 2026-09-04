@@ -16,6 +16,8 @@ import { z } from 'zod';
 const id = z.string().min(1).max(128);
 const mm = z.number().finite();
 const positiveMm = z.number().finite().positive();
+/** Точка или габарит в координатах комнаты (PROMPT 24). */
+const vec3 = z.object({ x: mm, y: mm, z: mm });
 
 const edgeThickness = z.union([z.literal(0), z.literal(0.4), z.literal(1), z.literal(2)]);
 
@@ -353,8 +355,18 @@ export const projectSchema = z.object({
     ),
   }),
   furniture: z.array(furniture).min(1),
+  /*
+    Помещение (PROMPT 24). Поля добавлены к УЖЕ СУЩЕСТВОВАВШЕЙ схеме
+    комнаты, а не заведены рядом, и все новые — с `.default()`.
+    Благодаря этому версия схемы не меняется: файл, сохранённый до
+    планировщика, читается без миграции, а недостающие поля получают
+    пустые значения. Тот же приём, что у `unit` фурнитуры (PROMPT 16) и
+    параметров раскроя (PROMPT 17).
+  */
   room: z
     .object({
+      id: id.default('room-1'),
+      name: z.string().default('Помещение'),
       walls: z.array(
         z.object({
           id,
@@ -362,9 +374,53 @@ export const projectSchema = z.object({
           b: z.object({ x: mm, z: mm }),
           thickness: positiveMm,
           height: positiveMm,
+          materialId: id.optional(),
         }),
       ),
       ceilingHeight: positiveMm,
+      floor: z
+        .object({ elevation: mm, materialId: id.optional() })
+        .default({ elevation: 0 }),
+      ceiling: z
+        .object({ materialId: id.optional(), visible: z.boolean() })
+        .default({ visible: false }),
+      openings: z
+        .array(
+          z.object({
+            id,
+            wallId: id,
+            kind: z.enum(['door', 'window', 'other']),
+            position: mm,
+            width: positiveMm,
+            height: positiveMm,
+            sillHeight: mm,
+          }),
+        )
+        .default([]),
+      obstacles: z
+        .array(
+          z.object({
+            id,
+            kind: z.enum(['protrusion', 'column', 'pipe', 'radiator', 'other']),
+            position: vec3,
+            size: vec3,
+            rotation: z.number().finite(),
+            name: z.string().optional(),
+          }),
+        )
+        .default([]),
+      furnitureInstances: z
+        .array(
+          z.object({
+            id,
+            furnitureId: id,
+            position: vec3,
+            rotation: z.number().finite(),
+            locked: z.boolean(),
+            visible: z.boolean(),
+          }),
+        )
+        .default([]),
     })
     .optional(),
   settings: z.object({

@@ -2,34 +2,46 @@ import type { Draft } from 'immer';
 import type {
   BackPanelMount,
   BaseSpec,
+  Ceiling,
   ConstructionScheme,
   CountertopSpec,
   EdgeSizingPolicy,
   EdgeSpec,
   FacadeGroup,
   FalsePanel,
+  Floor,
+  FurnitureInstance,
   HingeSide,
+  InstanceId,
   LeafFill,
   Material,
   MaterialId,
   Mm,
   NodeId,
+  Obstacle,
+  ObstacleId,
+  Opening,
+  OpeningId,
   OpeningSystem,
   OverhangSpec,
   PartRole,
   PlinthCutout,
   PlinthPartKind,
   Project,
+  Room,
   SectionNode,
   SizeSpec,
   SplitAxis,
   Tolerances,
   TopSectionSpec,
+  Vec3,
+  Wall,
+  WallId,
   WallMountSpec,
   RotationPolicy,
   TrimSpec,
 } from '../domain/index.js';
-import { createDividerSpec } from '../domain/index.js';
+import { createDividerSpec, isFiniteVec3 } from '../domain/index.js';
 
 /**
  * Действия пользователя выражены командами, а не прямыми мутациями стора.
@@ -284,7 +296,65 @@ export type Command =
       readonly materialId: MaterialId;
     }
   | { readonly type: 'UpsertMaterial'; readonly material: Material }
-  | { readonly type: 'RemoveMaterial'; readonly materialId: MaterialId };
+  | { readonly type: 'RemoveMaterial'; readonly materialId: MaterialId }
+  /*
+    Планировщик помещения (PROMPT 24 §12, §29).
+
+    Все изменения комнаты идут через ту же систему команд, что и мебель,
+    поэтому отмена, повтор и транзакции работают без единой строки нового
+    кода: история не знает, что именно изменилось, — она хранит патчи.
+  */
+  | { readonly type: 'SetRoom'; readonly room: Room | undefined }
+  | {
+      /**
+       * Габарит прямоугольной комнаты.
+       *
+       * Стены перестраиваются, но их ИДЕНТИФИКАТОРЫ сохраняются: иначе
+       * проёмы, привязанные к стене, потеряли бы ссылку при каждом
+       * изменении ширины (тот же довод, что у `SetSectionCount`,
+       * `docs/DATA_MODEL.md` §5.7).
+       *
+       * Для непрямоугольной комнаты команда не делает ничего: «ширина»
+       * у произвольного контура не определена, и молча превратить его в
+       * прямоугольник значило бы уничтожить ниши и выступы.
+       */
+      readonly type: 'SetRoomSize';
+      readonly width: Mm;
+      readonly depth: Mm;
+      readonly height: Mm;
+    }
+  | { readonly type: 'SetRoomName'; readonly name: string }
+  | { readonly type: 'SetFloor'; readonly patch: Partial<Floor> }
+  | { readonly type: 'SetCeiling'; readonly patch: Partial<Ceiling> }
+  | { readonly type: 'UpdateWall'; readonly wallId: WallId; readonly patch: Partial<Omit<Wall, 'id'>> }
+  | { readonly type: 'AddOpening'; readonly opening: Opening }
+  | { readonly type: 'RemoveOpening'; readonly openingId: OpeningId }
+  | { readonly type: 'UpdateOpening'; readonly openingId: OpeningId; readonly patch: Partial<Omit<Opening, 'id'>> }
+  | { readonly type: 'AddObstacle'; readonly obstacle: Obstacle }
+  | { readonly type: 'RemoveObstacle'; readonly obstacleId: ObstacleId }
+  | { readonly type: 'UpdateObstacle'; readonly obstacleId: ObstacleId; readonly patch: Partial<Omit<Obstacle, 'id'>> }
+  | { readonly type: 'AddFurnitureInstance'; readonly instance: FurnitureInstance }
+  | { readonly type: 'RemoveFurnitureInstance'; readonly instanceId: InstanceId }
+  | {
+      /**
+       * Перемещение и поворот экземпляра.
+       *
+       * Габаритов изделия здесь нет и быть не может: transform меняет
+       * ПОЛОЖЕНИЕ, а размер меняется внутри изделия (§11). Иначе
+       * появился бы второй способ задать ширину шкафа, расходящийся с
+       * первым.
+       */
+      readonly type: 'TransformFurnitureInstance';
+      readonly instanceId: InstanceId;
+      readonly position?: Vec3;
+      readonly rotation?: number;
+    }
+  | {
+      readonly type: 'SetInstanceFlags';
+      readonly instanceId: InstanceId;
+      readonly locked?: boolean;
+      readonly visible?: boolean;
+    };
 
 /**
  * Команды, для которых архитектура готова, но модели ещё нет.
@@ -807,5 +877,164 @@ export function applyCommand(draft: Draft<Project>, command: Command): void {
       delete draft.materials.items[command.materialId];
       return;
     }
+
+    // ── Планировщик помещения (PROMPT 24) ──────────────────────────────────
+
+    case 'SetRoom': {
+      if (command.room === undefined) delete draft.room;
+      else draft.room = command.room as Draft<Room>;
+      return;
+    }
+
+    case 'SetRoomName': {
+      if (draft.room === undefined) return;
+      draft.room.name = command.name;
+      return;
+    }
+
+    case 'SetRoomSize': {
+      const room = draft.room;
+      if (room === undefined) return;
+      if (!isPositive(command.width) || !isPositive(command.depth) || !isPositive(command.height)) return;
+      // Только прямоугольная комната: у произвольного контура «ширина»
+      // не определена, и перестроить его в прямоугольник значило бы
+      // уничтожить ниши и выступы без ведома пользователя.
+      if (room.walls.length !== 4) return;
+
+      const corners: ReadonlyArray<readonly [number, number, number, number]> = [
+        [0, 0, command.width, 0],
+        [command.width, 0, command.width, command.depth],
+        [command.width, command.depth, 0, command.depth],
+        [0, command.depth, 0, 0],
+      ];
+      room.walls.forEach((wall, index) => {
+        const corner = corners[index];
+        if (corner === undefined) return;
+        // Идентификатор стены сохраняется: иначе проёмы теряют ссылку
+        // при каждом изменении габарита комнаты.
+        wall.a = { x: corner[0], z: corner[1] };
+        wall.b = { x: corner[2], z: corner[3] };
+        wall.height = command.height;
+      });
+      room.ceilingHeight = command.height;
+      return;
+    }
+
+    case 'SetFloor': {
+      if (draft.room === undefined) return;
+      if (command.patch.elevation !== undefined && !Number.isFinite(command.patch.elevation)) return;
+      Object.assign(draft.room.floor, command.patch);
+      return;
+    }
+
+    case 'SetCeiling': {
+      if (draft.room === undefined) return;
+      Object.assign(draft.room.ceiling, command.patch);
+      return;
+    }
+
+    case 'UpdateWall': {
+      const wall = draft.room?.walls.find((item) => item.id === command.wallId);
+      if (wall === undefined) return;
+      if (command.patch.thickness !== undefined && !isPositive(command.patch.thickness)) return;
+      if (command.patch.height !== undefined && !isPositive(command.patch.height)) return;
+      Object.assign(wall, command.patch);
+      return;
+    }
+
+    case 'AddOpening': {
+      const room = draft.room;
+      if (room === undefined) return;
+      // Проём на несуществующей стене команда не создаёт: иначе она сама
+      // порождала бы битую ссылку, которую потом ловит проверка — тот же
+      // довод, что у `SetMaterialAssignment`.
+      if (!room.walls.some((wall) => wall.id === command.opening.wallId)) return;
+      if (room.openings.some((item) => item.id === command.opening.id)) return;
+      room.openings.push(command.opening);
+      return;
+    }
+
+    case 'RemoveOpening': {
+      const room = draft.room;
+      if (room === undefined) return;
+      room.openings = room.openings.filter((item) => item.id !== command.openingId);
+      return;
+    }
+
+    case 'UpdateOpening': {
+      const opening = draft.room?.openings.find((item) => item.id === command.openingId);
+      if (opening === undefined) return;
+      if (command.patch.width !== undefined && !isPositive(command.patch.width)) return;
+      if (command.patch.height !== undefined && !isPositive(command.patch.height)) return;
+      Object.assign(opening, command.patch);
+      return;
+    }
+
+    case 'AddObstacle': {
+      const room = draft.room;
+      if (room === undefined) return;
+      if (room.obstacles.some((item) => item.id === command.obstacle.id)) return;
+      room.obstacles.push(command.obstacle);
+      return;
+    }
+
+    case 'RemoveObstacle': {
+      const room = draft.room;
+      if (room === undefined) return;
+      room.obstacles = room.obstacles.filter((item) => item.id !== command.obstacleId);
+      return;
+    }
+
+    case 'UpdateObstacle': {
+      const obstacle = draft.room?.obstacles.find((item) => item.id === command.obstacleId);
+      if (obstacle === undefined) return;
+      Object.assign(obstacle, command.patch);
+      return;
+    }
+
+    case 'AddFurnitureInstance': {
+      const room = draft.room;
+      if (room === undefined) return;
+      // Экземпляр обязан ссылаться на изделие, которое в проекте есть:
+      // добавить ссылку в никуда — значит создать ошибку самой командой.
+      if (!draft.furniture.some((item) => item.id === command.instance.furnitureId)) return;
+      if (room.furnitureInstances.some((item) => item.id === command.instance.id)) return;
+      room.furnitureInstances.push(command.instance);
+      return;
+    }
+
+    case 'RemoveFurnitureInstance': {
+      const room = draft.room;
+      if (room === undefined) return;
+      room.furnitureInstances = room.furnitureInstances.filter((item) => item.id !== command.instanceId);
+      return;
+    }
+
+    case 'TransformFurnitureInstance': {
+      const instance = draft.room?.furnitureInstances.find((item) => item.id === command.instanceId);
+      if (instance === undefined) return;
+      // Заблокированный экземпляр не двигается: блокировка существует
+      // ровно для того, чтобы случайный жест не сдвинул уже расставленное.
+      if (instance.locked) return;
+      if (command.position !== undefined) {
+        if (!isFiniteVec3(command.position)) return;
+        instance.position = command.position;
+      }
+      if (command.rotation !== undefined) {
+        if (!Number.isFinite(command.rotation)) return;
+        instance.rotation = command.rotation;
+      }
+      return;
+    }
+
+    case 'SetInstanceFlags': {
+      const instance = draft.room?.furnitureInstances.find((item) => item.id === command.instanceId);
+      if (instance === undefined) return;
+      if (command.locked !== undefined) instance.locked = command.locked;
+      if (command.visible !== undefined) instance.visible = command.visible;
+      return;
+    }
   }
 }
+
+const isPositive = (value: number): boolean => Number.isFinite(value) && value > 0;

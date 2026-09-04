@@ -42,12 +42,18 @@ import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
 import { EditorCanvas } from './editor/EditorCanvas.js';
 import { Scene3D } from './editor/Scene3D.js';
+import { RoomPlanner, rotateQuarter } from './editor/RoomPlanner.js';
+import { RoomInspector } from './editor/RoomInspector.js';
 import { Inspector } from './editor/Inspector.js';
 import { StatusBar } from './editor/StatusBar.js';
 import { Toolbar } from './editor/Toolbar.js';
 import { describeSelection, resolveSelection } from './editor/selection.js';
 import type { InspectorAction } from './editor/selection.js';
 import type { GizmoTarget } from '../scene/index.js';
+import { findPlacement, furnitureExtent, validateRoom } from '../room/index.js';
+import type { ExtentLookup } from '../room/index.js';
+import { createFurnitureInstance, createRectangularRoom } from '../domain/index.js';
+import type { FurnitureId, InstanceId, Vec3 } from '../domain/index.js';
 import editorStyles from './editor/EditorPanels.module.css';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
@@ -135,6 +141,8 @@ export function App(): React.JSX.Element {
   const hoveredNode = useSessionStore((state) => state.hoveredNode);
   const selectNodes = useSessionStore((state) => state.selectNodes);
   const selectParts = useSessionStore((state) => state.selectParts);
+  const selectedInstances = useSessionStore((state) => state.selectedInstances);
+  const selectInstances = useSessionStore((state) => state.selectInstances);
   const setHovered = useSessionStore((state) => state.setHovered);
   const clearSelection = useSessionStore((state) => state.clearSelection);
 
@@ -298,7 +306,117 @@ export function App(): React.JSX.Element {
    * Вид холста. Состояние ИНТЕРФЕЙСА: в проект не сохраняется и по
    * Ctrl+Z не отменяется — как и выделение (PROMPT 22 §5, PROMPT 23 §36).
    */
-  const [canvasMode, setCanvasMode] = useState<'3d' | '2d'>('3d');
+  const [canvasMode, setCanvasMode] = useState<'3d' | '2d' | 'room'>('3d');
+  /** Режимы показа помещения. Состояние интерфейса: в проект не идут. */
+  const [cutawayWalls, setCutawayWalls] = useState(true);
+  const [snapEnabled, setSnapEnabled] = useState(true);
+
+  // ── Планировщик помещения (PROMPT 24) ─────────────────────────────────────
+
+  const room = project.room;
+
+  /**
+   * Геометрия каждого изделия проекта.
+   *
+   * Планировщик её НЕ считает: он получает уже построенную. Пересчёт
+   * идёт при изменении изделий, а не при движении мебели по комнате
+   * (§32) — от того, что шкаф подвинули, его детали не меняются.
+   */
+  const furnitureGeometries = useMemo(() => {
+    const map = new Map<FurnitureId, ReturnType<typeof buildGeometry>>();
+    for (const item of project.furniture) {
+      map.set(
+        item.id,
+        buildGeometry({
+          furniture: item,
+          scheme: project.settings.construction,
+          tolerances: project.settings.tolerances,
+          materials: project.materials,
+          edgeSizing: project.settings.edgeSizing,
+        }),
+      );
+    }
+    return map;
+  }, [project.furniture, project.settings, project.materials]);
+
+  const roomExtents: ExtentLookup = useMemo(() => {
+    const map = new Map<string, Vec3>();
+    for (const [id, result] of furnitureGeometries) map.set(id, furnitureExtent(result));
+    return map;
+  }, [furnitureGeometries]);
+
+  const roomValidation = useMemo(
+    () => (room === undefined ? undefined : validateRoom(room, { extents: roomExtents })),
+    [room, roomExtents],
+  );
+
+  const furnitureNames = useMemo(
+    () => new Map(project.furniture.map((item) => [item.id as string, item.name])),
+    [project.furniture],
+  );
+
+  const createRoom = (): void => {
+    execute(
+      {
+        type: 'SetRoom',
+        room: createRectangularRoom({ ids: createRandomIdFactory(), width: 4000, depth: 3000, height: 2700 }),
+      },
+      'Создать помещение',
+    );
+    setCanvasMode('room');
+  };
+
+  const addFurnitureToRoom = (furnitureId: FurnitureId): void => {
+    const item = project.furniture.find((entry) => entry.id === furnitureId);
+    if (item === undefined || room === undefined) return;
+    const extent = roomExtents.get(furnitureId);
+
+    // Новая мебель ставится в первое СВОБОДНОЕ место — угол, затем
+    // стену, — а не в начало координат: оно лежит на осевой линии стен,
+    // и изделие появлялось бы сразу внутри двух стен. Подробнее, включая
+    // отвергнутые варианты, — `src/room/autoplace.ts`.
+    const placed =
+      extent === undefined
+        ? { position: { x: 0, y: 0, z: 0 }, rotation: 0 }
+        : findPlacement(room, furnitureId, extent, roomExtents);
+
+    execute(
+      {
+        type: 'AddFurnitureInstance',
+        instance: {
+          ...createFurnitureInstance(createRandomIdFactory(), item, placed.position),
+          rotation: placed.rotation,
+        },
+      },
+      'Добавить мебель в помещение',
+    );
+  };
+
+  const duplicateInstance = (instanceId: InstanceId): void => {
+    const source = room?.furnitureInstances.find((item) => item.id === instanceId);
+    const item = project.furniture.find((entry) => entry.id === source?.furnitureId);
+    if (source === undefined || item === undefined) return;
+    const extent = roomExtents.get(source.furnitureId);
+    // Копия ставится рядом, а не поверх оригинала: два объекта в одной
+    // точке выглядят как один, и пользователь решил бы, что ничего не
+    // произошло. Смещение — на собственную ширину копии, а не на
+    // выдуманное число.
+    const offset = extent?.x ?? 0;
+    execute(
+      {
+        type: 'AddFurnitureInstance',
+        instance: {
+          ...createFurnitureInstance(createRandomIdFactory(), item, {
+            x: source.position.x + offset,
+            y: source.position.y,
+            z: source.position.z,
+          }),
+          rotation: source.rotation,
+        },
+      },
+      'Дублировать',
+    );
+  };
 
   /**
    * Ручка на сцене изменила размер (PROMPT 23 §23).
@@ -1871,7 +1989,73 @@ export function App(): React.JSX.Element {
             >
               Схема
             </button>
+            <button
+              type="button"
+              aria-pressed={canvasMode === 'room'}
+              onClick={() => {
+                if (room === undefined) createRoom();
+                else setCanvasMode('room');
+              }}
+            >
+              Помещение
+            </button>
           </div>
+
+          {canvasMode !== 'room' ? null : room === undefined ? (
+            <p className={styles.pending}>Помещение ещё не создано.</p>
+          ) : (
+            <RoomPlanner
+              room={room}
+              geometries={furnitureGeometries}
+              materials={project.materials}
+              selectedInstances={selectedInstances}
+              cutawayWalls={cutawayWalls}
+              snapEnabled={snapEnabled}
+              onSelectInstance={(id) => {
+                selectInstances(id === undefined ? [] : [id]);
+              }}
+              onMoveCommit={(id, position, rotation) => {
+                execute(
+                  { type: 'TransformFurnitureInstance', instanceId: id, position, rotation },
+                  'Переместить мебель',
+                );
+              }}
+            />
+          )}
+
+          {canvasMode !== 'room' || room === undefined ? null : (
+            <div className={editorStyles.viewSwitch} role="group" aria-label="Показ помещения">
+              <button
+                type="button"
+                aria-pressed={cutawayWalls}
+                onClick={() => {
+                  setCutawayWalls(!cutawayWalls);
+                }}
+              >
+                Прозрачные стены
+              </button>
+              <button
+                type="button"
+                aria-pressed={snapEnabled}
+                onClick={() => {
+                  setSnapEnabled(!snapEnabled);
+                }}
+              >
+                Привязка
+              </button>
+              {project.furniture.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    addFurnitureToRoom(item.id);
+                  }}
+                >
+                  Добавить «{item.name}»
+                </button>
+              ))}
+            </div>
+          )}
 
           {canvasMode !== '3d' || geometry === undefined || furniture === undefined ? null : (
             <Scene3D
@@ -1924,7 +2108,42 @@ export function App(): React.JSX.Element {
           )}
         </div>
 
-        {inspector === undefined ? null : (
+        {canvasMode === 'room' && room !== undefined && roomValidation !== undefined ? (
+          <RoomInspector
+            room={room}
+            extents={roomExtents}
+            status={roomValidation.status}
+            selected={room.furnitureInstances.find((item) => item.id === selectedInstances[0])}
+            furnitureNames={furnitureNames}
+            onRoomSize={(width, depth, height) => {
+              execute({ type: 'SetRoomSize', width, depth, height }, 'Габарит помещения');
+            }}
+            onFloorElevation={(elevation) => {
+              execute({ type: 'SetFloor', patch: { elevation } }, 'Уровень пола');
+            }}
+            onCeilingVisible={(visible) => {
+              execute({ type: 'SetCeiling', patch: { visible } }, 'Показ потолка');
+            }}
+            onMove={(id, position) => {
+              execute({ type: 'TransformFurnitureInstance', instanceId: id, position }, 'Переместить мебель');
+            }}
+            onRotate={(id) => {
+              const instance = room.furnitureInstances.find((item) => item.id === id);
+              if (instance === undefined) return;
+              execute(
+                { type: 'TransformFurnitureInstance', instanceId: id, rotation: rotateQuarter(instance.rotation) },
+                'Повернуть мебель',
+              );
+            }}
+            onFlags={(id, patch) => {
+              execute({ type: 'SetInstanceFlags', instanceId: id, ...patch }, 'Свойства экземпляра');
+            }}
+            onDuplicate={duplicateInstance}
+            onRemove={(id) => {
+              execute({ type: 'RemoveFurnitureInstance', instanceId: id }, 'Убрать из помещения');
+            }}
+          />
+        ) : inspector === undefined ? null : (
           <Inspector model={inspector} onAction={runInspectorAction} />
         )}
       </div>

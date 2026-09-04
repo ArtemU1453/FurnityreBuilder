@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { NodeId, PartId } from '../domain/index.js';
+import type { InstanceId, NodeId, PartId } from '../domain/index.js';
 
 /**
  * Состояние интерфейса.
@@ -33,6 +33,14 @@ export interface Notification {
 export interface SessionState {
   readonly selectedNodes: readonly NodeId[];
   readonly selectedParts: readonly PartId[];
+  /**
+   * Выбранные экземпляры мебели в помещении (PROMPT 24 §19).
+   *
+   * Здесь же, а не в отдельном сторе планировщика: выделение — это одно
+   * состояние сессии на всё приложение, и второе рядом означало бы, что
+   * «выбрано» может быть верно в двух местах одновременно и по-разному.
+   */
+  readonly selectedInstances: readonly InstanceId[];
   readonly hoveredNode: NodeId | undefined;
   readonly activeTool: Tool;
   readonly viewMode: ViewMode;
@@ -50,6 +58,7 @@ export interface SessionState {
    * которой она стоит (PROMPT 22 §5).
    */
   readonly selectParts: (ids: readonly PartId[]) => void;
+  readonly selectInstances: (ids: readonly InstanceId[]) => void;
   readonly toggleNode: (id: NodeId) => void;
   readonly clearSelection: () => void;
   readonly setHovered: (id: NodeId | undefined) => void;
@@ -69,6 +78,7 @@ export const createSessionStore = () =>
   create<SessionState>((set) => ({
     selectedNodes: [],
     selectedParts: [],
+    selectedInstances: [],
     hoveredNode: undefined,
     activeTool: 'select',
     viewMode: 'front',
@@ -81,15 +91,16 @@ export const createSessionStore = () =>
     // Выбор узла снимает выбор детали и наоборот: одновременно выбранными
     // ячейкой и деталью инспектор показать не может, а «последний выбор
     // побеждает» — предсказуемое поведение прямого манипулирования.
-    selectNodes: (ids) => set({ selectedNodes: [...ids], selectedParts: [] }),
-    selectParts: (ids) => set({ selectedParts: [...ids], selectedNodes: [] }),
+    selectNodes: (ids) => set({ selectedNodes: [...ids], selectedParts: [], selectedInstances: [] }),
+    selectParts: (ids) => set({ selectedParts: [...ids], selectedNodes: [], selectedInstances: [] }),
+    selectInstances: (ids) => set({ selectedInstances: [...ids], selectedNodes: [], selectedParts: [] }),
     toggleNode: (id) =>
       set((state) => ({
         selectedNodes: state.selectedNodes.includes(id)
           ? state.selectedNodes.filter((n) => n !== id)
           : [...state.selectedNodes, id],
       })),
-    clearSelection: () => set({ selectedNodes: [], selectedParts: [] }),
+    clearSelection: () => set({ selectedNodes: [], selectedParts: [], selectedInstances: [] }),
     setHovered: (id) => set({ hoveredNode: id }),
     setTool: (activeTool) => set({ activeTool }),
     setViewMode: (viewMode) => set({ viewMode }),

@@ -18,6 +18,20 @@ export type MaterialId = Id<'Material'>;
 export type HardwareId = Id<'Hardware'>;
 export type WallId = Id<'Wall'>;
 
+/**
+ * Идентификаторы планировщика (PROMPT 24).
+ *
+ * `RoomId` появился, потому что комната стала самостоятельным объектом с
+ * именем; до этого `Room` был безымянной парой «стены + высота потолка».
+ * `InstanceId` намеренно НЕ равен `FurnitureId`: один и тот же шкаф может
+ * стоять в комнате дважды, и у двух экземпляров обязаны быть разные
+ * идентификаторы при одной и той же мебели.
+ */
+export type RoomId = Id<'Room'>;
+export type InstanceId = Id<'Instance'>;
+export type OpeningId = Id<'Opening'>;
+export type ObstacleId = Id<'Obstacle'>;
+
 /** Присваивает бренд существующей строке (десериализация, литералы в тестах). */
 export function asId<T extends string>(value: string): Id<T> {
   return value as Id<T>;
