@@ -52,3 +52,22 @@
     gap: var(--sp-1) var(--sp-3);
   }
 }
+
+/* Версия приложения: последняя в строке и не претендующая на внимание. */
+.version {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption-size);
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  /* На телефоне строка состояния и без того тесная: сообщение об ошибке
+     важнее номера версии. */
+  .version {
+    display: none;
+  }
+}

@@ -25,8 +25,15 @@ jobs:
       - run: npm run build
       - run: npm run check:brand
       # Порог размера главного чанка: ловит библиотеку, въехавшую в
-      # загрузку по умолчанию (docs/PERFORMANCE.md §1).
+      # загрузку по умолчанию (docs/PERFORMANCE_BUDGET.md §1).
       - run: npm run check:bundle
+      # Состав пакета, манифест, service worker, отсутствие секретов и
+      # отладочного вывода в собранных файлах (docs/RELEASE_CHECKLIST.md).
+      - run: npm run check:release
 
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      # Проекты запускаются по отдельности: вместе они поднимают два
+      # сервера и мешают друг другу. `chromium` идёт по production-сборке
+      # — на ней же проверяются PWA, офлайн и чистота консоли.
+      - run: npx playwright test --project=chromium
+      - run: npx playwright test --project=chromium-dev

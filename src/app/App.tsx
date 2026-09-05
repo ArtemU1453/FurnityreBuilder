@@ -49,6 +49,8 @@ import { rotateQuarter } from './editor/RoomPlanner.js';
 import { Inspector } from './editor/Inspector.js';
 import { describeSelection, resolveSelection } from './editor/selection.js';
 import { draftsOf } from './editor/drafts.js';
+import { registerServiceWorker } from './service-worker.js';
+import type { UpdateState } from './service-worker.js';
 import type { InspectorAction } from './editor/selection.js';
 import type { GizmoTarget } from '../scene/index.js';
 import { extentKey, findPlacement, furnitureExtent, validateRoom } from '../room/index.js';
@@ -75,6 +77,7 @@ import {
   Panel,
   SegmentedControl,
   Select,
+  StatusIndicator,
   Switch,
 } from '../design-system/index.js';
 import { AppShell, ProjectContext, StatusBar, TopActions } from './shell/index.js';
@@ -958,6 +961,21 @@ export function App(): React.JSX.Element {
     };
   }, [unsavedWork]);
 
+  /*
+    Обновление приложения (PROMPT 32 §7).
+
+    Новая версия не встаёт сама: под работающей вкладкой уже загружены
+    старые модули, и подмена бандла сломала бы ленивый импорт экспорта —
+    ровно та поломка «новая выкладка → битый старый бандл», которую §7
+    запрещает. Поэтому воркер ЖДЁТ, здесь показывается предложение, и
+    активация происходит по нажатию пользователя.
+
+    Проекты при этом не при чём: кэш держит код, IndexedDB — данные, и
+    обновление не касается второй области (§8).
+  */
+  const [update, setUpdate] = useState<UpdateState>({ kind: 'idle' });
+  useEffect(() => registerServiceWorker({ onUpdate: setUpdate }), []);
+
   const selection =
     geometry === undefined ? undefined : resolveSelection(selectedNodes, selectedParts, geometry);
   const inspector =
@@ -1478,6 +1496,21 @@ export function App(): React.JSX.Element {
             void storage.save();
           }}
         />
+      }
+      banner={
+        update.kind !== 'ready' ? undefined : (
+          <>
+            <StatusIndicator
+              tone="info"
+              label="Доступна новая версия приложения"
+              detail="Обновление применится после перезагрузки. Сохранённые проекты останутся на месте."
+              live
+            />
+            <Button variant="primary" onClick={update.apply}>
+              Обновить
+            </Button>
+          </>
+        )
       }
       status={
         <StatusBar

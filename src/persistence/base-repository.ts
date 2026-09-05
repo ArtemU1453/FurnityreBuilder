@@ -39,7 +39,21 @@ export abstract class BaseProjectRepository implements ProjectRepository {
 
   async save(project: Project): Promise<Project> {
     const stamped = touchProject(project, this.now);
-    await this.write(stamped);
+    try {
+      await this.write(stamped);
+    } catch (cause) {
+      // Переполнение хранилища — не «ошибка записи», а состояние, из
+      // которого пользователь может выйти сам, если ему сказать, как
+      // (PROMPT 32 §9). Общее «не удалось сохранить» отправило бы его
+      // искать причину в браузере.
+      if (isQuotaExceeded(cause)) {
+        throw new RepositoryError(
+          'В браузере закончилось место для проектов. ' +
+            'Выгрузите ненужные проекты файлом и удалите их из библиотеки — открытый проект при этом не пострадает.',
+        );
+      }
+      throw cause;
+    }
     return stamped;
   }
 
@@ -69,4 +83,17 @@ export abstract class BaseProjectRepository implements ProjectRepository {
     const copy = duplicateProject(document.project, ids, this.now, name);
     return this.create(copy);
   }
+}
+
+/**
+ * Отличить переполнение хранилища от прочих отказов записи.
+ *
+ * Имя ошибки, а не сообщение: текст зависит от браузера и от языка
+ * системы, а `QuotaExceededError` одинаков везде. Старое числовое имя
+ * `NS_ERROR_DOM_QUOTA_REACHED` встречается у Firefox и проверяется
+ * отдельно — оно не выводится из первого.
+ */
+function isQuotaExceeded(cause: unknown): boolean {
+  if (!(cause instanceof Error)) return false;
+  return cause.name === 'QuotaExceededError' || cause.name === 'NS_ERROR_DOM_QUOTA_REACHED';
 }

@@ -22,10 +22,45 @@
       content="Бесплатный онлайн-конструктор корпусной мебели: габариты, секции, наполнение, деталировка и экспорт. Без регистрации, проекты хранятся локально."
     />
     <meta name="color-scheme" content="light dark" />
-    <meta property="og:title" content="Furniture Builder" />
-    <meta property="og:description" content="Конструктор корпусной мебели в браузере." />
+
+    <!--
+      Цвет системной панели. Два объявления, а не одно: значение обязано
+      совпадать с `--bg-app` той темы, которую браузер применит, иначе
+      панель и страница расходятся по цвету на границе. Светлое значение
+      идёт первым — им пользуются браузеры, не понимающие media в
+      theme-color.
+    -->
+    <meta name="theme-color" content="#eff1f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14181f" media="(prefers-color-scheme: dark)" />
+
+    <!--
+      Индексация разрешена явно: продукт публичный и бесплатный, прятать
+      его незачем. Никаких SEO-сервисов и счётчиков при этом не
+      подключается (PROMPT 32 §14).
+    -->
+    <meta name="robots" content="index, follow" />
+
+    <meta property="og:title" content="Furniture Builder — конструктор корпусной мебели" />
+    <meta
+      property="og:description"
+      content="Габариты, секции, наполнение, фасады, деталировка, раскрой и экспорт. Без регистрации, проекты хранятся на устройстве."
+    />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!--
+      iOS не читает манифест: полноэкранный режим и заголовок в списке
+      приложений задаются только этими мета-тегами (PROMPT 32 §5).
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Furniture Builder" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   </head>
   <body>
     <div id="root"></div>

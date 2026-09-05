@@ -47,6 +47,16 @@ export interface AppShellProps {
   readonly context: ReactNode;
   /** Отмена, повтор, сохранение, экспорт. */
   readonly actions: ReactNode;
+  /**
+   * Сообщение обо всём приложении, а не о проекте: готовое обновление.
+   *
+   * Отдельный слот, а не строка состояния: та отвечает на вопросы о
+   * ПРОЕКТЕ — есть ли ошибки, готов ли он, сохранён ли. «Вышла новая
+   * версия» к проекту не относится, и смешивать это с его состоянием
+   * значило бы заставить читать строку целиком, чтобы понять, о чём
+   * речь (PROMPT 32 §7).
+   */
+  readonly banner?: ReactNode;
   readonly children: ReactNode;
   readonly status: ReactNode;
 }
@@ -78,6 +88,15 @@ export function AppShell(props: AppShellProps): React.JSX.Element {
           stretch
         />
       </nav>
+
+      {/*
+        Контейнер рисуется ВСЕГДА, даже пустым. Дорожек в сетке пять, и
+        элементов должно быть ровно столько же: убери контейнер по
+        условию — и `main` попадёт в дорожку `auto` вместо
+        `minmax(0, 1fr)`, перестав растягиваться на всю высоту. Пустой
+        div в дорожке `auto` не занимает ничего.
+      */}
+      <div className={styles.banner}>{props.banner}</div>
 
       <main id="main" className={styles.content}>
         {props.children}

@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Furniture Builder — конструктор корпусной мебели",
+  "short_name": "Furniture",
+  "description": "Конструктор корпусной мебели: габариты, секции, наполнение, фасады, деталировка, раскрой и экспорт. Без регистрации, проекты хранятся на устройстве.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eff1f4",
+  "theme_color": "#2f6fed",
+  "categories": ["productivity", "utilities", "graphics"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

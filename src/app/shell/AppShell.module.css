@@ -13,7 +13,9 @@
      `minmax(0, 1fr)` ограничен доступной шириной. Именно из-за этого на
      телефоне страница ехала вбок на 91px. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* Пять дорожек: строка, навигация, объявление, содержимое, состояние.
+     Контейнер объявления рисуется всегда — см. AppShell.tsx. */
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   min-height: 100vh;
   background: var(--bg-app);
 }
@@ -139,5 +141,29 @@
     /* Габарит проекта на телефоне не помещается рядом с именем и
        состоянием: он остаётся на экране конструктора, где и нужен. */
     gap: var(--sp-2);
+  }
+}
+
+/*
+ * Объявление обо всём приложении (готовое обновление).
+ *
+ * Пустой контейнер не даёт ни отступа, ни рамки: `:empty` здесь не нужен
+ * — правила ниже применяются к содержимому, а его нет.
+ */
+.banner:not(:empty) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: var(--border-hairline) solid var(--border-subtle);
+  background: var(--tone-info-bg);
+}
+
+@media (max-width: 600px) {
+  .banner:not(:empty) {
+    padding-left: var(--sp-3);
+    padding-right: var(--sp-3);
   }
 }

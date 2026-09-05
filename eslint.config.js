@@ -237,7 +237,10 @@ export default tseslint.config(
   {
     // Скрипты сборки выполняются в Node и вправе пользоваться его глобальными
     // объектами; запрет на них касается доменных слоёв, а не инструментов.
+    // `Buffer` — генератору иконок: PNG собирается побайтово (PROMPT 32 §13).
     files: ['scripts/**/*.mjs', '*.config.ts', 'playwright.config.ts'],
-    languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly', Buffer: 'readonly' },
+    },
   },
 );

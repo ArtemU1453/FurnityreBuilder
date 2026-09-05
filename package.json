@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/build-sw.mjs && node scripts/build-404.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit --pretty",
     "lint": "eslint .",
@@ -23,7 +23,9 @@
     "check:assumptions": "node scripts/check-assumptions.mjs",
     "check:brand": "node scripts/check-brand-independence.mjs",
     "check:bundle": "node scripts/check-bundle-size.mjs",
-    "verify": "npm run check:assumptions && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:brand && npm run check:bundle"
+    "verify": "npm run check:assumptions && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:brand && npm run check:bundle && npm run check:release",
+    "build:icons": "node scripts/build-icons.mjs",
+    "check:release": "node scripts/check-release.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

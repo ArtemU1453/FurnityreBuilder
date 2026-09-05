@@ -3,6 +3,7 @@ import type { ProductionStatus } from '../../workflow/index.js';
 import { StatusIndicator } from '../../design-system/index.js';
 import { PRODUCTION_STATUS, SEVERITY_LABEL, SEVERITY_TONE, summarizeIssues } from '../status.js';
 import type { StorageStatus } from '../use-project-storage.js';
+import { APP_VERSION, BUILD_ID } from '../version.js';
 import styles from './StatusBar.module.css';
 
 /**
@@ -63,6 +64,19 @@ export function StatusBar(props: StatusBarProps): React.JSX.Element {
           {first.message}
         </button>
       )}
+
+      {/*
+        Версия — в самом конце строки и мелким шрифтом: она нужна не для
+        работы, а для разговора о работе. Без неё сообщение «у меня не
+        считается» невозможно привязать к сборке, и первый же вопрос в
+        ответ — «а какая у вас версия?» — остаётся без ответа.
+
+        Дата сборки живёт в `title`, а не в тексте: в строке она заняла бы
+        место, нужное сообщению об ошибке, а понадобится один раз из ста.
+      */}
+      <span className={styles.version} title={`Сборка ${BUILD_ID}`}>
+        v{APP_VERSION}
+      </span>
     </footer>
   );
 }
