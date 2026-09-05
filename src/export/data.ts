@@ -3,13 +3,13 @@ import type { Part, Project } from '../domain/index.js';
 import type { GeometryResult } from '../geometry/index.js';
 import type { ProductionCalculationResult } from '../bom/index.js';
 import { areaM2, edgeText, lengthM, mmValue, percentValue } from './format.js';
+import { buildPartDrawings, operationsOfItem } from './part-drawing.js';
 import type {
   ExportCuttingSheet,
   ExportDrillingRow,
   ExportEdgeRow,
   ExportHardwareRow,
   ExportMaterialRow,
-  ExportPartDrawing,
   ExportPartRow,
   ExportPlacementRow,
   ExportUnplacedRow,
@@ -198,7 +198,10 @@ export function buildProductionExportData(
   // Сводка по материалам: количество позиций, штук и площадь. Площадь —
   // сумма площадей деталей, а не листов: это расход материала на изделие,
   // а число листов приходит из раскроя и стоит в отдельной колонке.
-  const materialAccumulator = new Map<string, { positions: number; quantity: number; areaMm2: number }>();
+  const materialAccumulator = new Map<
+    string,
+    { positions: number; quantity: number; areaMm2: number }
+  >();
   for (const item of bom.parts) {
     const key = String(item.materialId);
     const current = materialAccumulator.get(key) ?? { positions: 0, quantity: 0, areaMm2: 0 };
@@ -242,35 +245,14 @@ export function buildProductionExportData(
   // Чертежи — только для деталей, у которых есть что чертить сверх
   // габарита: отверстия. Лист с прямоугольником и двумя размерами не несёт
   // информации сверх строки спецификации и только раздувает документ.
-  const holesByPart = new Map<string, ExportPartDrawing['holes'][number][]>();
-  for (const operation of result.drilling.operations) {
-    const list = holesByPart.get(operation.productionPartId) ?? [];
-    list.push({
-      id: operation.id,
-      face: operation.face,
-      x: mmValue(operation.x),
-      y: mmValue(operation.y),
-      diameter: mmValue(operation.diameter),
-      depth: mmValue(operation.depth),
-      through: operation.through,
-      purpose: operation.purpose,
-    });
-    holesByPart.set(operation.productionPartId, list);
-  }
-  const drawings: ExportPartDrawing[] = bom.parts
-    .filter((item) => (holesByPart.get(item.id)?.length ?? 0) > 0)
-    .map((item) => ({
-      partId: item.id,
-      name: item.name,
-      length: mmValue(item.length),
-      width: mmValue(item.width),
-      thickness: mmValue(item.thickness),
-      materialName: item.materialName,
-      edge: edgeText(item.edgeBanding),
-      grain: item.grainDirection,
-      quantity: item.quantity,
-      holes: holesByPart.get(item.id) ?? [],
-    }));
+  //
+  // Модель чертежа общая с экраном (PROMPT 29 §14): `buildPartDrawings`
+  // — то же самое, что показывает просмотрщик деталей, поэтому чертёж в
+  // документе и чертёж на экране не могут разойтись.
+  const drawings = buildPartDrawings(
+    bom.parts.filter((item) => operationsOfItem(item, result.drilling.byProductionPart).length > 0),
+    result.drilling.byProductionPart,
+  );
 
   return {
     metadata: {
@@ -286,9 +268,14 @@ export function buildProductionExportData(
       height: mmValue(furniture?.dimensions.height ?? 0),
       depth: mmValue(furniture?.dimensions.depth ?? 0),
       panelThickness: mmValue(furniture?.dimensions.panelThickness ?? 0),
-      constructionScheme: SCHEME_LABELS[project.settings.construction.verticalPriority] ?? project.settings.construction.verticalPriority,
+      constructionScheme:
+        SCHEME_LABELS[project.settings.construction.verticalPriority] ??
+        project.settings.construction.verticalPriority,
       backPanel: furniture?.carcass.back.mount.kind ?? '—',
-      base: furniture?.carcass.base === undefined ? 'нет' : `${furniture.carcass.base.kind}, ${String(mmValue(furniture.carcass.base.height))} мм`,
+      base:
+        furniture?.carcass.base === undefined
+          ? 'нет'
+          : `${furniture.carcass.base.kind}, ${String(mmValue(furniture.carcass.base.height))} мм`,
     },
     parts,
     drawings,

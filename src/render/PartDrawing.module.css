@@ -1,0 +1,119 @@
+/*
+ * Технический чертёж детали (PROMPT 29 §10).
+ *
+ * Палитра — токены схемы (`--part-*`, `--cell-*`), а не отдельный набор
+ * цветов: чертёж и техническая схема показывают одно и то же изделие и
+ * обязаны выглядеть родственно (docs/DESIGN_SYSTEM.md §3.7).
+ */
+
+.viewer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.zoomValue {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption-size);
+  color: var(--text-secondary);
+  min-width: 4ch;
+}
+
+.control {
+  min-width: var(--h-control-md);
+  min-height: var(--h-control-md);
+  padding: 0 var(--sp-2);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.control:hover {
+  border-color: var(--border-strong);
+}
+
+/*
+  Контейнер прокручивается: увеличенный чертёж не растягивает страницу, а
+  панорамируется внутри своей области — одним пальцем или колесом.
+*/
+.canvas {
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--bg-sunken);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: var(--sp-2);
+  max-height: 60vh;
+}
+
+.sheet {
+  display: block;
+  /* Ширина задаётся инлайново зумом; высота следует за viewBox. */
+  height: auto;
+  min-width: 100%;
+}
+
+.outline {
+  fill: var(--part-fill);
+  stroke: var(--part-stroke);
+  stroke-width: 3;
+}
+
+.edgeBand {
+  fill: var(--accent-500);
+  opacity: 0.35;
+}
+
+.grain line {
+  stroke: var(--text-tertiary);
+  stroke-width: 2;
+  stroke-dasharray: 12 8;
+}
+
+.grainLabel {
+  fill: var(--text-tertiary);
+  font-size: 28px;
+}
+
+.dimension line {
+  stroke: var(--text-secondary);
+  stroke-width: 2;
+}
+
+.dimensionLabel {
+  fill: var(--text-secondary);
+  font-family: var(--font-num);
+  font-size: 32px;
+  text-anchor: middle;
+}
+
+.hole,
+.holeActive {
+  fill: var(--bg-surface);
+  stroke: var(--part-stroke);
+  stroke-width: 3;
+  cursor: pointer;
+}
+
+.holeActive {
+  fill: var(--tone-info-bg);
+  stroke: var(--accent-500);
+  stroke-width: 6;
+}
+
+.holeDimension line {
+  stroke: var(--accent-500);
+  stroke-width: 2;
+  stroke-dasharray: 10 6;
+}

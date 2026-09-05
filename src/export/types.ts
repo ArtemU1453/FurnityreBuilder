@@ -1,5 +1,11 @@
+import type { PartDrawingView } from './part-drawing.js';
 import type { DrillFace, DrillPurpose, Grain, Mm } from '../domain/index.js';
-import type { CalculationStatus, ConfirmationItem, EdgeBandSummary, PartCategory } from '../bom/index.js';
+import type {
+  CalculationStatus,
+  ConfirmationItem,
+  EdgeBandSummary,
+  PartCategory,
+} from '../bom/index.js';
 import type { ProductionPartType, UnplacedReason } from '../production/index.js';
 
 /**
@@ -151,7 +157,12 @@ export interface ExportCuttingSheet {
   readonly thickness: number;
   readonly stockLength: number;
   readonly stockWidth: number;
-  readonly usable: { readonly x: number; readonly y: number; readonly length: number; readonly width: number };
+  readonly usable: {
+    readonly x: number;
+    readonly y: number;
+    readonly length: number;
+    readonly width: number;
+  };
   readonly kerf: number;
   readonly utilization: number;
   readonly wasteArea: number;
@@ -167,33 +178,12 @@ export interface ExportCuttingSheet {
 }
 
 /** Чертёж детали для PDF (§4): габарит, кромка, текстура, отверстия. */
-export interface ExportPartDrawing {
-  readonly partId: string;
-  readonly name: string;
-  readonly length: number;
-  readonly width: number;
-  readonly thickness: number;
-  readonly materialName: string;
-  readonly edge: string;
-  readonly grain: Grain;
-  readonly quantity: number;
-  readonly holes: readonly {
-    readonly id: string;
-    readonly face: DrillFace;
-    readonly x: number;
-    readonly y: number;
-    readonly diameter: number;
-    readonly depth: number;
-    readonly through: string;
-    readonly purpose: DrillPurpose;
-  }[];
-}
-
 export interface ProductionExportData {
   readonly metadata: ExportMetadata;
   readonly dimensions: ExportDimensions;
   readonly parts: readonly ExportPartRow[];
-  readonly drawings: readonly ExportPartDrawing[];
+  /** Чертежи деталей: та же модель, что рисует экран (PROMPT 29 §14). */
+  readonly drawings: readonly PartDrawingView[];
   readonly hardware: readonly ExportHardwareRow[];
   readonly drilling: readonly ExportDrillingRow[];
   readonly placements: readonly ExportPlacementRow[];

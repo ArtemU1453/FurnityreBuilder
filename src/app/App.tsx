@@ -86,6 +86,8 @@ import {
   stepStates,
 } from './workflow/index.js';
 import { useLayoutMode } from './use-layout-mode.js';
+import { FIRST_SECTION, itemOfSourcePart, traceOf } from './production/index.js';
+import type { ProductionSectionId } from './production/index.js';
 import { usesFullStepRail, usesSheets } from './layout.js';
 import { WorkspaceSlot } from './screens/WorkspaceSlot.js';
 import type { StepId } from './workflow/index.js';
@@ -283,15 +285,33 @@ export function App(): React.JSX.Element {
     Перезапускается он теперь только когда меняется что-то из списка
     зависимостей.
   */
-  const readiness = useMemo(() => {
+  /**
+   * Производственный расчёт — ОДИН на всё приложение (PROMPT 29 §2, §43).
+   *
+   * До этого этапа он запускался и выбрасывался: проверка готовности
+   * считала его ради статуса, а экспорт запускал конвейер заново. Теперь
+   * результат живёт здесь, и его читают и статус, и восемь разделов
+   * производства, и экспорт. Восемь разделов, каждый со своим вызовом, —
+   * это восемь конвейеров вместо одного, и выбор детали запускал бы их
+   * все.
+   *
+   * Кэшем это не является: результат по-прежнему выводится из проекта и
+   * нигде не хранится. `useMemo` только не даёт посчитать одно и то же
+   * дважды в пределах одной и той же модели.
+   */
+  const calculation = useMemo(() => {
     if (furniture === undefined || geometry === undefined) return undefined;
-    return validateProductionReadiness(project, {
-      calculation: calculateProduction(project, { geometry: new Map([[furniture.id, geometry]]) }),
-    });
+    return calculateProduction(project, { geometry: new Map([[furniture.id, geometry]]) });
     // `project` намеренно не в списке зависимостей: см. комментарий выше —
     // иначе расчёт запускается на каждое движение мебели по комнате.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [furniture, geometry, project.settings, project.materials, project.hardware]);
+
+  const readiness = useMemo(() => {
+    if (calculation === undefined) return undefined;
+    return validateProductionReadiness(project, { calculation });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calculation]);
 
   const runExport = async (kind: 'pdf' | 'xlsx'): Promise<void> => {
     if (exporting !== null || furniture === undefined || geometry === undefined) return;
@@ -323,6 +343,34 @@ export function App(): React.JSX.Element {
   const setSelectedCellId = (id: NodeId | ''): void => {
     selectNodes(id === '' ? [] : [id]);
   };
+
+  /**
+   * Выбранная позиция деталировки (PROMPT 29 §29).
+   *
+   * ВЫВОДИТСЯ из того же выделения, что и всё остальное, а не хранится
+   * отдельно. `PartBOMItem.sourcePartIds` уже связывает позицию с
+   * физическими деталями, поэтому выбор детали в трёхмерной сцене
+   * подсвечивает её строку в деталировке, её чертёж, её операции
+   * присадки и её прямоугольник на карте раскроя — одним состоянием, без
+   * второго, которое рано или поздно с ним разойдётся.
+   */
+  const selectedProductionItem =
+    calculation === undefined
+      ? undefined
+      : selectedParts
+          .map((partId) => itemOfSourcePart(calculation.bom.parts, partId))
+          .find((item) => item !== undefined);
+
+  const productionTrace = useMemo(() => {
+    if (calculation === undefined || selectedProductionItem === undefined) return undefined;
+    return traceOf({
+      item: selectedProductionItem,
+      geometry,
+      drilling: calculation.drilling.byProductionPart,
+      hardware: calculation.hardware.items,
+      cutting: calculation.cutting,
+    });
+  }, [calculation, selectedProductionItem, geometry]);
 
   /**
    * Выбранная ячейка целиком (PROMPT 27 §9).
@@ -699,6 +747,14 @@ export function App(): React.JSX.Element {
    * изделие важнее полей ввода. Один лист за раз: два одновременно не
    * поместятся, а очередь из листов — способ потерять, где ты.
    */
+  /**
+   * Открытый раздел производства (PROMPT 29 §2).
+   *
+   * Состояние ИНТЕРФЕЙСА, как и шаг сценария: производственные величины
+   * от него не зависят и не пересчитываются при его смене (§43).
+   */
+  const [productionSection, setProductionSection] = useState<ProductionSectionId>(FIRST_SECTION);
+
   const [sheet, setSheet] = useState<'params' | 'object' | 'steps' | null>(null);
   const closeSheet = (): void => {
     setSheet(null);
@@ -1378,6 +1434,42 @@ export function App(): React.JSX.Element {
           <div className={workspace.canvas}>
             <ProductionScreen
               readiness={readiness}
+              data={
+                calculation === undefined || readiness === undefined
+                  ? undefined
+                  : { calculation, readiness, geometry }
+              }
+              selection={{
+                selectedItem: selectedProductionItem,
+                trace: productionTrace,
+                compact: mobile,
+              }}
+              actions={{
+                // Выбор позиции — это выбор её физических деталей: другого
+                // состояния выделения не заводится (§29).
+                onSelectItem: (item) => {
+                  selectParts(item === undefined ? [] : [...item.sourcePartIds]);
+                },
+                // Показать в 3D: выделить деталь и уйти в конструктор,
+                // где сцена её подсветит (§31).
+                onShowIn3d: (partId) => {
+                  selectParts([partId]);
+                  goToScreen('editor');
+                },
+                // Открыть источник в конструкторе: выделить узел модели и
+                // открыть шаг, на котором он правится (§32).
+                onShowInEditor: (nodeId) => {
+                  selectNodes([nodeId]);
+                  goToStep('cells');
+                },
+                onSection: (id) => {
+                  setProductionSection(id as ProductionSectionId);
+                },
+              }}
+              section={productionSection}
+              onSection={setProductionSection}
+              layout={layout}
+              materials={project.materials}
               exporting={exporting}
               exportError={exportError}
               compact={mobile}

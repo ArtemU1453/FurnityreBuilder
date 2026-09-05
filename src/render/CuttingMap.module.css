@@ -107,3 +107,21 @@
   font-size: var(--t-caption-size);
   color: var(--text-secondary);
 }
+
+/*
+ * Выбранная деталь на карте (PROMPT 29 §20, §29).
+ *
+ * Подсветка — заливка и обводка, а не только цвет: на плотной карте
+ * оттенок среди двух десятков прямоугольников теряется.
+ */
+.partRect[data-clickable],
+.rotatedRect[data-clickable] {
+  cursor: pointer;
+}
+
+.partRect[data-active],
+.rotatedRect[data-active] {
+  fill: var(--tone-info-bg);
+  stroke: var(--accent-500);
+  stroke-width: 8;
+}

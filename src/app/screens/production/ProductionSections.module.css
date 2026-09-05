@@ -1,0 +1,181 @@
+/*
+ * Разделы производства (PROMPT 29 §2, §31, §41).
+ *
+ * Плотные таблицы — но не ERP: ни рамок вокруг каждой ячейки, ни
+ * чередующихся полос. Строка отделена от строки волосяной линией, числа
+ * выровнены по правому краю моноширинными цифрами — этого достаточно,
+ * чтобы читать колонку сверху вниз.
+ */
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.search {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--h-control-md);
+  padding: 0 var(--sp-2);
+  background: var(--bg-surface);
+  border: var(--border-hairline) solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.count {
+  margin: 0;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  color: var(--text-secondary);
+}
+
+/*
+  Таблица прокручивается внутри своей области, а не растягивает страницу.
+  Горизонтальная прокрутка оставлена только здесь и только потому, что
+  деталировка — это именно таблица: у неё десять сопоставимых колонок, и
+  карточка вместо строки ломает сравнение по колонке (§31).
+*/
+.tableWrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-body-size);
+}
+
+.caption {
+  text-align: left;
+  padding-bottom: var(--sp-2);
+  font-size: var(--t-caption-size);
+  color: var(--text-secondary);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--sp-2);
+  border-bottom: var(--border-hairline) solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.table thead th {
+  font-size: var(--t-caption-size);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.table tbody tr[data-active] {
+  background: var(--tone-info-bg);
+}
+
+.num {
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.rowButton,
+.link {
+  min-height: var(--h-control-md);
+  padding: 0 var(--sp-1);
+  background: none;
+  border: 0;
+  color: var(--accent-500);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowButton[aria-pressed='true'] {
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+}
+
+.fact {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fact dt {
+  font-size: var(--t-caption-size);
+  color: var(--text-secondary);
+}
+
+.fact dd {
+  margin: 0;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-title-size);
+  line-height: var(--t-title-lh);
+}
+
+.subheading {
+  margin: var(--sp-3) 0 var(--sp-1);
+  font-size: var(--t-label-size);
+  line-height: var(--t-label-lh);
+  color: var(--text-secondary);
+}
+
+.list,
+.inlineList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.inlineList {
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  gap: var(--sp-2);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--t-body-size);
+  line-height: var(--t-body-lh);
+  color: var(--text-secondary);
+}
+
+.problems {
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  list-style: none;
+  display: grid;
+  gap: var(--sp-1);
+  border-radius: var(--r-md);
+  font-size: var(--t-body-size);
+}
+
+.problems[data-tone='danger'] {
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-text);
+}
+
+.problems[data-tone='warning'] {
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-text);
+}

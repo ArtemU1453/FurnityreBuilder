@@ -12,4 +12,12 @@ export type { CuttingMapProps } from './CuttingMap.js';
  * React: модель сцены и камеру ему отдаёт вызывающая сторона.
  */
 export { createSceneRenderer, parseColor } from './gl/renderer.js';
-export type { SceneRenderer, RenderRequest, RenderStyle, RenderStats, ObjectState } from './gl/renderer.js';
+export type {
+  SceneRenderer,
+  RenderRequest,
+  RenderStyle,
+  RenderStats,
+  ObjectState,
+} from './gl/renderer.js';
+export { PartDrawing } from './PartDrawing.js';
+export type { PartDrawingProps } from './PartDrawing.js';

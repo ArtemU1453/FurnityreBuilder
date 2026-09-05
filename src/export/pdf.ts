@@ -2,7 +2,8 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import type { PDFFont, PDFPage } from 'pdf-lib';
 import { mmText, sizeText } from './format.js';
-import type { ExportCuttingSheet, ExportPartDrawing, ProductionExportData } from './types.js';
+import type { PartDrawingView } from './part-drawing.js';
+import type { ExportCuttingSheet, ProductionExportData } from './types.js';
 
 /**
  * Экспорт PDF (PROMPT 20 §3–§8, §14).
@@ -113,7 +114,12 @@ class Layout {
   heading(value: string): void {
     this.ensure(HEADING_SIZE + 16);
     this.y -= 6;
-    this.page.drawText(value, { x: MARGIN, y: this.y - HEADING_SIZE, size: HEADING_SIZE, color: INK });
+    this.page.drawText(value, {
+      x: MARGIN,
+      y: this.y - HEADING_SIZE,
+      size: HEADING_SIZE,
+      color: INK,
+    });
     this.y -= HEADING_SIZE + 6;
     this.page.drawLine({
       start: { x: MARGIN, y: this.y },
@@ -163,7 +169,9 @@ class Layout {
         if (column === undefined) return;
         const clipped = this.clip(value, column.width - 6, TABLE_SIZE);
         const offset =
-          column.align === 'right' ? column.width - 6 - this.font.widthOfTextAtSize(clipped, TABLE_SIZE) : 0;
+          column.align === 'right'
+            ? column.width - 6 - this.font.widthOfTextAtSize(clipped, TABLE_SIZE)
+            : 0;
         this.page.drawText(clipped, {
           x: x + Math.max(0, offset),
           y: this.y - TABLE_SIZE,
@@ -188,7 +196,10 @@ class Layout {
   }
 
   /** Перенос длинного абзаца по словам. */
-  paragraph(value: string, options: { size?: number; color?: typeof INK; indent?: number } = {}): void {
+  paragraph(
+    value: string,
+    options: { size?: number; color?: typeof INK; indent?: number } = {},
+  ): void {
     const size = options.size ?? TEXT_SIZE;
     const maxWidth = this.size.width - MARGIN * 2 - (options.indent ?? 0);
     const words = value.split(' ');
@@ -246,7 +257,10 @@ function drawTitlePage(layout: Layout, data: ProductionExportData): void {
       ['Версия приложения', metadata.appVersion],
       ['Версия спецификации', String(metadata.bomVersion)],
       ['Статус расчёта', metadata.status],
-      ['Габарит, мм', sizeText(data.dimensions.width, data.dimensions.height, data.dimensions.depth)],
+      [
+        'Габарит, мм',
+        sizeText(data.dimensions.width, data.dimensions.height, data.dimensions.depth),
+      ],
       ['Позиций деталей', String(data.totals.partPositions)],
       ['Деталей всего, шт', String(data.totals.partQuantity)],
       ['Позиций фурнитуры', String(data.totals.hardwarePositions)],
@@ -260,12 +274,15 @@ function drawTitlePage(layout: Layout, data: ProductionExportData): void {
   if (data.errors.length > 0) {
     layout.heading('Ошибки расчёта');
     for (const error of data.errors.slice(0, 20)) layout.paragraph(`— ${error}`, { color: ACCENT });
-    if (data.errors.length > 20) layout.text(`…и ещё ${String(data.errors.length - 20)}`, { color: MUTED });
+    if (data.errors.length > 20)
+      layout.text(`…и ещё ${String(data.errors.length - 20)}`, { color: MUTED });
   }
   if (data.warnings.length > 0) {
     layout.heading('Предупреждения');
-    for (const warning of data.warnings.slice(0, 20)) layout.paragraph(`— ${warning}`, { color: MUTED });
-    if (data.warnings.length > 20) layout.text(`…и ещё ${String(data.warnings.length - 20)}`, { color: MUTED });
+    for (const warning of data.warnings.slice(0, 20))
+      layout.paragraph(`— ${warning}`, { color: MUTED });
+    if (data.warnings.length > 20)
+      layout.text(`…и ещё ${String(data.warnings.length - 20)}`, { color: MUTED });
   }
 }
 
@@ -319,7 +336,12 @@ function drawDimensionsPage(layout: Layout, data: ProductionExportData): void {
       { header: 'Длина, м', width: 70, align: 'right' },
       { header: 'Сторон', width: 60, align: 'right' },
     ],
-    data.edgeBanding.map((row) => [row.materialName, mmText(row.thickness), String(row.lengthM), String(row.sideCount)]),
+    data.edgeBanding.map((row) => [
+      row.materialName,
+      mmText(row.thickness),
+      String(row.lengthM),
+      String(row.sideCount),
+    ]),
   );
 }
 
@@ -426,11 +448,18 @@ function drawDrillingPages(layout: Layout, data: ProductionExportData): void {
 }
 
 /** Чертёж детали: габарит, кромка, текстура и отверстия в масштабе (§4). */
-function drawPartDrawing(layout: Layout, drawing: ExportPartDrawing): void {
+/**
+ * Страница чертежа детали (PROMPT 20 §6, PROMPT 29 §14).
+ *
+ * Рисуется по `PartDrawingView` — той же модели, что показывает экран.
+ * Второй геометрии чертежа здесь нет: если экран и документ разойдутся,
+ * это будет ошибка одной функции, а не расхождение двух систем.
+ */
+function drawPartDrawing(layout: Layout, drawing: PartDrawingView): void {
   layout.newPage();
   layout.text(`Чертёж детали: ${drawing.name}`, { size: HEADING_SIZE });
   layout.text(
-    `${sizeText(drawing.length, drawing.width, drawing.thickness)} мм · ${drawing.materialName} · кромка ${drawing.edge} · текстура ${drawing.grain} · ${String(drawing.quantity)} шт`,
+    `${sizeText(drawing.length, drawing.width, drawing.thickness)} мм · ${drawing.materialName} · кромка ${edgeSummary(drawing)} · текстура ${drawing.grainLabel ?? 'нет'} · ${String(drawing.quantity)} шт`,
     { color: MUTED },
   );
   layout.gap(10);
@@ -446,10 +475,11 @@ function drawPartDrawing(layout: Layout, drawing: ExportPartDrawing): void {
 
   page.drawRectangle({ x: originX, y: originY, width, height, borderColor: INK, borderWidth: 1 });
 
-  // Отверстия рисуются на пласти в масштабе детали; координаты — те же
-  // локальные, что в таблице, поэтому чертёж и таблица не могут разойтись.
+  // На пласти рисуются только отверстия пласти: модель уже разделила их
+  // (`holes` против `edgeHoles`), и решать это заново здесь не нужно.
+  // Координаты — те же локальные, что в таблице ниже, поэтому чертёж и
+  // таблица не могут разойтись.
   for (const hole of drawing.holes) {
-    if (hole.face !== 'top' && hole.face !== 'bottom') continue;
     const radius = Math.max(1.2, (hole.diameter / 2) * scale);
     page.drawCircle({
       x: originX + hole.x * scale,
@@ -472,17 +502,37 @@ function drawPartDrawing(layout: Layout, drawing: ExportPartDrawing): void {
       { header: 'Тип', width: 60 },
       { header: 'Назначение', width: 80 },
     ],
-    drawing.holes.map((hole) => [
-      hole.id,
-      hole.face,
-      mmText(hole.x),
-      mmText(hole.y),
-      mmText(hole.diameter),
-      mmText(hole.depth),
-      hole.through,
-      hole.purpose,
-    ]),
+    [
+      ...drawing.holes.map((hole) => [
+        hole.id,
+        'пласть',
+        mmText(hole.x),
+        mmText(hole.y),
+        mmText(hole.diameter),
+        mmText(hole.depth),
+        hole.through,
+        hole.purpose,
+      ]),
+      // Отверстия торцов на пласти не нарисованы — их там нет, — но из
+      // таблицы они не исчезают: сверлить их всё равно нужно (§17).
+      ...drawing.edgeHoles.map((hole) => [
+        hole.id,
+        hole.faceLabel,
+        mmText(hole.x),
+        mmText(hole.y),
+        mmText(hole.diameter),
+        mmText(hole.depth),
+        hole.through,
+        hole.purpose,
+      ]),
+    ],
   );
+}
+
+/** Кромка одной строкой: стороны и толщины из модели чертежа. */
+function edgeSummary(drawing: PartDrawingView): string {
+  if (drawing.edges.length === 0) return 'нет';
+  return drawing.edges.map((edge) => `${edge.sideLabel} ${mmText(edge.thickness)}`).join(', ');
 }
 
 /** Карта раскроя на A3: лист, рабочая область, детали с подписями (§6). */
@@ -567,7 +617,10 @@ export interface CreatePdfOptions {
  * Возвращает байты, а не файл: сохранение — забота вызывающей стороны, и
  * генератор одинаково работает в браузере и в тесте.
  */
-export async function createProductionPdf(data: ProductionExportData, options: CreatePdfOptions): Promise<Uint8Array> {
+export async function createProductionPdf(
+  data: ProductionExportData,
+  options: CreatePdfOptions,
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const font = await doc.embedFont(options.font, { subset: true });

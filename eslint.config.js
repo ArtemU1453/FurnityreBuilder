@@ -186,7 +186,11 @@ export default tseslint.config(
             // хранилища. Обратной стрелки нет: хранилище о библиотеке не
             // знает и знать не должно (PROMPT 25 §28).
             { from: 'library', allow: ['library', 'persistence', 'scene', 'geometry', 'domain'] },
-            { from: 'render', allow: ['render', 'scene', 'room', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'bom', 'design-system'] },
+            // `export` в списке — ради модели чертежа (PROMPT 29 §14):
+            // чертёж на экране и чертёж в PDF обязаны быть ОДНИМ
+            // чертежом, а живёт его модель в слое документа. Обратное
+            // направление по-прежнему закрыто: экспорт рендерер не видит.
+            { from: 'render', allow: ['render', 'scene', 'room', 'domain', 'geometry', 'hardware', 'production', 'drilling', 'bom', 'export', 'design-system'] },
             { from: 'app', allow: ['*'] },
             { from: 'entry', allow: ['*'] },
           ],

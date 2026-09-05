@@ -18,15 +18,30 @@ import styles from './CuttingMap.module.css';
  * описанием, а сводка и список неразмещённых деталей существуют как
  * обычный текст, читаемый скринридером. Анимации нет вовсе, поэтому
  * `prefers-reduced-motion` соблюдается по построению.
+ *
+ * ## Выбор детали на карте (PROMPT 29 §20)
+ *
+ * Прямоугольник можно нажать, и выбранные подсвечиваются. Своего
+ * состояния выбора у карты при этом НЕТ: она получает множество
+ * подсвеченных идентификаторов снаружи и сообщает наружу о нажатии.
+ * Выбранная деталь одна на все производственные разделы, и второе
+ * состояние выбора рано или поздно разошлось бы с первым (§29).
  */
 
 const MARGIN = 40;
 
 export interface CuttingMapProps {
   readonly view: CuttingMapView;
+  /** Идентификаторы размещений, которые нужно подсветить. */
+  readonly highlightedRectIds?: ReadonlySet<string>;
+  readonly onSelectRect?: (rectId: string) => void;
 }
 
-export function CuttingMap({ view }: CuttingMapProps): React.JSX.Element {
+export function CuttingMap({
+  view,
+  highlightedRectIds,
+  onSelectRect,
+}: CuttingMapProps): React.JSX.Element {
   return (
     <div>
       <p className={styles.summary}>{view.totals}</p>
@@ -40,7 +55,13 @@ export function CuttingMap({ view }: CuttingMapProps): React.JSX.Element {
               <text className={styles.title} x={0} y={-MARGIN}>
                 {sheet.title}
               </text>
-              <rect className={styles.stockRect} x={0} y={0} width={sheet.stockWidth} height={sheet.stockHeight} />
+              <rect
+                className={styles.stockRect}
+                x={0}
+                y={0}
+                width={sheet.stockWidth}
+                height={sheet.stockHeight}
+              />
               <rect
                 className={styles.usableRect}
                 x={sheet.usable.x}
@@ -52,15 +73,30 @@ export function CuttingMap({ view }: CuttingMapProps): React.JSX.Element {
                 <Fragment key={rect.id}>
                   <rect
                     className={rect.rotated ? styles.rotatedRect : styles.partRect}
+                    data-active={highlightedRectIds?.has(rect.id) === true ? '' : undefined}
+                    data-clickable={onSelectRect === undefined ? undefined : ''}
                     x={rect.x}
                     y={flipY(rect.y, rect.height)}
                     width={rect.width}
                     height={rect.height}
-                  />
-                  <text className={styles.partLabel} x={rect.x + rect.width / 2} y={flipY(rect.y + rect.height / 2)}>
+                    onClick={() => {
+                      onSelectRect?.(rect.id);
+                    }}
+                  >
+                    <title>{`${rect.label} · ${rect.detail}`}</title>
+                  </rect>
+                  <text
+                    className={styles.partLabel}
+                    x={rect.x + rect.width / 2}
+                    y={flipY(rect.y + rect.height / 2)}
+                  >
                     {rect.label}
                   </text>
-                  <text className={styles.partDetail} x={rect.x + rect.width / 2} y={flipY(rect.y + rect.height / 2) + 30}>
+                  <text
+                    className={styles.partDetail}
+                    x={rect.x + rect.width / 2}
+                    y={flipY(rect.y + rect.height / 2) + 30}
+                  >
                     {rect.detail}
                   </text>
                 </Fragment>
