@@ -6,6 +6,7 @@ import {
   toJson,
 } from '../../../src/persistence/serialization.js';
 import { MigrationError } from '../../../src/persistence/migrations/index.js';
+import { MAX_IMPORT_BYTES, checkImportSize } from '../../../src/persistence/transfer.js';
 import { SCHEMA_VERSION } from '../../../src/domain/index.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
 import {
@@ -163,6 +164,42 @@ describe('ссылочная целостность', () => {
       ...production.geometry.flatMap((entry) => entry.result.diagnostics),
     ];
     expect(problems.some((issue) => issue.code.includes('MATERIAL_NOT_FOUND'))).toBe(true);
+  });
+
+  /**
+   * Размер файла проверяется ДО чтения (PROMPT 31 §17).
+   *
+   * Не «слишком большой проект», а не-проект: выбранный по ошибке образ
+   * диска прочитался бы через `file.text()` целиком в память вкладки, и
+   * вместо сообщения об ошибке человек получил бы зависшую страницу.
+   */
+  describe('предел размера импортируемого файла (§17)', () => {
+    it('обычный проект проходит с большим запасом', () => {
+      const bytes = new TextEncoder().encode(toJson(FIXTURES.complex())).length;
+      expect(bytes).toBeLessThan(MAX_IMPORT_BYTES);
+      expect(checkImportSize(bytes)).toBeUndefined();
+    });
+
+    it('файл ровно по пределу ещё читается', () => {
+      expect(checkImportSize(MAX_IMPORT_BYTES)).toBeUndefined();
+    });
+
+    it('файл сверх предела отклоняется с объяснением, а не молча', () => {
+      const rejected = checkImportSize(MAX_IMPORT_BYTES + 1);
+      expect(rejected?.status).toBe('INVALID');
+      expect(rejected?.message).toContain('слишком велик');
+      expect(rejected?.details).toContain('МБ');
+    });
+
+    it('нечисловой размер тоже отклоняется: неизвестный размер не повод читать', () => {
+      expect(checkImportSize(Number.NaN)?.status).toBe('INVALID');
+      expect(checkImportSize(Number.POSITIVE_INFINITY)?.status).toBe('INVALID');
+    });
+
+    it('пустой файл по размеру проходит — его отклонит уже разбор', () => {
+      expect(checkImportSize(0)).toBeUndefined();
+      expect(() => fromJson('')).toThrow(DeserializationError);
+    });
   });
 
   it('двойное сохранение и загрузка ничего не накапливает', () => {

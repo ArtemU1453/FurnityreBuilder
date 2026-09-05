@@ -256,7 +256,7 @@ test.describe('крупный проект', () => {
     await openStep('Ячейки');
     await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('3');
     await page.getByRole('spinbutton', { name: 'Колонок', exact: true }).fill('3');
-    await page.getByRole('spinbutton', { name: 'Полок в ячейке', exact: true }).fill('2');
+    await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
     await page.getByRole('button', { name: /Применить сетку/ }).click();
     await page
       .getByRole('dialog', { name: 'Ячейки' })

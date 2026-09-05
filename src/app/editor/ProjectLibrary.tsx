@@ -141,7 +141,7 @@ export function ProjectLibrary(props: ProjectLibraryProps): React.JSX.Element {
               event.target.value = '';
               if (file === undefined) return;
               void (async () => {
-                const result = await library.importText(await file.text());
+                const result = await library.importFile(file);
                 if (result.status === 'READY') props.onOpen(result.project);
               })();
             }}

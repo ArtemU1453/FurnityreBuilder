@@ -4,7 +4,13 @@ import {
   createRandomIdFactory,
 } from '../domain/index.js';
 import type { Project, ProjectId } from '../domain/index.js';
-import { RepositoryError, exportFileName, exportProjectToText, importProjectFromText } from '../persistence/index.js';
+import {
+  RepositoryError,
+  checkImportSize,
+  exportFileName,
+  exportProjectToText,
+  importProjectFromText,
+} from '../persistence/index.js';
 import type { ImportResult, ProjectSummary } from '../persistence/index.js';
 import { recentProjects, searchProjects, sortProjects } from '../library/index.js';
 import type { SortOrder } from '../library/index.js';
@@ -48,6 +54,14 @@ export interface ProjectLibrary {
   readonly duplicate: (id: ProjectId) => Promise<void>;
   readonly remove: (id: ProjectId) => Promise<void>;
   readonly importText: (text: string) => Promise<ImportResult>;
+  /**
+   * Импорт выбранного файла: сначала размер, потом чтение (§17).
+   *
+   * Отдельный метод, а не проверка в компоненте, потому что решение
+   * «читать или отказать» — правило импорта, а не разметка. Компоненту
+   * остаётся отдать файл и показать результат.
+   */
+  readonly importFile: (file: File) => Promise<ImportResult>;
   readonly exportProject: (project: Project) => { readonly text: string; readonly fileName: string };
   readonly clearError: () => void;
 }
@@ -174,6 +188,20 @@ export function useProjectLibrary(): ProjectLibrary {
     [run],
   );
 
+  const importFile = useCallback(
+    async (file: File): Promise<ImportResult> => {
+      // Размер проверяется ДО `file.text()`: после чтения проверять уже
+      // нечего — память вкладки занята, и именно этого мы избегаем.
+      const tooLarge = checkImportSize(file.size);
+      if (tooLarge !== undefined) {
+        setError(tooLarge.message);
+        return tooLarge;
+      }
+      return importText(await file.text());
+    },
+    [importText],
+  );
+
   const exportProject = useCallback(
     (project: Project) => ({ text: exportProjectToText(project), fileName: exportFileName(project) }),
     [],
@@ -203,6 +231,7 @@ export function useProjectLibrary(): ProjectLibrary {
     duplicate,
     remove,
     importText,
+    importFile,
     exportProject,
     clearError: useCallback(() => {
       setError(undefined);

@@ -56,9 +56,16 @@ export const PROJECT_STATUS_LABELS: Readonly<Record<ProjectStatus, string>> = {
  * только по его желанию — стек и текст schema-ошибки ему ни о чём не
  * говорят (§22).
  */
+/** Отказ импорта: причина и что с ней делать. */
+export interface ImportRejected {
+  readonly status: 'INVALID' | 'MIGRATION_REQUIRED';
+  readonly message: string;
+  readonly details: string;
+}
+
 export type ImportResult =
   | { readonly status: 'READY'; readonly project: Project; readonly warnings: readonly string[] }
-  | { readonly status: 'INVALID' | 'MIGRATION_REQUIRED'; readonly message: string; readonly details: string };
+  | ImportRejected;
 
 /**
  * Замечания, с которыми файл всё же открывается (§22, состояние WARNING).
@@ -86,6 +93,35 @@ export function collectImportWarnings(project: Project): string[] {
   }
 
   return warnings;
+}
+
+/**
+ * Предел размера импортируемого файла (PROMPT 31 §17).
+ *
+ * 32 МБ — заведомо больше любого проекта: самый крупный из
+ * зафиксированных в тестах документов не доходит и до мегабайта. Предел
+ * стоит не против «слишком больших проектов», а против файла, который
+ * проектом не является: выбранный по ошибке образ диска или видео
+ * прочитался бы через `file.text()` целиком в память вкладки, и человек
+ * увидел бы не сообщение об ошибке, а зависшую страницу. Проверить это
+ * можно ТОЛЬКО до чтения — после уже поздно.
+ */
+export const MAX_IMPORT_BYTES = 32 * 1024 * 1024;
+
+/**
+ * Годится ли файл такого размера к чтению.
+ *
+ * Возвращает готовый отказ или `undefined`, если читать можно. Отдельного
+ * типа ошибки не заводится: это тот же `ImportResult`, который уже умеет
+ * показывать интерфейс.
+ */
+export function checkImportSize(bytes: number): ImportRejected | undefined {
+  if (Number.isFinite(bytes) && bytes <= MAX_IMPORT_BYTES) return undefined;
+  return {
+    status: 'INVALID',
+    message: 'Файл слишком велик для файла проекта.',
+    details: `Предел — ${String(Math.round(MAX_IMPORT_BYTES / (1024 * 1024)))} МБ. Проверьте, что выбран файл проекта, выгруженный этим приложением.`,
+  };
 }
 
 /** Импорт из текста файла. Исключений не выбрасывает: причина — часть результата. */

@@ -1,4 +1,4 @@
-import { roundMm } from '../domain/index.js';
+import { eqMm, ltMm, roundMm } from '../domain/index.js';
 import type { Mm, Room, Vec3, Wall, WallId } from '../domain/index.js';
 import { footprintOf, normalizeRotation, roomFootprint } from './placement.js';
 import type { Footprint } from './placement.js';
@@ -213,9 +213,15 @@ export function applySnap(
   for (const candidate of snapCandidates(room, extent, position)) {
     const distance = Math.hypot(candidate.position.x - position.x, candidate.position.z - position.z);
     if (distance > radiusMm) continue;
+    // Расстояния — миллиметры, поэтому и сравниваются они доменным
+    // допуском, а не локальным `1e-6` (PROMPT 31 §11). Разница не
+    // теоретическая: `1e-6` в пятьдесят тысяч раз жёстче `MM_EPSILON`, и
+    // угол, отстоящий от стены на неразличимые для домена 0.02 мм,
+    // проигрывал стене — хотя правило гласит ровно обратное: «угол
+    // побеждает стену при равном расстоянии».
     const better =
-      distance < bestDistance - 1e-6 ||
-      (Math.abs(distance - bestDistance) <= 1e-6 && candidate.kind === 'corner' && best?.kind !== 'corner');
+      ltMm(distance, bestDistance) ||
+      (eqMm(distance, bestDistance) && candidate.kind === 'corner' && best?.kind !== 'corner');
     if (!better) continue;
     best = candidate;
     bestDistance = distance;

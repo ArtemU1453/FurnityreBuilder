@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createDrawer,
   createEmptyLeaf,
@@ -48,6 +48,7 @@ import { Scene3D } from './editor/Scene3D.js';
 import { rotateQuarter } from './editor/RoomPlanner.js';
 import { Inspector } from './editor/Inspector.js';
 import { describeSelection, resolveSelection } from './editor/selection.js';
+import { draftsOf } from './editor/drafts.js';
 import type { InspectorAction } from './editor/selection.js';
 import type { GizmoTarget } from '../scene/index.js';
 import { extentKey, findPlacement, furnitureExtent, validateRoom } from '../room/index.js';
@@ -162,16 +163,49 @@ export function App(): React.JSX.Element {
   const replaceProject = useDocumentStore((s) => s.replaceProject);
   const markSaved = useDocumentStore((s) => s.markSaved);
 
-  // Черновые значения полей сетки: рабочий проект не трогается до нажатия
-  // «Применить» — перестроение дерева секций является отдельным осознанным
-  // действием пользователя, а не непрерывным вводом вроде габарита
-  // (docs/GEOMETRY_RULES.md §10, docs/INTERACTION_MODEL.md §4.4 — то же
-  // разграничение «черновое значение / коммит», что и у транзакций drag).
-  const [rowsDraft, setRowsDraft] = useState(1);
-  const [columnsDraft, setColumnsDraft] = useState(1);
-  const [shelvesDraft, setShelvesDraft] = useState(0);
-  const [sectionsDraft, setSectionsDraft] = useState(1);
-  const [sectionWidthsDraft, setSectionWidthsDraft] = useState('');
+  /*
+    Черновые значения полей сетки: рабочий проект не трогается до нажатия
+    «Применить» — перестроение дерева секций является отдельным осознанным
+    действием пользователя, а не непрерывным вводом вроде габарита
+    (docs/GEOMETRY_RULES.md §10, docs/INTERACTION_MODEL.md §4.4 — то же
+    разграничение «черновое значение / коммит», что и у транзакций drag).
+
+    Начальные значения ВЫВОДЯТСЯ из открытого документа, а не берутся
+    константами (PROMPT 31 §5). Константы здесь были ошибкой: приложение
+    восстанавливает последний сохранённый проект при открытии вкладки, и
+    на экране оказывался трёхсекционный шкаф при поле «Секций: 1» и
+    кнопке «Применить секций: 1». Одно нажатие — и структура схлопывалась
+    до одной секции, причём по значению, которое пользователь видел
+    своими глазами.
+
+    Пересчёт — только при СМЕНЕ документа (`syncDrafts` ниже), а не на
+    каждое изменение проекта: иначе набранное в поле значение затиралось
+    бы обратно деревом, и черновик перестал бы быть черновиком.
+  */
+  const [rowsDraft, setRowsDraft] = useState(() => draftsOf(project.furniture[0]).rows);
+  const [columnsDraft, setColumnsDraft] = useState(() => draftsOf(project.furniture[0]).columns);
+  const [shelvesDraft, setShelvesDraft] = useState(() => draftsOf(project.furniture[0]).shelves);
+  const [sectionsDraft, setSectionsDraft] = useState(() => draftsOf(project.furniture[0]).sections);
+  const [sectionWidthsDraft, setSectionWidthsDraft] = useState(
+    () => draftsOf(project.furniture[0]).sectionWidths,
+  );
+
+  /**
+   * Привести черновики к открытому документу.
+   *
+   * Вызывается ровно там, где документ ЗАМЕНЯЕТСЯ целиком: открытие
+   * проекта из библиотеки, импорт файла и восстановление последнего
+   * сохранённого при запуске. Реактивным эффектом по проекту это быть не
+   * может — тогда черновик затирался бы на каждую правку модели.
+   */
+  const syncDrafts = useCallback((source: Project): void => {
+    const next = draftsOf(source.furniture[0]);
+    setRowsDraft(next.rows);
+    setColumnsDraft(next.columns);
+    setShelvesDraft(next.shelves);
+    setSectionsDraft(next.sections);
+    setSectionWidthsDraft(next.sectionWidths);
+  }, []);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   // Экспорт: одно состояние на обе кнопки. Пока идёт генерация, обе
   // заблокированы — второй запуск во время первого дал бы два файла и
@@ -431,7 +465,7 @@ export function App(): React.JSX.Element {
       count <= 0 ? { kind: 'empty' } : createShelvesLeaf(createRandomIdFactory(), count).fill;
     execute(
       { type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill },
-      `Полок в ячейке: ${String(count)}`,
+      `Полок в выбранной ячейке: ${String(count)}`,
     );
   };
 
@@ -816,6 +850,7 @@ export function App(): React.JSX.Element {
    */
   const openProject = (opened: Project): void => {
     replaceProject(opened);
+    syncDrafts(opened);
     storage.markClean(opened);
     setScreen('editor');
   };
@@ -867,15 +902,61 @@ export function App(): React.JSX.Element {
   // из-за закрытой вкладки пользователь не должен. Загрузка идёт один
   // раз: `restore` стабильна, а повторный вызов затёр бы правки.
   const restore = storage.restore;
+  const markClean = storage.markClean;
   useEffect(() => {
     let cancelled = false;
     void restore().then((restored) => {
-      if (!cancelled && restored !== undefined) replaceProject(restored);
+      if (cancelled || restored === undefined) return;
+      replaceProject(restored);
+      // Черновики — вместе с документом: восстановленный проект приходит
+      // со своей структурой, и поля обязаны показывать её, а не единицы
+      // пустого проекта (PROMPT 31 §5).
+      syncDrafts(restored);
+      // Восстановленный проект — ровно то, что лежит на диске, поэтому он
+      // сохранён, а не «изменён» (PROMPT 31 §8: не предупреждать, когда
+      // ничего не менялось). Без этой отметки приложение при каждом
+      // открытии вкладки заявляло «Есть несохранённые изменения», хотя
+      // пользователь ещё ничего не трогал, — и любое предупреждение о
+      // потере данных обесценивалось бы, срабатывая всегда.
+      markClean(restored);
     });
     return () => {
       cancelled = true;
     };
-  }, [restore, replaceProject]);
+  }, [restore, replaceProject, syncDrafts, markClean]);
+
+  /*
+    Предупреждение перед потерей несохранённой работы (PROMPT 31 §8).
+
+    Автосохранения в приложении нет намеренно (docs/PERSISTENCE.md):
+    сохранение — явное действие. Значит закрытие вкладки — единственный
+    момент, когда работа исчезает молча, и единственное место, где браузер
+    даёт её отстоять.
+
+    Условие двойное и оба слагаемых обязательны. `status === 'unsaved'`
+    один не годится: пустой, ещё не тронутый проект тоже «не сохранён», и
+    диалог выскакивал бы у человека, который просто закрыл вкладку сразу
+    после открытия. `history.past` не пуст — значит выполнена хотя бы одна
+    команда, то есть терять действительно есть что. Откат всех правок
+    через Ctrl+Z снова опустошает историю, и предупреждение исчезает: на
+    экране опять то, с чего начали.
+
+    Второго механизма «грязного» состояния не заводится — это тот же
+    `storage.status`, который уже показан в строке состояния.
+  */
+  const unsavedWork = storage.status === 'unsaved' && history.past.length > 0;
+  useEffect(() => {
+    if (!unsavedWork) return undefined;
+    const warn = (event: BeforeUnloadEvent): void => {
+      // Текст задаёт браузер, а не страница: свой показать нельзя уже
+      // много лет. `preventDefault` — современный способ запросить диалог.
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => {
+      window.removeEventListener('beforeunload', warn);
+    };
+  }, [unsavedWork]);
 
   const selection =
     geometry === undefined ? undefined : resolveSelection(selectedNodes, selectedParts, geometry);
@@ -1721,18 +1802,35 @@ export function App(): React.JSX.Element {
                     if (next >= 1) setColumnsDraft(Math.round(next));
                   }}
                 />
+                {/*
+                  Название говорит «в каждой», а не «в ячейке» (PROMPT 31
+                  §3, §4). Поле применяется ко ВСЕЙ строящейся сетке сразу
+                  и только по кнопке ниже, тогда как на шаге «Полки»
+                  соседнее поле правит одну выбранную ячейку немедленно.
+                  Пока оба назывались почти одинаково, набранное здесь
+                  значение выглядело как правка выбранной ячейки — и
+                  «ничего не происходило», потому что кнопку никто не
+                  нажимал.
+                */}
                 <NumberInput
-                  label="Полок в ячейке"
+                  label="Полок в каждой ячейке"
                   value={shelvesDraft}
                   min={0}
                   step={1}
+                  hint="Применяется вместе с сеткой — кнопкой ниже. Полки одной ячейки правятся на шаге «Полки»."
                   onChange={(next) => {
                     if (next >= 0) setShelvesDraft(Math.round(next));
                   }}
                 />
               </div>
+              {/*
+                Кнопка называет всё, что применит, включая полки: до этого
+                она обещала «сетку 2×3» и молча ставила ещё и полки
+                (PROMPT 31 §3 — неожиданные изменения).
+              */}
               <Button onClick={applyGrid}>
                 Применить сетку {rowsDraft}×{columnsDraft}
+                {shelvesDraft > 0 ? `, полок: ${String(shelvesDraft)}` : ''}
               </Button>
 
               {selectedCell === undefined ? (
@@ -1782,7 +1880,7 @@ export function App(): React.JSX.Element {
               ) : (
                 <>
                   <NumberInput
-                    label="Полок в этой ячейке"
+                    label="Полок в выбранной ячейке"
                     value={selectedShelfCount}
                     min={0}
                     step={1}

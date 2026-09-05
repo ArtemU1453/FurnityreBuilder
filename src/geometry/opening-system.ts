@@ -1,5 +1,5 @@
 import type { HandlePlacement, Mm, NodeId, OpeningSystem } from '../domain/index.js';
-import { roundMm } from '../domain/index.js';
+import { gteMm, lteMm, roundMm } from '../domain/index.js';
 
 /**
  * Контракт способа открывания: Facade + OpeningSystem → Part (PROMPT 12).
@@ -102,9 +102,25 @@ function placementOrigin(placement: HandlePlacement, facade: FacadeBox, footprin
   return { x, y };
 }
 
-/** Внутри ли `[x, x+width] × [y, y+height]` границ фасада по X/Y. Z не проверяется: вынос вперёд — ожидаемое поведение, не выход за пределы. */
+/**
+ * Внутри ли `[x, x+width] × [y, y+height]` границ фасада по X/Y. Z не
+ * проверяется: вынос вперёд — ожидаемое поведение, не выход за пределы.
+ *
+ * Сравнения идут через `gteMm`/`lteMm`, а не через `>=`/`<=` с локальным
+ * `1e-6` (PROMPT 31 §11). Прежний допуск был в пятьдесят тысяч раз жёстче
+ * доменного `MM_EPSILON`: ручка, вылезшая за фасад на 0.01 мм, объявлялась
+ * вылезшей, хотя домен такую разницу считает нулём и округляет её прочь на
+ * следующем же шаге. Вдобавок допуск стоял только на верхних границах, а
+ * нижние сравнивались строго — одна и та же ситуация у левого и у правого
+ * края фасада разрешалась по-разному.
+ */
 function withinFacadeXY(x: Mm, y: Mm, width: Mm, height: Mm, facade: FacadeBox): boolean {
-  return x >= facade.x && x + width <= facade.x + facade.width + 1e-6 && y >= facade.y && y + height <= facade.y + facade.height + 1e-6;
+  return (
+    gteMm(x, facade.x) &&
+    lteMm(x + width, facade.x + facade.width) &&
+    gteMm(y, facade.y) &&
+    lteMm(y + height, facade.y + facade.height)
+  );
 }
 
 /**

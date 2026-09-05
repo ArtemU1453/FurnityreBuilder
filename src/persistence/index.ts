@@ -25,6 +25,8 @@ export {
   exportProjectToText,
   exportFileName,
   collectImportWarnings,
+  checkImportSize,
+  MAX_IMPORT_BYTES,
   PROJECT_STATUS_LABELS,
 } from './transfer.js';
-export type { ImportResult, ProjectStatus } from './transfer.js';
+export type { ImportRejected, ImportResult, ProjectStatus } from './transfer.js';
