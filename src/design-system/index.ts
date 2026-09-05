@@ -65,3 +65,5 @@ export type { EmptyStateProps, EmptyStateTone } from './EmptyState.js';
 
 export { Dialog } from './Dialog.js';
 export type { DialogProps } from './Dialog.js';
+export { ErrorBoundary } from './ErrorBoundary.js';
+export type { ErrorBoundaryProps } from './ErrorBoundary.js';

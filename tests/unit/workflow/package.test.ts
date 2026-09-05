@@ -7,7 +7,8 @@ import {
   matchesProject,
 } from '../../../src/workflow/index.js';
 import { calculateProduction } from '../../../src/bom/index.js';
-import { createProductionPdf, createProductionXlsx } from '../../../src/export/index.js';
+import { createProductionPdf } from '../../../src/export/pdf.js';
+import { createProductionXlsx } from '../../../src/export/xlsx.js';
 import { fromJson, toJson } from '../../../src/persistence/serialization.js';
 import { createDocumentStore } from '../../../src/state/document-store.js';
 import {

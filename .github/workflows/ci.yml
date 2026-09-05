@@ -24,6 +24,9 @@ jobs:
       - run: npm run test
       - run: npm run build
       - run: npm run check:brand
+      # Порог размера главного чанка: ловит библиотеку, въехавшую в
+      # загрузку по умолчанию (docs/PERFORMANCE.md §1).
+      - run: npm run check:bundle
 
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

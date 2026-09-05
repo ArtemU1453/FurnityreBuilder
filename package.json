@@ -22,7 +22,8 @@
     "test:e2e": "playwright test",
     "check:assumptions": "node scripts/check-assumptions.mjs",
     "check:brand": "node scripts/check-brand-independence.mjs",
-    "verify": "npm run check:assumptions && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:brand"
+    "check:bundle": "node scripts/check-bundle-size.mjs",
+    "verify": "npm run check:assumptions && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:brand && npm run check:bundle"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

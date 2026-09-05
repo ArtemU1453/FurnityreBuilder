@@ -28,7 +28,10 @@ const FONT_URL = '/fonts/LiberationSans-Regular.ttf';
 
 /** Имя файла: без пробелов и без даты — дату несёт сам документ. */
 export function exportFileName(project: Project, extension: string): string {
-  const base = project.name.trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');
+  const base = project.name
+    .trim()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
   return `${base === '' ? 'project' : base}.${extension}`;
 }
 
@@ -74,7 +77,7 @@ async function buildData(context: ExportContext): Promise<ProductionExportData> 
 
 export async function exportXlsx(context: ExportContext): Promise<void> {
   const data = await buildData(context);
-  const { createProductionXlsx } = await import('../export/index.js');
+  const { createProductionXlsx } = await import('../export/xlsx.js');
   saveFile(
     createProductionXlsx(data),
     exportFileName(context.project, 'xlsx'),
@@ -84,9 +87,14 @@ export async function exportXlsx(context: ExportContext): Promise<void> {
 
 export async function exportPdf(context: ExportContext): Promise<void> {
   const data = await buildData(context);
-  const [{ createProductionPdf }, response] = await Promise.all([import('../export/index.js'), fetch(FONT_URL)]);
+  const [{ createProductionPdf }, response] = await Promise.all([
+    import('../export/pdf.js'),
+    fetch(FONT_URL),
+  ]);
   if (!response.ok) {
-    throw new Error(`Шрифт для PDF не загрузился (${String(response.status)}). Экспорт PDF без него невозможен.`);
+    throw new Error(
+      `Шрифт для PDF не загрузился (${String(response.status)}). Экспорт PDF без него невозможен.`,
+    );
   }
   const font = new Uint8Array(await response.arrayBuffer());
   const pdf = await createProductionPdf(data, { font });

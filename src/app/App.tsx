@@ -68,6 +68,7 @@ import {
   Button,
   Dialog,
   EmptyState,
+  ErrorBoundary,
   Field,
   NumberInput,
   Panel,
@@ -1406,161 +1407,193 @@ export function App(): React.JSX.Element {
         />
       }
     >
+      {/*
+        Границы ошибки вокруг каждого раздела (PROMPT 30 §20).
+
+        Раздел падает — падает раздел, а не приложение вместе с
+        несохранённым проектом. Документ живёт в своём store, а не внутри
+        поддерева, поэтому переход в другой раздел возвращает рабочее
+        приложение, а сохранённые данные не затрагиваются вовсе.
+
+        `resetKey` — открытый раздел: уйдя со сломанного и вернувшись,
+        человек получает новую попытку, а не запомненную навсегда ошибку.
+      */}
       {screen === 'library' ? (
-        <ProjectLibrary
-          library={library}
-          currentProjectId={project.id}
-          currentIsDirty={storage.status === 'unsaved'}
-          onOpen={openProject}
-          onExport={exportProjectFile}
-          placementsOf={placementsOf}
-        />
+        <ErrorBoundary
+          title="Библиотека проектов недоступна"
+          description="Список проектов не удалось показать. Сами проекты в хранилище не затронуты."
+          resetKey={screen}
+        >
+          <ProjectLibrary
+            library={library}
+            currentProjectId={project.id}
+            currentIsDirty={storage.status === 'unsaved'}
+            onOpen={openProject}
+            onExport={exportProjectFile}
+            placementsOf={placementsOf}
+          />
+        </ErrorBoundary>
       ) : null}
 
       {screen === 'production' ? (
         // `data-stacked`: производство — сплошной текст, и на планшете
         // боковая колонка делает его вдвое длиннее (PROMPT 28 §31).
         <div className={workspace.workspace} data-stacked="">
-          {/*
+          <ErrorBoundary
+            title="Производственный раздел недоступен"
+            description="Расчёт или его показ прервались ошибкой. Проект и его данные не затронуты; конструктор работает."
+            resetKey={`${screen}:${productionSection}`}
+          >
+            {/*
             Лестница шагов видна и здесь: «Проверка» и «Производство» —
             такие же шаги сценария, как «Размеры», и уйти с них обратно в
             конструктор нужно тем же способом, каким сюда пришли.
           */}
-          {!usesFullStepRail(layout) ? null : (
-            <div className={workspace.sidebar}>
-              <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+            {!usesFullStepRail(layout) ? null : (
+              <div className={workspace.sidebar}>
+                <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+              </div>
+            )}
+            <div className={workspace.canvas}>
+              <ProductionScreen
+                readiness={readiness}
+                data={
+                  calculation === undefined || readiness === undefined
+                    ? undefined
+                    : { calculation, readiness, geometry }
+                }
+                selection={{
+                  selectedItem: selectedProductionItem,
+                  trace: productionTrace,
+                  compact: mobile,
+                }}
+                actions={{
+                  // Выбор позиции — это выбор её физических деталей: другого
+                  // состояния выделения не заводится (§29).
+                  onSelectItem: (item) => {
+                    selectParts(item === undefined ? [] : [...item.sourcePartIds]);
+                  },
+                  // Показать в 3D: выделить деталь и уйти в конструктор,
+                  // где сцена её подсветит (§31).
+                  onShowIn3d: (partId) => {
+                    selectParts([partId]);
+                    goToScreen('editor');
+                  },
+                  // Открыть источник в конструкторе: выделить узел модели и
+                  // открыть шаг, на котором он правится (§32).
+                  onShowInEditor: (nodeId) => {
+                    selectNodes([nodeId]);
+                    goToStep('cells');
+                  },
+                  onSection: (id) => {
+                    setProductionSection(id as ProductionSectionId);
+                  },
+                }}
+                section={productionSection}
+                onSection={setProductionSection}
+                layout={layout}
+                materials={project.materials}
+                exporting={exporting}
+                exportError={exportError}
+                compact={mobile}
+                onExport={(kind) => {
+                  void runExport(kind);
+                }}
+              />
             </div>
-          )}
-          <div className={workspace.canvas}>
-            <ProductionScreen
-              readiness={readiness}
-              data={
-                calculation === undefined || readiness === undefined
-                  ? undefined
-                  : { calculation, readiness, geometry }
-              }
-              selection={{
-                selectedItem: selectedProductionItem,
-                trace: productionTrace,
-                compact: mobile,
-              }}
-              actions={{
-                // Выбор позиции — это выбор её физических деталей: другого
-                // состояния выделения не заводится (§29).
-                onSelectItem: (item) => {
-                  selectParts(item === undefined ? [] : [...item.sourcePartIds]);
-                },
-                // Показать в 3D: выделить деталь и уйти в конструктор,
-                // где сцена её подсветит (§31).
-                onShowIn3d: (partId) => {
-                  selectParts([partId]);
-                  goToScreen('editor');
-                },
-                // Открыть источник в конструкторе: выделить узел модели и
-                // открыть шаг, на котором он правится (§32).
-                onShowInEditor: (nodeId) => {
-                  selectNodes([nodeId]);
-                  goToStep('cells');
-                },
-                onSection: (id) => {
-                  setProductionSection(id as ProductionSectionId);
-                },
-              }}
-              section={productionSection}
-              onSection={setProductionSection}
-              layout={layout}
-              materials={project.materials}
-              exporting={exporting}
-              exportError={exportError}
-              compact={mobile}
-              onExport={(kind) => {
-                void runExport(kind);
-              }}
-            />
-          </div>
-          {/*
+            {/*
             На телефоне здесь та же полоса шагов, что в конструкторе
             (PROMPT 28 §24): «Проверка» и «Производство» — такие же шаги
             сценария, и уходить с них нужно тем же способом.
           */}
-          {!mobile ? null : (
-            <>
-              <div className={workspace.mobileBar}>
-                <MobileSteps
-                  current={step}
-                  steps={workflowSteps}
-                  onStep={goToStep}
-                  onOpenList={() => {
-                    setSheet('steps');
-                  }}
-                />
-              </div>
-              <Dialog open={sheet === 'steps'} title="Этапы" onClose={closeSheet}>
-                <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
-              </Dialog>
-            </>
-          )}
+            {!mobile ? null : (
+              <>
+                <div className={workspace.mobileBar}>
+                  <MobileSteps
+                    current={step}
+                    steps={workflowSteps}
+                    onStep={goToStep}
+                    onOpenList={() => {
+                      setSheet('steps');
+                    }}
+                  />
+                </div>
+                <Dialog open={sheet === 'steps'} title="Этапы" onClose={closeSheet}>
+                  <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
+                </Dialog>
+              </>
+            )}
+          </ErrorBoundary>
         </div>
       ) : null}
 
       {screen === 'room' ? (
-        <RoomScreen
-          room={room}
-          geometries={furnitureGeometries}
-          materials={project.materials}
-          extents={roomExtents}
-          status={roomValidation?.status}
-          selected={room?.furnitureInstances.find((item) => item.id === selectedInstances[0])}
-          selectedInstances={selectedInstances}
-          furnitureNames={furnitureNames}
-          placeable={library.summaries.filter((summary) => summary.furnitureCount > 0)}
-          missingProjects={linked.missing.size}
-          onCreateRoom={createRoom}
-          onPlaceProject={addProjectToRoom}
-          onSelectInstance={(id) => {
-            selectInstances(id === undefined ? [] : [id]);
-          }}
-          onMoveCommit={(id, position, rotation) => {
-            execute(
-              { type: 'TransformFurnitureInstance', instanceId: id, position, rotation },
-              'Переместить мебель',
-            );
-          }}
-          onRoomSize={(width, depth, height) => {
-            execute({ type: 'SetRoomSize', width, depth, height }, 'Габарит помещения');
-          }}
-          onFloorElevation={(elevation) => {
-            execute({ type: 'SetFloor', patch: { elevation } }, 'Уровень пола');
-          }}
-          onCeilingVisible={(visible) => {
-            execute({ type: 'SetCeiling', patch: { visible } }, 'Показ потолка');
-          }}
-          onMove={(id, position) => {
-            execute(
-              { type: 'TransformFurnitureInstance', instanceId: id, position },
-              'Переместить мебель',
-            );
-          }}
-          onRotate={(id) => {
-            const instance = room?.furnitureInstances.find((item) => item.id === id);
-            if (instance === undefined) return;
-            execute(
-              {
-                type: 'TransformFurnitureInstance',
-                instanceId: id,
-                rotation: rotateQuarter(instance.rotation),
-              },
-              'Повернуть мебель',
-            );
-          }}
-          onFlags={(id, patch) => {
-            execute({ type: 'SetInstanceFlags', instanceId: id, ...patch }, 'Свойства экземпляра');
-          }}
-          onDuplicate={duplicateInstance}
-          onRemove={(id) => {
-            execute({ type: 'RemoveFurnitureInstance', instanceId: id }, 'Убрать из помещения');
-          }}
-        />
+        <ErrorBoundary
+          title="Планировщик помещения недоступен"
+          description="Сцена помещения прервалась ошибкой. Изделия и расстановка сохранены; конструктор работает."
+          resetKey={screen}
+        >
+          <RoomScreen
+            room={room}
+            geometries={furnitureGeometries}
+            materials={project.materials}
+            extents={roomExtents}
+            status={roomValidation?.status}
+            selected={room?.furnitureInstances.find((item) => item.id === selectedInstances[0])}
+            selectedInstances={selectedInstances}
+            furnitureNames={furnitureNames}
+            placeable={library.summaries.filter((summary) => summary.furnitureCount > 0)}
+            missingProjects={linked.missing.size}
+            onCreateRoom={createRoom}
+            onPlaceProject={addProjectToRoom}
+            onSelectInstance={(id) => {
+              selectInstances(id === undefined ? [] : [id]);
+            }}
+            onMoveCommit={(id, position, rotation) => {
+              execute(
+                { type: 'TransformFurnitureInstance', instanceId: id, position, rotation },
+                'Переместить мебель',
+              );
+            }}
+            onRoomSize={(width, depth, height) => {
+              execute({ type: 'SetRoomSize', width, depth, height }, 'Габарит помещения');
+            }}
+            onFloorElevation={(elevation) => {
+              execute({ type: 'SetFloor', patch: { elevation } }, 'Уровень пола');
+            }}
+            onCeilingVisible={(visible) => {
+              execute({ type: 'SetCeiling', patch: { visible } }, 'Показ потолка');
+            }}
+            onMove={(id, position) => {
+              execute(
+                { type: 'TransformFurnitureInstance', instanceId: id, position },
+                'Переместить мебель',
+              );
+            }}
+            onRotate={(id) => {
+              const instance = room?.furnitureInstances.find((item) => item.id === id);
+              if (instance === undefined) return;
+              execute(
+                {
+                  type: 'TransformFurnitureInstance',
+                  instanceId: id,
+                  rotation: rotateQuarter(instance.rotation),
+                },
+                'Повернуть мебель',
+              );
+            }}
+            onFlags={(id, patch) => {
+              execute(
+                { type: 'SetInstanceFlags', instanceId: id, ...patch },
+                'Свойства экземпляра',
+              );
+            }}
+            onDuplicate={duplicateInstance}
+            onRemove={(id) => {
+              execute({ type: 'RemoveFurnitureInstance', instanceId: id }, 'Убрать из помещения');
+            }}
+          />
+        </ErrorBoundary>
       ) : null}
 
       {/*
@@ -2461,58 +2494,71 @@ export function App(): React.JSX.Element {
             ]}
           />
 
-          {canvasMode !== '3d' || geometry === undefined || furniture === undefined ? null : (
-            <Scene3D
-              furniture={furniture}
-              geometry={geometry}
-              materials={project.materials}
-              selectedParts={selectedParts}
-              selectedNodes={selectedNodes}
-              hoveredNode={hoveredNode}
-              editable
-              showGrid
-              showAxes={import.meta.env.DEV}
-              debug={import.meta.env.DEV}
-              limits={{ min: 100, max: 6000 }}
-              onSelectPart={(id) => {
-                selectParts([id]);
-              }}
-              onSelectNode={(id) => {
-                selectNodes([id]);
-              }}
-              onClearSelection={clearSelection}
-              onResizeCommit={runGizmoResize}
-            />
-          )}
+          {/*
+            Сцена — самая хрупкая часть конструктора: она одна работает с
+            WebGL, и отказ контекста или драйвера здесь не должен уносить
+            весь редактор (PROMPT 30 §20). Плоская схема рядом остаётся
+            рабочей, и переключиться на неё можно не перезагружая
+            страницу.
+          */}
+          <ErrorBoundary
+            title="Трёхмерный вид недоступен"
+            description="Сцена прервалась ошибкой. Переключитесь на «Схему» — она показывает то же изделие, — или попробуйте снова."
+            resetKey={canvasMode}
+          >
+            {canvasMode !== '3d' || geometry === undefined || furniture === undefined ? null : (
+              <Scene3D
+                furniture={furniture}
+                geometry={geometry}
+                materials={project.materials}
+                selectedParts={selectedParts}
+                selectedNodes={selectedNodes}
+                hoveredNode={hoveredNode}
+                editable
+                showGrid
+                showAxes={import.meta.env.DEV}
+                debug={import.meta.env.DEV}
+                limits={{ min: 100, max: 6000 }}
+                onSelectPart={(id) => {
+                  selectParts([id]);
+                }}
+                onSelectNode={(id) => {
+                  selectNodes([id]);
+                }}
+                onClearSelection={clearSelection}
+                onResizeCommit={runGizmoResize}
+              />
+            )}
 
-          {canvasMode !== '2d' ||
-          geometry === undefined ||
-          furniture === undefined ||
-          canvasView === undefined ? null : (
-            <EditorCanvas
-              view={canvasView}
-              selectedParts={selectedParts}
-              selectedNodes={selectedNodes}
-              hoveredNode={hoveredNode}
-              width={furniture.dimensions.width}
-              height={furniture.dimensions.height}
-              limits={{ min: 100, max: 6000 }}
-              onSelectPart={(id) => {
-                selectParts([id]);
-              }}
-              onSelectNode={(id) => {
-                selectNodes([id]);
-              }}
-              onHoverNode={setHovered}
-              onClearSelection={clearSelection}
-              onResizeCommit={(axis, value) => {
-                execute(
-                  { type: 'SetDimension', furnitureIndex: 0, axis, value },
-                  axis === 'width' ? 'Ширина изделия' : 'Высота изделия',
-                );
-              }}
-            />
-          )}
+            {canvasMode !== '2d' ||
+            geometry === undefined ||
+            furniture === undefined ||
+            canvasView === undefined ? null : (
+              <EditorCanvas
+                view={canvasView}
+                selectedParts={selectedParts}
+                selectedNodes={selectedNodes}
+                hoveredNode={hoveredNode}
+                width={furniture.dimensions.width}
+                height={furniture.dimensions.height}
+                limits={{ min: 100, max: 6000 }}
+                onSelectPart={(id) => {
+                  selectParts([id]);
+                }}
+                onSelectNode={(id) => {
+                  selectNodes([id]);
+                }}
+                onHoverNode={setHovered}
+                onClearSelection={clearSelection}
+                onResizeCommit={(axis, value) => {
+                  execute(
+                    { type: 'SetDimension', furnitureIndex: 0, axis, value },
+                    axis === 'width' ? 'Ширина изделия' : 'Высота изделия',
+                  );
+                }}
+              />
+            )}
+          </ErrorBoundary>
         </div>
 
         {/*

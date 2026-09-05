@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import { createProductionXlsx, columnName, createZip, crc32 } from '../../../src/export/index.js';
+import { createProductionXlsx, columnName } from '../../../src/export/xlsx.js';
+import { createZip, crc32 } from '../../../src/export/index.js';
 import { calculateProduction } from '../../../src/bom/index.js';
 import { createDrawersLeaf, createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
 import { exportDataOf, makeProject } from './helpers.js';

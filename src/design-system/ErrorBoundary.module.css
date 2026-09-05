@@ -1,0 +1,27 @@
+/*
+ * Граница ошибки (PROMPT 30 §20).
+ *
+ * Оформления у неё почти нет: это не иллюстрация «упс», а сообщение,
+ * которое нужно прочитать и по которому нужно действовать.
+ */
+
+.description {
+  margin: 0;
+  font-size: var(--t-body-size);
+  line-height: var(--t-body-lh);
+  color: var(--text-secondary);
+}
+
+.detail {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  overflow-x: auto;
+  background: var(--tone-danger-bg);
+  border-radius: var(--r-md);
+  color: var(--tone-danger-text);
+  font-family: var(--font-num);
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

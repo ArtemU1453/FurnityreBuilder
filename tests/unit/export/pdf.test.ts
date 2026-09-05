@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument, PDFName } from 'pdf-lib';
-import { createProductionPdf } from '../../../src/export/index.js';
+import { createProductionPdf } from '../../../src/export/pdf.js';
 import { createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
 import { exportDataOf, loadFont, makeProject } from './helpers.js';
 import type { ProductionExportData } from '../../../src/export/index.js';
