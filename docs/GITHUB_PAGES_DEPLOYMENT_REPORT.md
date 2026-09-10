@@ -15,16 +15,23 @@ PROMPT 40 §18. Факты выкладки: что произошло, что �
 | Deployment | **PASS** — прогоны выкладки №4 и №5, `Reported success!` |
 | GitHub Pages URL | **https://artemu1453.github.io/FurnityreBuilder/** |
 | Assets | **PASS** — по составу артефакта и `check:release`; вживую не открыть |
-| Application Load | **NOT VERIFIED** — из этой среды адрес недоступен |
-| Create Project | **NOT VERIFIED** на боевом адресе · PASS на идентичном артефакте |
+| Application Load | **PASS** — дымовая проверка по живому адресу, прогон №44 (PROMPT 41) |
+| Create Project | **PASS** — правка габарита на живом адресе доходит до сцены |
 | Save / Reload | **NOT VERIFIED** на боевом адресе · PASS на идентичном артефакте |
-| Production | **NOT VERIFIED** на боевом адресе · PASS на идентичном артефакте |
+| Production | **PASS** — раздел открывается на живом адресе и показывает детали |
 | PDF | **NOT VERIFIED** на боевом адресе · PASS на идентичном артефакте |
 | XLSX | **NOT VERIFIED** на боевом адресе · PASS на идентичном артефакте |
 | Deep Links | **NOT VERIFIED** на боевом адресе · PASS на сервере, ведущем себя как Pages |
 | Rollback Strategy | **DOCUMENTED** — `docs/GITHUB_PAGES_DEPLOYMENT.md` |
 
-## Почему половина строк — NOT VERIFIED
+> **Дополнение PROMPT 41.** Часть строк ниже с тех пор подтверждена: после
+> выкладки идёт задача `smoke`, которая открывает живой адрес прямо в CI,
+> где сетевого ограничения нет. Прогон №44 прошёл. Обновлённые строки
+> помечены в таблице; непроверенным осталось то, чего дымовая проверка
+> намеренно не касается — сохранение с перезагрузкой, экспорт и прямые
+> адреса. Подробно: `docs/PRODUCTION_SMOKE_TEST_REPORT.md`.
+
+## Почему часть строк — NOT VERIFIED
 
 Не из осторожности и не из-за приложения. **Сетевой шлюз этой среды не
 пропускает `artemu1453.github.io`:**
