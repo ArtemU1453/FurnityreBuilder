@@ -294,6 +294,9 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/PRODUCTION_DEPLOYMENT_REPORT.md`](docs/PRODUCTION_DEPLOYMENT_REPORT.md) | Отчёт о проверке выкладки: что проверено и что осталось непроверенным |
 | [`docs/PERFORMANCE_BUDGETS.md`](docs/PERFORMANCE_BUDGETS.md) | Бюджеты размера: что измеряется, какие потолки и как их менять |
 | [`docs/PERFORMANCE_BASELINE_REPORT.md`](docs/PERFORMANCE_BASELINE_REPORT.md) | Факты замера: первая загрузка, отложенное, что автоматизировано и что нет |
+| [`docs/ACCEPTANCE_GAP_REGISTER.md`](docs/ACCEPTANCE_GAP_REGISTER.md) | Реестр пробелов приёмки: severity, влияние на пользователя и решение по каждому |
+| [`docs/ACCEPTANCE_GAP_CLOSURE_REPORT.md`](docs/ACCEPTANCE_GAP_CLOSURE_REPORT.md) | Что закрыто, чем доказано и что осталось открытым |
+| [`docs/CRITICAL_REGRESSION_MAP.md`](docs/CRITICAL_REGRESSION_MAP.md) | Какой пользовательский путь каким тестом сторожится |
 | [`docs/PRODUCT_ACCEPTANCE_MATRIX.md`](docs/PRODUCT_ACCEPTANCE_MATRIX.md) | Приёмка по пользовательским сценариям: статус, свидетельство, пробелы автоматизации |
 | [`docs/PRODUCT_ACCEPTANCE_REPORT.md`](docs/PRODUCT_ACCEPTANCE_REPORT.md) | Итог финального аудита продукта на конкретном коммите |
 | [`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md) | Что происходит при ошибке: границы, восстановление, диагностика и её приватность |

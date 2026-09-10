@@ -2,6 +2,7 @@ import type { Issue, Project, Severity } from '../domain/index.js';
 import { countBySeverity } from '../domain/index.js';
 import { referencesRule } from './rules/references.js';
 import { structureRule } from './rules/structure.js';
+import { thicknessRule } from './rules/thickness.js';
 import { valuesRule } from './rules/values.js';
 import type { ValidationReport, ValidationRule } from './types.js';
 
@@ -10,7 +11,12 @@ import type { ValidationReport, ValidationRule } from './types.js';
  * количество петель) добавляются позже отдельными правилами — здесь важно,
  * что для этого не нужно менять ни движок, ни вызывающий код.
  */
-export const BASE_RULES: readonly ValidationRule[] = [valuesRule, referencesRule, structureRule];
+export const BASE_RULES: readonly ValidationRule[] = [
+  valuesRule,
+  referencesRule,
+  structureRule,
+  thicknessRule,
+];
 
 export function validateProject(
   project: Project,
