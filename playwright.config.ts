@@ -4,8 +4,22 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? 'list' : 'html',
+  /*
+    Повторов нет — ни в CI, ни локально (PROMPT 39 §11).
+
+    Повтор допустим только против подтверждённой нестабильности
+    инфраструктуры. Такой здесь не подтверждено, а `retries: 1` в CI
+    означал бы, что упавший с первого раза детерминированный сценарий
+    пройдёт со второго и никто об этом не узнает. Ворота, которые
+    пропускают через раз, — не ворота.
+  */
+  retries: 0,
+  /*
+    В CI два докладчика: `list` пишет ход прогона прямо в журнал, а
+    `html` оставляет отчёт, который выгружается артефактом при падении.
+    Без второго от упавшего прогона остаётся только строка «failed».
+  */
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'html',
   use: {
     /*
       Адрес проверяемого приложения.
@@ -19,7 +33,13 @@ export default defineConfig({
       (docs/DEPLOYMENT.md §8).
     */
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4173',
-    trace: 'on-first-retry',
+    /*
+      Трасса сохраняется при падении, а не «при первом повторе»:
+      повторов больше нет, и прежняя настройка не дала бы ни одной
+      трассы вообще.
+    */
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   projects: [
     {
@@ -57,13 +77,28 @@ export default defineConfig({
   */
   webServer: process.env.PLAYWRIGHT_BASE_URL !== undefined ? [] : [
     {
-      command: 'npm run build && npm run preview -- --port 4173 --strictPort',
+      /*
+        `--host 127.0.0.1` обязателен, и это не украшение.
+
+        Без него Vite слушает `localhost`, а `localhost` — имя, а не
+        адрес. Node 17+ больше не ставит IPv4 первым: на машине с двойным
+        стеком имя разрешается в `::1`, сервер поднимается только там, а
+        Playwright всё это время стучится в `127.0.0.1` и не достучится
+        никогда. Ровно это и происходило в CI: сборка отрабатывала за
+        тринадцать секунд, после чего прогон честно ждал сто восемьдесят
+        секунд и падал с `Timed out waiting from config.webServer`. E2E в
+        CI не запускались НИ РАЗУ (PROMPT 39).
+
+        Здесь адрес и `url` ниже — одно и то же, буквально. Догадываться
+        не о чем.
+      */
+      command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     },
     {
-      command: 'npm run dev -- --port 4174 --strictPort',
+      command: 'npm run dev -- --host 127.0.0.1 --port 4174 --strictPort',
       url: 'http://127.0.0.1:4174',
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,

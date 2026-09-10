@@ -1,43 +1,114 @@
+# Ворота качества (PROMPT 39).
+#
+# Всё, что здесь запускается, — реальные команды из `package.json`. Ни
+# одной выдуманной: список сверен со `scripts`.
+#
+# Каждая проверка — отдельный шаг. Не ради красоты: упавший шаг видно по
+# имени в списке, а не по поиску строки в журнале на тысячу строк.
 name: CI
 
 on:
+  # Ветка по умолчанию — она же рабочая, и на неё идут прямые push.
   push:
-    branches: ['**']
+    branches: [claude/furniture-designer-audit-cjvvuf]
+  # Всё остальное проверяется через pull request. Так один и тот же
+  # коммит не проверяется дважды.
   pull_request:
+  workflow_dispatch:
+
+# Минимум прав: workflow только читает репозиторий. Ничего не
+# комментирует, не помечает, не публикует.
+permissions:
+  contents: read
+
+# Новый push в ту же ветку отменяет предыдущий прогон: держать очередь
+# из проверок устаревшего кода незачем.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
+          # Совпадает с `engines.node` в package.json (>=20).
           node-version: 22
+          # Кэшируется только загрузка пакетов. Установка всё равно идёт
+          # из lock-файла: кэш ускоряет, но не подменяет её.
           cache: npm
-      - run: npm ci
 
-      # Порядок намеренный: сначала дешёвые проверки, затем сборка,
-      # затем проверка собранного артефакта на самостоятельность.
-      - run: npm run check:assumptions
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run build
-      - run: npm run check:brand
-      # Порог размера главного чанка: ловит библиотеку, въехавшую в
-      # загрузку по умолчанию (docs/PERFORMANCE_BUDGET.md §1).
-      - run: npm run check:bundle
-      # Состав пакета, манифест, service worker, отсутствие секретов и
-      # отладочного вывода в собранных файлах (docs/RELEASE_CHECKLIST.md).
-      - run: npm run check:release
+      - name: Установка из lock-файла
+        run: npm ci
 
-      - run: npx playwright install --with-deps chromium
+      # ── Дешёвые проверки идут первыми: падают быстро ──────────────
+      - name: Реестр предположений
+        run: npm run check:assumptions
+
+      - name: Линтер и границы слоёв
+        # Без --fix: CI проверяет репозиторий, а не правит его.
+        run: npm run lint
+
+      - name: Типы
+        run: npm run typecheck
+
+      # Модульные, property- и интеграционные тесты — один прогон
+      # vitest. Разделены каталогами, а не командами: гонять их тремя
+      # запусками значило бы трижды поднимать один и тот же процесс
+      # (docs/CI_QUALITY_GATES.md).
+      - name: Тесты — модульные, property, интеграционные
+        run: npm run test
+
+      - name: Production-сборка
+        run: npm run build
+
+      # Сборка состоялась — проверяем то, что получилось.
+      - name: Артефакт сборки на месте
+        run: |
+          test -f dist/index.html
+          test -f dist/404.html
+          test -f dist/sw.js
+          test -f dist/manifest.webmanifest
+          ls dist/assets/index-*.js >/dev/null
+
+      - name: Самостоятельность продукта
+        run: npm run check:brand
+
+      - name: Размер главного чанка
+        run: npm run check:bundle
+
+      - name: Готовность пакета
+        run: npm run check:release
+
+      # ── E2E ──────────────────────────────────────────────────────
+      - name: Браузер для E2E
+        run: npx playwright install --with-deps chromium
+
       # Проекты запускаются по отдельности: вместе они поднимают два
       # сервера и мешают друг другу. `chromium` идёт по production-сборке
       # — на ней же проверяются PWA, офлайн и чистота консоли.
-      - run: npx playwright test --project=chromium
-      - run: npx playwright test --project=chromium-dev
+      - name: E2E — продукт на production-сборке
+        run: npx playwright test --project=chromium
 
-# Оба проекта обязаны пройти: `chromium` отвечает за продукт на
-# production-сборке, `chromium-dev` — за технический debug-режим, который
-# в production-сборку не попадает вовсе.
+      # `chromium-dev` отвечает за технический debug-режим, которого в
+      # production-сборке нет вовсе.
+      - name: E2E — технический режим на dev-сервере
+        run: npx playwright test --project=chromium-dev
+
+      # Отчёт и трассы сохраняются ТОЛЬКО при падении: у зелёного
+      # прогона их незачем хранить. Ни данных пользователя, ни секретов
+      # в них нет — это сценарии на пустом браузере.
+      - name: Диагностика упавшего E2E
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

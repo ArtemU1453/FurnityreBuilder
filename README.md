@@ -155,10 +155,27 @@ npm run verify       # реестр предположений → lint → ти
                      # сборка → автономность → размер → готовность пакета
 ```
 
+## Development Quality Checks
+
+Всё, что проверяет CI, запускается локально теми же командами:
+
+```bash
+npm ci                                        # установка строго из lock-файла
+npm run verify                                # девять проверок подряд, до первой упавшей
+npx playwright test --project=chromium        # E2E на production-сборке
+npx playwright test --project=chromium-dev    # E2E технического режима
+```
+
+`npm run verify` — это реестр предположений, линтер, типы, тесты, сборка,
+самостоятельность продукта, размер главного чанка и готовность пакета.
+
+Что именно проверяется, чем блокируется и почему E2E разделён на два
+прогона — [`docs/CI_QUALITY_GATES.md`](docs/CI_QUALITY_GATES.md).
+
 ## Тесты
 
 ```bash
-npm run test         # 1958 модульных, интеграционных и property-тестов
+npm run test         # 1975 модульных, интеграционных и property-тестов
 npm run typecheck    # vitest НЕ проверяет типы: этот шаг обязателен отдельно
 ```
 
@@ -280,6 +297,7 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md) | Действующие ограничения с причинами |
 | [`docs/UX_FLOW.md`](docs/UX_FLOW.md) | Полный сценарий работы |
 | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | Уровни тестов и что именно проверяется |
+| [`docs/CI_QUALITY_GATES.md`](docs/CI_QUALITY_GATES.md) | Ворота качества: что проверяет CI и что блокирует выпуск |
 
 ## Лицензия
 
