@@ -150,7 +150,7 @@ npm run verify       # реестр предположений → lint → ти
 
 ```bash
 npm ci                                        # установка строго из lock-файла
-npm run verify                                # девять проверок подряд, до первой упавшей
+npm run verify                                # десять проверок подряд, до первой упавшей
 npx playwright test --project=chromium        # E2E на production-сборке
 npx playwright test --project=chromium-dev    # E2E технического режима
 
@@ -158,7 +158,8 @@ PLAYWRIGHT_BASE_URL=<адрес> npm run smoke     # проверка опубл
 ```
 
 `npm run verify` — это реестр предположений, линтер, типы, тесты, сборка,
-самостоятельность продукта, размер главного чанка и готовность пакета.
+самостоятельность продукта, размер главного чанка, готовность пакета и
+целостность публичного входа.
 
 Что именно проверяется, чем блокируется и почему E2E разделён на два
 прогона — [`docs/CI_QUALITY_GATES.md`](docs/CI_QUALITY_GATES.md).
@@ -292,6 +293,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/CI_QUALITY_GATES.md`](docs/CI_QUALITY_GATES.md) | Ворота качества: что проверяет CI и что блокирует выпуск |
 | [`docs/GITHUB_PAGES_DEPLOYMENT.md`](docs/GITHUB_PAGES_DEPLOYMENT.md) | Как приложение попадает в production и как откатить версию |
 | [`docs/PRODUCTION_SMOKE_TESTING.md`](docs/PRODUCTION_SMOKE_TESTING.md) | Проверка опубликованной версии: зачем и что именно проверяется |
+| [`docs/PUBLIC_ACCESS_INTEGRITY.md`](docs/PUBLIC_ACCESS_INTEGRITY.md) | Охрана пути «README → приложение» от регрессий |
+| [`docs/PUBLIC_ACCESS_INTEGRITY_REPORT.md`](docs/PUBLIC_ACCESS_INTEGRITY_REPORT.md) | Состояние охраны: что проверено и какие сценарии отказа подтверждены |
 | [`docs/PRODUCTION_SMOKE_TEST_REPORT.md`](docs/PRODUCTION_SMOKE_TEST_REPORT.md) | Факты прогона дымовой проверки |
 | [`docs/GITHUB_PAGES_DEPLOYMENT_REPORT.md`](docs/GITHUB_PAGES_DEPLOYMENT_REPORT.md) | Факты выкладки: что подтверждено и что осталось непроверенным |
 

@@ -24,9 +24,10 @@
     "check:assumptions": "node scripts/check-assumptions.mjs",
     "check:brand": "node scripts/check-brand-independence.mjs",
     "check:bundle": "node scripts/check-bundle-size.mjs",
-    "verify": "npm run check:assumptions && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:brand && npm run check:bundle && npm run check:release",
+    "verify": "npm run check:assumptions && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:brand && npm run check:bundle && npm run check:release && npm run check:public",
     "build:icons": "node scripts/build-icons.mjs",
-    "check:release": "node scripts/check-release.mjs"
+    "check:release": "node scripts/check-release.mjs",
+    "check:public": "node scripts/check-public-access.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

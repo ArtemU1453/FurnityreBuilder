@@ -98,6 +98,12 @@ jobs:
       - name: Готовность пакета
         run: npm run check:release
 
+      # Ссылка, по которой пользователь попадает в приложение. Сети не
+      # трогает: доступность боевого адреса проверяет задача `smoke`
+      # после выкладки, а эта обязана проходить на каждом pull request.
+      - name: Целостность публичного входа
+        run: npm run check:public
+
       # ── E2E ──────────────────────────────────────────────────────
       - name: Браузер для E2E
         run: npx playwright install --with-deps chromium
@@ -173,6 +179,23 @@ jobs:
         env:
           APP_BASE: ${{ steps.pages.outputs.base_path }}
         run: npm run check:release
+
+      # Артефакт проверяется ПЕРЕД выгрузкой: это последнее место, где
+      # пустую или неполную сборку ещё можно не отдать людям.
+      - name: Артефакт пригоден к публикации
+        run: |
+          test -s dist/index.html
+          test -s dist/404.html
+          test -s dist/sw.js
+          test -s dist/manifest.webmanifest
+          ls dist/assets/index-*.js >/dev/null
+          ls dist/assets/index-*.css >/dev/null
+          files=$(find dist -type f | wc -l)
+          if [ "$files" -lt 10 ]; then
+            echo "В пакете всего $files файлов — сборка неполная." >&2
+            exit 1
+          fi
+          echo "Файлов в пакете: $files."
 
       - id: stamp
         name: Отпечаток сборки
@@ -268,6 +291,22 @@ jobs:
           done
           echo "За пять минут по адресу так и не появилась выложенная версия." >&2
           exit 1
+
+      # Треугольник замыкается здесь: README, документация и ФАКТИЧЕСКИЙ
+      # адрес выкладки обязаны совпасть. Проверка входа выше сверяет
+      # README с вычисленным ожиданием; этот шаг сверяет то же ожидание с
+      # тем, что реально отдала выкладка.
+      - name: Ссылка в README совпадает с адресом выкладки
+        env:
+          DEPLOYED: ${{ needs.deploy.outputs.url }}
+        run: |
+          link=$(grep -oE 'https://[a-z0-9-]+\.github\.io/[^)]*' README.md | head -1)
+          echo "README:  $link"
+          echo "Выкладка: $DEPLOYED"
+          if [ "$link" != "$DEPLOYED" ]; then
+            echo "README ведёт не туда, куда выложено приложение." >&2
+            exit 1
+          fi
 
       - name: Дымовая проверка опубликованного приложения
         env:

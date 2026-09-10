@@ -106,6 +106,7 @@ E2E (chromium-dev)
 | Самостоятельность продукта | `npm run check:brand` | `verify` | ДА |
 | Размер главного чанка | `npm run check:bundle` | `verify` | ДА |
 | Готовность пакета | `npm run check:release` | `verify` | ДА |
+| Целостность публичного входа | `npm run check:public` | `verify` | ДА |
 | E2E: продукт | `npx playwright test --project=chromium` | `verify` | ДА |
 | E2E: технический режим | `npx playwright test --project=chromium-dev` | `verify` | ДА |
 
@@ -153,6 +154,7 @@ npx vitest run tests/unit/integration
 | `check:brand` | внешний запрос или упоминание референса |
 | `check:bundle` | библиотека, въехавшая в загрузку по умолчанию |
 | `check:release` | лишний файл в пакете, разошедшийся базовый путь, отладочный вывод |
+| `check:public` | битая ссылка входа, localhost, заглушка, README, разошедшийся с адресом публикации |
 | E2E | связки между разделами и поведение в настоящем браузере |
 
 `typecheck` стоит отдельным шагом не для порядка: vitest выполняет тесты
