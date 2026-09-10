@@ -320,3 +320,42 @@ test.describe('планшет', () => {
     expect(await overflowOf(page)).toBeLessThanOrEqual(0);
   });
 });
+
+/*
+  Ходовые ширины телефонов (PROMPT 36 §12).
+
+  Поведение мобильного режима разобрано выше на 390 px — здесь
+  проверяется не оно, а что оно не держится на одном числе. 375 —
+  самый узкий экран, который ещё встречается; 430 — самый широкий,
+  который всё ещё телефон, а не планшет. Между ними лежит граница
+  режима, и ошибиться в ней означало бы отдать одному из двух краёв
+  чужую раскладку.
+*/
+for (const width of [375, 390, 430]) {
+  test.describe(`ширина ${String(width)} px`, () => {
+    test.use({ viewport: { width, height: 844 }, hasTouch: true, isMobile: true });
+
+    test('это телефон: разделы открываются, страница не едет вбок, правка доходит', async ({
+      page,
+    }) => {
+      await page.goto('/');
+
+      // Раскладка телефона, а не десктопная в узком окне.
+      await expect(page.getByRole('navigation', { name: 'Этапы конструктора' })).toContainText(
+        'Шаг 1 из 11',
+      );
+      await expect(page.getByRole('region', { name: 'Размеры' })).toBeHidden();
+
+      for (const name of ['Библиотека', 'Помещение', 'Производство', 'Конструктор']) {
+        await page.getByRole('radio', { name }).click();
+        await page.waitForTimeout(150);
+        expect(await overflowOf(page), `${name} на ${String(width)} px`).toBeLessThanOrEqual(0);
+      }
+
+      await page.getByRole('button', { name: 'Размеры', exact: true }).click();
+      await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1450');
+      await expect(scene(page)).toHaveAttribute('aria-label', /1450/);
+      expect(await overflowOf(page)).toBeLessThanOrEqual(0);
+    });
+  });
+}

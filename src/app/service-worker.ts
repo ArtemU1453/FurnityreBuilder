@@ -31,7 +31,7 @@ export interface ServiceWorkerOptions {
  *
  * Service worker требует защищённого контекста: `https://` или
  * `localhost`. На `http://` по сети его нет — и это не ошибка
- * приложения, а правило браузера (docs/DEPLOYMENT.md §4).
+ * приложения, а правило браузера (docs/DEPLOYMENT.md §5).
  */
 export function serviceWorkerAvailable(): boolean {
   return typeof navigator !== 'undefined' && 'serviceWorker' in navigator && window.isSecureContext;

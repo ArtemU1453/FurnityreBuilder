@@ -7,7 +7,18 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'list' : 'html',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    /*
+      Адрес проверяемого приложения.
+
+      По умолчанию — локальная production-сборка, поднятая `webServer`
+      ниже. `PLAYWRIGHT_BASE_URL` перенаправляет тот же набор сценариев на
+      УЖЕ РАЗВЁРНУТОЕ приложение: на статический сервер, на площадку
+      предпросмотра или на боевой адрес. Отдельного набора «проверок
+      после выкладки» не заводится — иначе их пришлось бы поддерживать
+      наравне с основными, и они разошлись бы при первой же правке
+      (docs/DEPLOYMENT.md §8).
+    */
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4173',
     trace: 'on-first-retry',
   },
   projects: [
@@ -40,7 +51,11 @@ export default defineConfig({
       },
     },
   ],
-  webServer: [
+  /*
+    Локальные серверы поднимаются только тогда, когда цель не задана
+    снаружи: при проверке развёрнутого приложения поднимать нечего.
+  */
+  webServer: process.env.PLAYWRIGHT_BASE_URL !== undefined ? [] : [
     {
       command: 'npm run build && npm run preview -- --port 4173 --strictPort',
       url: 'http://127.0.0.1:4173',

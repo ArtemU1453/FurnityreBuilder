@@ -216,6 +216,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/THIRD_PARTY_NOTICES.md`](docs/THIRD_PARTY_NOTICES.md) | Зависимости и их лицензии |
 | [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) | Что реализовано, что поддерживается, что ограничено |
 | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Что проверить перед выкладкой |
+| [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |
+| [`docs/PRODUCTION_DEPLOYMENT_REPORT.md`](docs/PRODUCTION_DEPLOYMENT_REPORT.md) | Отчёт о проверке выкладки: что проверено и что осталось непроверенным |
 | [`docs/PERFORMANCE_BUDGET.md`](docs/PERFORMANCE_BUDGET.md) | Бюджеты размера и времени с текущими значениями |
 | [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md) | Действующие ограничения с причинами |
 | [`docs/UX_FLOW.md`](docs/UX_FLOW.md) | Полный сценарий работы |
