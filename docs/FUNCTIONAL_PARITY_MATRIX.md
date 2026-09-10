@@ -143,7 +143,7 @@ inner.depth  = Dc − отступ задней стенки (зависит о�
 | --- | --- | --- | --- | --- | --- |
 | `EMPTY` | `CONFIRMED` | полный цикл | `IMPLEMENTED` | `SetFill`; `tests/e2e/journey.spec.ts` | — |
 | `SHELVES` | `CONFIRMED` | полный цикл | `IMPLEMENTED` | там же | — |
-| `DRAWERS` | `CONFIRMED` | фасад строится, короб — нет | `PARTIAL` | `geometry/drawers.ts`; `KNOWN_ISSUES.md` §2 | См. §7 ниже |
+| `DRAWERS` | `CONFIRMED` | фасад строится, короб — нет; подпись в интерфейсе говорит об этом прямо | `PARTIAL` | `geometry/drawers.ts`; `tests/unit/app/fill-vocabulary.test.ts` | Подпись исправлена на PROMPT 34 (Г-001) |
 | `ROD` (штанга) | `CONFIRMED` (гардероб) | в модели есть, движок помечает `not-implemented`, в UI не предлагается | `PARTIAL` | `geometry/content.ts:164`; `App.tsx` `UI_FILL_KINDS` | Состав и крепление — `T-FILL-01` |
 | `ROD+SHELF` | `CONFIRMED` | полка строится, штанга — нет | `PARTIAL` | `geometry/content.ts:137` | там же |
 | `SHOE_MODULE` (обувница) | `UNKNOWN` | отсутствует полностью | `MISSING` | нет ни в модели, ни в спецификации | Правило неизвестно — заводить нечего |
@@ -248,7 +248,7 @@ inner.depth  = Dc − отступ задней стенки (зависит о�
 | Взаимодействие с дном | — | дно лежит на цоколе | `IMPLEMENTED` | `carcass.ts:124` | — |
 | Влияние на двери и ящики | — | через `carcassY0` | `IMPLEMENTED` | тесты там же | — |
 | Детали производства | — | `role: 'plinth'`, царги | `IMPLEMENTED` | `production-regression.test.ts` | — |
-| **Входит ли цоколь в общую H** | `UNKNOWN` | **выбирает пользователь**: `heightIncludesBase`, по умолчанию `true` | `NEEDS_CONFIRMATION` | `carcass.ts:122`; `ASSUMPTION(T-CAR-05)` | Поля в UI нет — см. Д-002 |
+| **Входит ли цоколь в общую H** | `UNKNOWN` | **выбирает пользователь** переключателем на шаге «Конструкция»: `heightIncludesBase`, по умолчанию `true` | `NEEDS_CONFIRMATION` | `carcass.ts:122`; `tests/unit/integration/tolerances.test.ts` | Поле добавлено на PROMPT 33 (Д-002); само правило по-прежнему не подтверждено |
 
 Задание требует «использовать только уже подтверждённое правило».
 Подтверждённого правила нет, и продукт его не выдумывает: он делает
@@ -376,9 +376,9 @@ inner.depth  = Dc − отступ задней стенки (зависит о�
 | Произвольные стены | модель поддерживает | `PARTIAL` | `domain/project/types.ts`; `ROOM_PLANNER.md` §11 | Инструмента рисования контура нет |
 | Пол | `Floor` | `IMPLEMENTED` | `scene/room-scene.ts` | — |
 | Потолок | `Ceiling`, показ переключается | `IMPLEMENTED` | там же | — |
-| Двери (проёмы) | модель, команды, сцена, валидация | `PARTIAL` | `AddOpening`; `room-scene.ts:293` | **Экранной формы добавления нет** |
-| Окна | тот же `Opening` с `sillHeight` | `PARTIAL` | там же | там же |
-| Препятствия | модель, команды, сцена | `PARTIAL` | `AddObstacle`; `room-scene.ts:147` | там же |
+| Двери (проёмы) | модель, команды, сцена, валидация, форма | `IMPLEMENTED` | `AddOpening`; `RoomScreen` панель «Проёмы и препятствия»; `tests/e2e/parity.spec.ts` | Закрыто на PROMPT 33 (Д-001) |
+| Окна | тот же `Opening` с `sillHeight`, свои размеры по умолчанию | `IMPLEMENTED` | там же; `app/editor/room-features.ts` | Закрыто на PROMPT 33 (Д-001) |
+| Препятствия | модель, команды, сцена, форма | `IMPLEMENTED` | `AddObstacle`; `tests/unit/app/room-features.test.ts` | Закрыто на PROMPT 33 (Д-001) |
 | Экземпляры мебели | размещение из библиотеки | `IMPLEMENTED` | `tests/e2e/room-planner.spec.ts` | — |
 | Положение | X и Z, поля и перетаскивание | `IMPLEMENTED` | там же | — |
 | Поворот | четвертями | `IMPLEMENTED` | `rotateQuarter` | — |
@@ -471,8 +471,8 @@ inner.depth  = Dc − отступ задней стенки (зависит о�
 
 | Статус | Строк |
 | --- | --- |
-| `IMPLEMENTED` | 118 |
-| `PARTIAL` | 26 |
+| `IMPLEMENTED` | 121 |
+| `PARTIAL` | 23 |
 | `MISSING` | 5 |
 | `DIFFERENT_BY_DESIGN` | 4 |
 | `NEEDS_CONFIRMATION` | 8 |
@@ -497,5 +497,6 @@ inner.depth  = Dc − отступ задней стенки (зависит о�
 | Нет автосохранения | **B** — сознательное улучшение | Молчаливая запись теряет работу |
 | Нет кнопки «Пересчитать» | **B** | Производные величины не устаревают |
 | Нет адресов у экранов | **B** | Один источник истины о положении |
-| Проёмы и препятствия без формы | **A** — пробел интерфейса | См. Д-001 |
-| `heightIncludesBase` без поля | **A** | См. Д-002 |
+| ~~Проёмы и препятствия без формы~~ | **A** | **Исправлено** на PROMPT 33 (Д-001) |
+| ~~`heightIncludesBase` без поля~~ | **A** | **Исправлено** на PROMPT 33 (Д-002) |
+| ~~Подпись у ящиков обещала короб~~ | **A** | **Исправлено** на PROMPT 34 (Г-001) |

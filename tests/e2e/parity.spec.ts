@@ -155,3 +155,49 @@ test('проём переживает перезагрузку: он часть 
   await page.getByRole('radio', { name: 'Помещение' }).click();
   await expect(page.getByLabel('Проёмы помещения').getByRole('listitem')).toHaveCount(1);
 });
+
+/**
+ * Выбрать ячейку и задать ей наполнение «ящики».
+ *
+ * Ячейка выбирается через список на шаге «Двери» — тем же путём, что в
+ * сквозном сценарии: щелчок по сцене в фиксированную точку зависит от
+ * ракурса камеры и потому ненадёжен.
+ */
+async function fillCellWithDrawers(page: Page): Promise<void> {
+  await step(page, 'Ячейки').click();
+  await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('2');
+  await page.getByRole('button', { name: /Применить сетку/ }).click();
+
+  // Список ячеек живёт в панели «Двери» на шаге «Фасады» — на шаге
+  // «Наполнение» своего выбора нет, ячейка берётся из общего выделения.
+  await step(page, 'Фасады').click();
+  await page.getByLabel('Двери').getByLabel('Ячейка').selectOption({ index: 1 });
+
+  await step(page, 'Наполнение').click();
+  // Подписи вариантов берутся из доменного словаря и потому строчные.
+  await page.getByRole('radio', { name: 'ящики', exact: true }).click();
+}
+
+test('подпись у ящиков не обещает короба, которого не будет (§10, Г-001)', async ({ page }) => {
+  await fillCellWithDrawers(page);
+
+  const fill = page.getByRole('region', { name: 'Наполнение' });
+  await expect(fill).toContainText('Ящик добавляет фасад');
+  await expect(fill).toContainText('Короб');
+  await expect(fill).toContainText('не строится');
+  // Прежний текст обещал короб как факт — его быть не должно.
+  await expect(page.getByText('Ящик добавляет короб и фасад.')).toHaveCount(0);
+});
+
+test('ящик доходит до деталировки фасадом, а короба в ней нет (§7, Г-001)', async ({ page }) => {
+  await fillCellWithDrawers(page);
+
+  await page.getByRole('radio', { name: 'Производство' }).click();
+  await page.getByRole('radio', { name: 'Детали', exact: true }).click();
+
+  const parts = page.getByRole('table').first();
+  await expect(parts).toBeVisible();
+  // Короба нет ни одной строкой: подпись это и обещает.
+  await expect(parts).not.toContainText('Боковина ящика');
+  await expect(parts).not.toContainText('Дно ящика');
+});

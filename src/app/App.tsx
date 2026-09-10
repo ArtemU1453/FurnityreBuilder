@@ -30,7 +30,7 @@ import type {
   PartRole,
 } from '../domain/index.js';
 import { createUniformGrid } from '../domain/furniture/sections.js';
-import { buildGeometry, contentLabel } from '../geometry/index.js';
+import { buildGeometry } from '../geometry/index.js';
 import { buildCuttingView, buildDebugView, CuttingMap, DebugSchema } from '../render/index.js';
 import { calculateHardware, formatHardwareDebug } from '../hardware/index.js';
 import { calculateCutting, toProductionParts } from '../production/index.js';
@@ -49,6 +49,7 @@ import { rotateQuarter } from './editor/RoomPlanner.js';
 import { Inspector } from './editor/Inspector.js';
 import { describeSelection, resolveSelection } from './editor/selection.js';
 import { draftsOf } from './editor/drafts.js';
+import { FILL_HINTS, FILL_LABELS, FILL_OPTIONS, UI_FILL_KINDS } from './editor/fill-vocabulary.js';
 import { registerServiceWorker } from './service-worker.js';
 import { useUndoShortcuts } from './use-undo-shortcuts.js';
 import type { UpdateState } from './service-worker.js';
@@ -121,42 +122,6 @@ import styles from './App.module.css';
  * без участия React в расчётах.
  */
 
-/**
- * Виды наполнения, доступные в интерфейсе (PROMPT 27 §12).
- *
- * Список короче, чем `LeafFill`, и это не упрощение ради красоты.
- * `rod` и `rod+shelf` в модели есть, но движок помечает их
- * `not-implemented` и деталей для них не строит (`geometry/content.ts`).
- * Пункт, который ничего не строит, — обещание, которого приложение не
- * выполняет; поэтому в списке его нет, а причина названа рядом текстом.
- *
- * Подписи берутся из `contentLabel` — того же места, откуда их берёт
- * диагностика движка и техническая схема. Второго словаря видов
- * наполнения не заводится.
- */
-const UI_FILL_KINDS = ['empty', 'shelves', 'drawers'] as const;
-
-const FILL_OPTIONS = UI_FILL_KINDS.map((kind) => ({
-  value: kind,
-  label: kind === 'empty' ? 'Пусто' : contentLabel(kind),
-}));
-
-const FILL_LABELS: Readonly<Record<LeafFill['kind'], string>> = {
-  empty: 'Пусто',
-  shelves: contentLabel('shelves'),
-  drawers: contentLabel('drawers'),
-  rod: contentLabel('rod'),
-  'rod+shelf': contentLabel('rod+shelf'),
-};
-
-/** Что означает выбранный вид наполнения — одной строкой для человека. */
-const FILL_HINTS: Readonly<Record<LeafFill['kind'], string>> = {
-  empty: 'Ячейка остаётся открытой. Полок и ящиков в ней нет.',
-  shelves: 'Полки — физические детали: они попадают в деталировку, раскрой и кромку.',
-  drawers: 'Ящик добавляет короб и фасад. Дверь на ячейку с ящиками поставить нельзя.',
-  rod: 'Штанга есть в модели, но геометрией пока не строится.',
-  'rod+shelf': 'Штанга с полкой есть в модели, но геометрией пока не строится.',
-};
 
 const AXES = [
   { key: 'width', label: 'Ширина' },
