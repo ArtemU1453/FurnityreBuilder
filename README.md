@@ -310,6 +310,11 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/RELEASE_VERSIONING_REPORT.md`](docs/RELEASE_VERSIONING_REPORT.md) | Состояние системы выпусков: что проверено и что нет |
 | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Что проверить перед выкладкой |
 | [`docs/FINAL_RELEASE_REPORT.md`](docs/FINAL_RELEASE_REPORT.md) | Итог финальной проверки выпуска на конкретном коммите |
+| [`docs/PRODUCT_CAPABILITY_MAP.md`](docs/PRODUCT_CAPABILITY_MAP.md) | Что продукт умеет — и что прямо не умеет |
+| [`docs/PRODUCT_REQUIREMENT_TRACEABILITY.md`](docs/PRODUCT_REQUIREMENT_TRACEABILITY.md) | Требование → реализация → проверка → статус |
+| [`docs/PRODUCT_GAP_REGISTER.md`](docs/PRODUCT_GAP_REGISTER.md) | Пробелы продукта с воспроизведением и классом |
+| [`docs/NEXT_DEVELOPMENT_ROADMAP.md`](docs/NEXT_DEVELOPMENT_ROADMAP.md) | Порядок следующего этапа, построенный из подтверждённых пробелов |
+| [`docs/PRODUCT_PARITY_AUDIT_REPORT.md`](docs/PRODUCT_PARITY_AUDIT_REPORT.md) | Итог аудита соответствия продуктовой цели |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
 | [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |
