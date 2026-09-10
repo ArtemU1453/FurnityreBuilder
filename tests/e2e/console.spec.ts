@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene } from './open-scene.js';
 import type { ConsoleMessage, Page } from '@playwright/test';
 
 /**
@@ -63,6 +64,8 @@ test('основной путь не оставляет в консоли ни �
   const { messages, failures } = collect(page);
 
   await page.goto('./');
+
+  await openScene(page);
   await expect(page.getByRole('img', { name: /Трёхмерный вид изделия/ })).toBeVisible();
 
   // Проход по всем четырём экранам: React ругается на ключи и состояние
@@ -84,6 +87,8 @@ test('экспорт PDF и XLSX не пишет в консоль (§22)', asyn
   const { messages, failures } = collect(page);
 
   await page.goto('./');
+
+  await openScene(page);
   await page.getByRole('radio', { name: 'Производство' }).click();
 
   for (const format of ['PDF', 'XLSX']) {

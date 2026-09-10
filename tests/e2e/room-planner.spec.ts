@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene } from './open-scene.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -16,6 +17,7 @@ const inspector = (page: Page) => page.getByLabel('Свойства помеще
 
 async function openPlanner(page: Page): Promise<void> {
   await page.goto('./');
+  await openScene(page);
   // Проект нужно сохранить: в помещение ставят проекты из библиотеки, а
   // несохранённого проекта в библиотеке нет (PROMPT 25 §13).
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
@@ -182,6 +184,8 @@ test('помещение и расстановка переживают пере
   await expect(page.getByRole('button', { name: 'Сохранено' })).toBeVisible();
 
   await page.reload();
+
+  await openScene(page);
   await page.getByRole('radio', { name: 'Помещение' }).click();
   await expect(canvas(page)).toHaveAttribute('aria-label', /4600 × 3000/);
   await expect(canvas(page)).toHaveAttribute('aria-label', /Мебели: 1/);

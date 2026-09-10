@@ -36,8 +36,18 @@
   cursor: pointer;
 }
 
+/*
+  Ячейка — редактируемое пространство (PROMPT 54 §5).
+
+  До PROMPT 54 она была `fill: none` с пунктирной рамкой: технически
+  кликабельна, визуально — пробел между деталями. Аудит PROMPT 53
+  измерил последствие: человек не догадывался, что внутрь шкафа можно
+  ткнуть. Слабая заливка отличает «пустое место, с которым можно
+  работать» от «пустого места» — и остаётся слабой, чтобы не
+  притворяться деталью.
+*/
 .cell {
-  fill: none;
+  fill: var(--cell-fill);
   stroke: var(--cell-outline);
   stroke-width: 1;
   stroke-dasharray: 6 4;
@@ -45,6 +55,10 @@
   cursor: pointer;
   /* Пустая ячейка должна ловить указатель: иначе выбрать её нельзя. */
   pointer-events: all;
+}
+
+.cell:hover {
+  fill: var(--cell-fill-hover);
 }
 
 .part:focus-visible,
@@ -60,9 +74,28 @@
   stroke-dasharray: none;
 }
 
+/* Выбранная ячейка заливается заметнее: рамки в 3 px мало, когда рядом
+   стоят две такие же (PROMPT 54 §6, пункт «immediate selected-state
+   feedback»). У детали заливка своя — правило её не трогает. */
+.cell.selected {
+  fill: var(--cell-fill-selected);
+}
+
 .hovered {
   stroke: var(--focus-ring, var(--accent-500));
   stroke-width: 2;
+}
+
+/* Имя ячейки на схеме. Указатель проходит насквозь: подпись объясняет
+   пространство, но не перехватывает щелчок по нему. */
+.cellName {
+  fill: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  user-select: none;
 }
 
 .preview,

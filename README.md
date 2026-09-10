@@ -322,6 +322,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/FURNITURE_BUILDING_FRICTION_MAP.md`](docs/FURNITURE_BUILDING_FRICTION_MAP.md) | Где человек застревает: 18 наблюдений с измерениями и классом P0–P4 |
 | [`docs/IDEAL_FURNITURE_BUILDING_JOURNEY.md`](docs/IDEAL_FURNITURE_BUILDING_JOURNEY.md) | Каким путь должен быть: восемь требований и измеримые пороги |
 | [`docs/UX_REBUILD_PRIORITY_MATRIX.md`](docs/UX_REBUILD_PRIORITY_MATRIX.md) | Очередь правок понятности: влияние, цена, риск |
+| [`docs/P0_CELL_SELECTION_IMPLEMENTATION_NOTES.md`](docs/P0_CELL_SELECTION_IMPLEMENTATION_NOTES.md) | Устройство выбора объектов до правки P0 и почему ячейка не бралась в сцене |
+| [`docs/P0_CELL_SELECTION_VERIFICATION.md`](docs/P0_CELL_SELECTION_VERIFICATION.md) | Замеры до и после: 0/9 → 9/9 на четырёх размерах окна |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
 | [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |

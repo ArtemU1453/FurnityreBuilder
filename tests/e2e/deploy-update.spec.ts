@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene } from './open-scene.js';
 import { cp, rm } from 'node:fs/promises';
 
 /**
@@ -34,6 +35,8 @@ test('выкладка новой версии доходит до пользо�
   await deploy(VER_A as string);
 
   await page.goto('./');
+
+  await openScene(page);
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, {
     timeout: 20_000,
   });
@@ -64,6 +67,7 @@ test('выкладка новой версии доходит до пользо�
   // Перезагрузка: страница берётся из сети (навигация — сеть первой),
   // поэтому HTML уже новый, а воркер обнаруживает обновление.
   await page.reload();
+  await openScene(page);
 
   // Приложение предлагает обновиться, а не подменяет код молча.
   // Отдельного ожидания «воркер встал в очередь» здесь нет намеренно:

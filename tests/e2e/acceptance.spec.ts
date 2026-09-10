@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
@@ -13,7 +14,6 @@ import type { Page } from '@playwright/test';
 
 const rail = (page: Page) => page.getByRole('navigation', { name: 'Этапы конструктора' });
 const step = (page: Page, title: string) => rail(page).getByRole('button', { name: title });
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 
 /** Число деталей, как его объявляет сцена для скринридера. */
 async function partCount(page: Page): Promise<number> {
@@ -30,6 +30,7 @@ async function save(page: Page): Promise<void> {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 });
 
 test('FLOW A — первый проект: габариты, секции, полки, сохранение', async ({ page }) => {
@@ -114,6 +115,7 @@ test('FLOW C — сохранение и перезагрузка не меня�
   const before = await partCount(page);
   await save(page);
   await page.reload();
+  await openScene(page);
 
   // Тот же проект: габарит, число деталей и структура на месте.
   await expect(scene(page)).toHaveAttribute('aria-label', /1750/);
@@ -248,6 +250,7 @@ test('FLOW H — помещение: расстановка переживает
 
   await save(page);
   await page.reload();
+  await openScene(page);
   await page.getByRole('radio', { name: 'Помещение' }).click();
   await expect(page.getByLabel('Проёмы помещения').getByRole('listitem')).toHaveCount(1);
 });

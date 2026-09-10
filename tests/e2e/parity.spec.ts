@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
@@ -13,10 +14,10 @@ import type { Page } from '@playwright/test';
 
 const rail = (page: Page) => page.getByRole('navigation', { name: 'Этапы конструктора' });
 const step = (page: Page, title: string) => rail(page).getByRole('button', { name: title });
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 });
 
 test('конвенции габарита доступны и меняют изделие (§14, Д-002)', async ({ page }) => {
@@ -153,6 +154,8 @@ test('проём переживает перезагрузку: он часть 
   await expect(page.getByRole('button', { name: 'Сохранено' })).toBeVisible();
 
   await page.reload();
+
+  await openScene(page);
   await page.getByRole('radio', { name: 'Помещение' }).click();
   await expect(page.getByLabel('Проёмы помещения').getByRole('listitem')).toHaveCount(1);
 });

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene } from './open-scene.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -16,6 +17,7 @@ const canvasOf = (page: Page) =>
 
 test('сцена запускается на WebGL и показывает изделие', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const canvas = canvasOf(page);
   await expect(canvas).toBeVisible();
@@ -36,6 +38,7 @@ test('сцена запускается на WebGL и показывает из�
 
 test('имя сцены для скринридера описывает изделие, а не «холст» (§34)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   const label = await canvasOf(page).getAttribute('aria-label');
   expect(label).toContain('ширина 1000');
   expect(label).toContain('высота 2000');
@@ -44,6 +47,7 @@ test('имя сцены для скринридера описывает изд�
 
 test('щелчок по детали выбирает её и показывает в инспекторе (§19)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const canvas = canvasOf(page);
   const box = (await canvas.boundingBox())!;
@@ -56,6 +60,7 @@ test('щелчок по детали выбирает её и показывае
 
 test('щелчок мимо изделия снимает выделение', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const canvas = canvasOf(page);
   const box = (await canvas.boundingBox())!;
@@ -69,6 +74,7 @@ test('щелчок мимо изделия снимает выделение', a
 
 test('вращение меняет картинку и не меняет выделение (§18)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const canvas = canvasOf(page);
   const box = (await canvas.boundingBox())!;
@@ -95,6 +101,7 @@ test('вращение меняет картинку и не меняет выд
 
 test('колесо меняет масштаб', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const canvas = canvasOf(page);
   const box = (await canvas.boundingBox())!;
@@ -109,6 +116,7 @@ test('колесо меняет масштаб', async ({ page }) => {
 
 test('стандартные виды переключают камеру (§17)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const canvas = canvasOf(page);
   const perspective = await canvas.screenshot();
@@ -126,6 +134,7 @@ test('стандартные виды переключают камеру (§17)
 
 test('перетаскивание ручки меняет ширину одной командой (§22–§24)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await page.getByRole('radio', { name: 'Спереди' }).click();
   await page.waitForTimeout(150);
 
@@ -159,6 +168,7 @@ test('перетаскивание ручки меняет ширину одно
 
 test('Esc отменяет жест ручки до отпускания', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await page.getByRole('radio', { name: 'Спереди' }).click();
   await page.waitForTimeout(150);
 
@@ -180,6 +190,7 @@ test('Esc отменяет жест ручки до отпускания', async
 
 test('сцена захватывает указатель на время жеста (§18)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const captured = await page.evaluate(() => {
     const host = document.querySelector('canvas')?.parentElement;
@@ -211,6 +222,7 @@ test('сцена захватывает указатель на время же�
 
 test('два пальца масштабируют сцену и не выбирают деталь (§33)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const canvas = canvasOf(page);
   const before = await canvas.screenshot();
@@ -250,6 +262,7 @@ test('два пальца масштабируют сцену и не выбир
 
 test('размеры правятся без мыши: сцена не единственный способ управления (§34)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 
   const widthField = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
   await widthField.fill('1450');
@@ -261,6 +274,7 @@ test('размеры правятся без мыши: сцена не един�
 
 test('вид переключается между сценой и плоской схемой', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await expect(canvasOf(page)).toBeVisible();
 
   await page.getByRole('radio', { name: 'Схема' }).click();

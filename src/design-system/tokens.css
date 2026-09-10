@@ -178,6 +178,12 @@
   --part-fill: rgb(47 111 237 / 0.14);
   --part-stroke: var(--border-strong);
   --cell-outline: var(--border-default);
+  /* Ячейка как редактируемое пространство (PROMPT 54 §5): заливка
+     достаточно слабая, чтобы не читаться деталью, и достаточно
+     заметная, чтобы отличить пространство от фона. */
+  --cell-fill: rgb(47 111 237 / 0.05);
+  --cell-fill-hover: rgb(47 111 237 / 0.1);
+  --cell-fill-selected: rgb(47 111 237 / 0.16);
   --dim-line: var(--text-tertiary);
   --dim-text: var(--text-secondary);
   /* Полка (PROMPT 6) — деталь наполнения, а не корпуса: отдельный оттенок
@@ -247,6 +253,9 @@
     --border-strong: var(--n-500);
     --accent-500: #5b93ff;
     --accent-600: #7aa8ff;
+    --cell-fill: rgb(91 147 255 / 0.08);
+    --cell-fill-hover: rgb(91 147 255 / 0.15);
+    --cell-fill-selected: rgb(91 147 255 / 0.24);
     --surface-floating-bg: rgb(20 24 31 / 0.72);
     /* Тона на тёмной поверхности: текст светлее, подложка плотнее.
      Без этого «успех» и «ошибка» оставались тёмными пятнами на
@@ -308,6 +317,9 @@
   --border-strong: var(--n-500);
   --accent-500: #5b93ff;
   --accent-600: #7aa8ff;
+  --cell-fill: rgb(91 147 255 / 0.08);
+  --cell-fill-hover: rgb(91 147 255 / 0.15);
+  --cell-fill-selected: rgb(91 147 255 / 0.24);
   --surface-floating-bg: rgb(20 24 31 / 0.72);
   --scene-bg: #171b22;
   --scene-selection: #5b93ff;

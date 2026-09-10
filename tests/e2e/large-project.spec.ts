@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import type { Page } from '@playwright/test';
 import { applyGrid } from './apply-grid.js';
 
@@ -20,7 +21,6 @@ import { applyGrid } from './apply-grid.js';
  * проверяли бы поведение за границами поддерживаемого, а не продукт.
  */
 
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 const rail = (page: Page) => page.getByRole('navigation', { name: 'Этапы конструктора' });
 const step = (page: Page, title: string) => rail(page).getByRole('button', { name: title });
 
@@ -34,6 +34,7 @@ async function partCount(page: Page): Promise<number> {
 test('крупный проект: расчёт, документы и возврат после перезагрузки', async ({ page }) => {
   test.slow();
   await page.goto('./');
+  await openScene(page);
   await expect(scene(page)).toBeVisible();
 
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('2400');
@@ -81,6 +82,8 @@ test('крупный проект: расчёт, документы и возв�
   await expect(page.getByRole('button', { name: 'Сохранено' })).toBeVisible({ timeout: 30_000 });
 
   await page.reload();
+
+  await openScene(page);
   await expect(scene(page)).toBeVisible({ timeout: 30_000 });
   await expect(scene(page), 'крупный проект вернулся другим').toHaveAttribute(
     'aria-label',

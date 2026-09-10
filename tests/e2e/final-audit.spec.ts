@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -12,7 +13,6 @@ import type { Page } from '@playwright/test';
 
 const rail = (page: Page) => page.getByRole('navigation', { name: 'Этапы конструктора' });
 const step = (page: Page, title: string) => rail(page).getByRole('button', { name: title });
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 
 async function saveCurrent(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
@@ -21,6 +21,7 @@ async function saveCurrent(page: Page): Promise<void> {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
 });
 
 test('поля шага показывают структуру ОТКРЫТОГО проекта, а не единицы пустого (§5)', async ({
@@ -35,6 +36,8 @@ test('поля шага показывают структуру ОТКРЫТОГ
   await saveCurrent(page);
 
   await page.reload();
+
+  await openScene(page);
 
   // Изделие вернулось.
   await expect(scene(page)).toHaveAttribute('aria-label', /Деталей: 7/);
@@ -54,6 +57,8 @@ test('восстановленный проект не объявляется н
   await saveCurrent(page);
 
   await page.reload();
+
+  await openScene(page);
   await expect(scene(page)).toHaveAttribute('aria-label', /1200/);
 
   // На диске лежит ровно то, что на экране. Заявлять «есть несохранённые
@@ -76,6 +81,8 @@ test('ширины секций тоже приезжают вместе с пр
   await saveCurrent(page);
 
   await page.reload();
+
+  await openScene(page);
   await step(page, 'Секции').click();
   await expect(page.getByLabel('Ширины секций, мм')).toHaveValue('500, 700, 500');
 });
@@ -112,7 +119,7 @@ test('поля полок на соседних шагах различимы п
   await expect(
     page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByText('Ячейка не выбрана')).toBeVisible();
+  await expect(page.getByText('Отделение не выбрано')).toBeVisible();
 
   // Подсказка у чернового поля объясняет, почему набранное значение само
   // по себе ничего не меняет.

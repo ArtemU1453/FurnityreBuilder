@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -14,7 +15,6 @@ import type { Page } from '@playwright/test';
  * воркера: без этого проверка офлайна проверяла бы кэш HTTP, а не наш.
  */
 
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 
 /** Дождаться, пока воркер встанет и возьмёт страницу под управление. */
 async function waitForServiceWorker(page: Page): Promise<void> {
@@ -27,6 +27,7 @@ async function waitForServiceWorker(page: Page): Promise<void> {
 
 test('манифест отдаётся и описывает устанавливаемое приложение (§5)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   const href = await page.getAttribute('link[rel="manifest"]', 'href');
   // Адрес сверяется с базой приложения, а не с корнем домена:
   // приложение может быть опубликовано в подкаталоге (PROMPT 37 §2).
@@ -71,6 +72,7 @@ test('манифест отдаётся и описывает устанавли
 
 test('iOS-теги на месте: манифест там не читают (§5)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
     'href',
     `${new URL(page.url()).pathname}apple-touch-icon.png`,
@@ -84,6 +86,7 @@ test('iOS-теги на месте: манифест там не читают (�
 
 test('service worker регистрируется и предзагружает оболочку (§6)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await waitForServiceWorker(page);
 
   const cached = await page.evaluate(async () => {
@@ -109,11 +112,13 @@ test('service worker регистрируется и предзагружает 
 
 test('приложение открывается и работает без сети (§6)', async ({ page, context }) => {
   await page.goto('./');
+  await openScene(page);
   await waitForServiceWorker(page);
   await expect(scene(page)).toBeVisible();
 
   await context.setOffline(true);
   await page.reload();
+  await openScene(page);
 
   // Открылось приложение, а не страница браузера об отсутствии сети.
   await expect(page.getByRole('heading', { name: 'Новый проект' })).toBeVisible();
@@ -134,10 +139,12 @@ test('приложение открывается и работает без с�
 
 test('без сети доступны все разделы, включая производство (§6)', async ({ page, context }) => {
   await page.goto('./');
+  await openScene(page);
   await waitForServiceWorker(page);
 
   await context.setOffline(true);
   await page.reload();
+  await openScene(page);
 
   await page.getByRole('radio', { name: 'Помещение' }).click();
   // Помещения ещё нет — экран объясняет это и предлагает создать. Важно
@@ -156,6 +163,7 @@ test('без сети доступны все разделы, включая п�
 
 test('сохранённый проект переживает перезагрузку без сети (§8)', async ({ page, context }) => {
   await page.goto('./');
+  await openScene(page);
   await waitForServiceWorker(page);
 
   await page.getByRole('spinbutton', { name: 'Глубина', exact: true }).fill('480');
@@ -164,6 +172,7 @@ test('сохранённый проект переживает перезагр�
 
   await context.setOffline(true);
   await page.reload();
+  await openScene(page);
   await expect(scene(page)).toHaveAttribute('aria-label', /480/);
 
   await context.setOffline(false);
@@ -171,6 +180,7 @@ test('сохранённый проект переживает перезагр�
 
 test('обновление приложения не трогает проекты пользователя (§7, §8)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await waitForServiceWorker(page);
 
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1444');
@@ -187,6 +197,8 @@ test('обновление приложения не трогает проект
   expect(removed).toBeGreaterThan(0);
 
   await page.reload();
+
+  await openScene(page);
   // Проекты лежат в IndexedDB, которой кэш приложения не касается.
   await expect(scene(page)).toHaveAttribute('aria-label', /1444/);
 });
@@ -209,6 +221,7 @@ test('экспорт PDF и XLSX работает без сети (§6)', async 
   */
   test.slow();
   await page.goto('./');
+  await openScene(page);
   await waitForServiceWorker(page);
 
   // Догрузка тяжёлых ресурсов идёт после активации: шрифт для PDF и оба
@@ -232,6 +245,7 @@ test('экспорт PDF и XLSX работает без сети (§6)', async 
 
   await context.setOffline(true);
   await page.reload();
+  await openScene(page);
   await page.getByRole('radio', { name: 'Производство' }).click();
 
   for (const format of ['PDF', 'XLSX']) {

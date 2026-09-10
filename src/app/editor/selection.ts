@@ -1,4 +1,5 @@
 import { contentKindOf, contentLabel } from '../../geometry/index.js';
+import { cellName, sectionName } from './cell-identity.js';
 import { formatMm } from '../../domain/index.js';
 import type { Furniture, MaterialLibrary, NodeId, PartId } from '../../domain/index.js';
 import type { GeometryResult } from '../../geometry/index.js';
@@ -116,8 +117,12 @@ export function describeSelection(
         (group) => group.covers.kind === 'node' && group.covers.nodeId === cell.nodeId,
       );
       return {
-        title: 'Ячейка',
-        subtitle: `${cell.nodeId} · секция ${cell.sectionId}`,
+        // Имя, а не UUID (PROMPT 54 §7, §10). Машинный идентификатор
+        // остаётся внутренним: он всё так же адресует команды и
+        // прослеживаемость, но человеку показывается то, чем он это
+        // место называет.
+        title: cellName(cell.nodeId, geometry),
+        subtitle: 'Пространство внутри изделия',
         rows: [
           { label: 'Размер', value: size(cell.box.size.x, cell.box.size.y, cell.box.size.z) },
           { label: 'Положение', value: `X ${formatMm(cell.box.min.x)} · Y ${formatMm(cell.box.min.y)}` },
@@ -143,8 +148,8 @@ export function describeSelection(
       if (section === undefined) return describeSelection({ kind: 'furniture' }, furniture, geometry, materials);
       const cells = geometry.cells.filter((cell) => cell.sectionId === section.nodeId);
       return {
-        title: `Секция ${String(section.index + 1)}`,
-        subtitle: String(section.nodeId),
+        title: sectionName(section.nodeId, geometry),
+        subtitle: 'Часть корпуса между перегородками',
         rows: [
           { label: 'Размер', value: size(section.box.size.x, section.box.size.y, section.box.size.z) },
           { label: 'Положение X', value: `${formatMm(section.box.min.x)} мм` },

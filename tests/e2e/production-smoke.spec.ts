@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene } from './open-scene.js';
 import type { Request, Response } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
@@ -121,6 +122,11 @@ test('опубликованное приложение открывается, 
   ).toBe(true);
 
   // ── 4. Интерфейс на месте ──────────────────────────────────────────
+  // Конструктор открывается схемой (PROMPT 54 §4), поэтому сцена
+  // открывается тем же щелчком, что и у пользователя. `check()`
+  // идемпотентен: на прежней сборке, где сцена уже открыта, он ничего
+  // не меняет — дымовой тест остаётся годным для обеих версий.
+  await openScene(page);
   const scene = page.getByRole('img', { name: /Трёхмерный вид изделия/ });
   await expect(scene, 'сцена изделия не появилась').toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('navigation', { name: 'Этапы конструктора' })).toBeVisible();

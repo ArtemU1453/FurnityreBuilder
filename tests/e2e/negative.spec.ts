@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -10,7 +11,6 @@ import type { Page } from '@playwright/test';
  * к рабочему состоянию можно вернуться.
  */
 
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 const status = (page: Page) => page.getByLabel('Состояние проекта');
 const rail = (page: Page) => page.getByRole('navigation', { name: 'Этапы конструктора' });
 const step = (page: Page, title: string) => rail(page).getByRole('button', { name: title });
@@ -18,6 +18,7 @@ const step = (page: Page, title: string) => rail(page).getByRole('button', { nam
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
+  await openScene(page);
 });
 
 test('нулевая ширина объясняется словами и отменяется', async ({ page }) => {

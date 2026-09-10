@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene } from './open-scene.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -37,6 +38,7 @@ for (const { width, height, name, touch } of WIDTHS) {
 
     test('ни один раздел не уводит страницу вбок', async ({ page }) => {
       await page.goto('./');
+      await openScene(page);
       await expect(page.getByRole('img', { name: /Трёхмерный вид изделия/ })).toBeVisible();
 
       for (const screen of SCREENS) {
@@ -48,6 +50,7 @@ for (const { width, height, name, touch } of WIDTHS) {
 
     test('главное действие доступно и правка доходит до модели', async ({ page }) => {
       await page.goto('./');
+      await openScene(page);
       await expect(page.getByRole('img', { name: /Трёхмерный вид изделия/ })).toBeVisible();
 
       // На телефоне параметры приходят листом — открываем его тем же

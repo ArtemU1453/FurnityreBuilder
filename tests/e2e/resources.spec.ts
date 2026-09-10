@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
@@ -11,7 +12,6 @@ import type { Page } from '@playwright/test';
  * никто не связывает с переключением разделов.
  */
 
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 
 /** Счётчики ресурсов, которые может дать сама страница. */
 async function counters(
@@ -65,6 +65,7 @@ test('переключение разделов не накапливает хо
   await instrument(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
+  await openScene(page);
   await expect(scene(page)).toBeVisible();
 
   const baseline = await counters(page);
@@ -92,6 +93,7 @@ test('переключение разделов не накапливает хо
 test('переключение вида холста не теряет контекст WebGL (§14)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
+  await openScene(page);
 
   const lost = await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
@@ -122,6 +124,7 @@ test('экспорт создаёт ровно один объектный URL �
   await instrument(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
+  await openScene(page);
   await page.getByRole('radio', { name: 'Производство' }).click();
   await page.getByRole('radio', { name: 'Документы', exact: true }).click();
 
@@ -154,6 +157,7 @@ test('экспорт создаёт ровно один объектный URL �
 test('крупный проект остаётся отзывчивым (§18, §44)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
+  await openScene(page);
 
   // 4 секции, сетка 3×3, по 2 полки в ячейке — заметно больше деталей,
   // чем в изделии по умолчанию.
@@ -190,6 +194,7 @@ test('крупный проект остаётся отзывчивым (§18, �
 test('выделение детали не пересчитывает производство (§43)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
+  await openScene(page);
   await page.getByRole('radio', { name: 'Производство' }).click();
   await page.getByRole('radio', { name: 'Детали', exact: true }).click();
 

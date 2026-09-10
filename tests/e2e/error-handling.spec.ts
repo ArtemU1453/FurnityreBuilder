@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 
 /**
  * Управляемые отказы в собранном приложении (PROMPT 45 §14, §18).
@@ -28,9 +28,6 @@ import type { Page } from '@playwright/test';
 */
 test.use({ serviceWorkers: 'block' });
 
-const scene = (page: Page) =>
-  page.getByRole('img', { name: /Трёхмерный вид изделия/ });
-
 test('не доехавший чанк экспорта объясняется словами и даёт перезагрузку (§5, §13)', async ({
   page,
 }) => {
@@ -49,6 +46,8 @@ test('не доехавший чанк экспорта объясняется �
   });
 
   await page.goto('./');
+
+  await openScene(page);
   await page.getByRole('radio', { name: 'Производство' }).click();
   await page.getByRole('button', { name: /PDF/ }).click();
 
@@ -67,6 +66,7 @@ test('не доехавший чанк экспорта объясняется �
 
 test('ошибка вне отрисовки не проходит молча (§11)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await expect(scene(page)).toBeVisible();
 
   /*
@@ -91,6 +91,7 @@ test('ошибка вне отрисовки не проходит молча (�
 
 test('отклонённое обещание замечается так же, как исключение (§11)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await expect(scene(page)).toBeVisible();
 
   await page.evaluate(() => {
@@ -105,6 +106,7 @@ test('отклонённое обещание замечается так же, 
 
 test('сохранённый проект переживает непредвиденную ошибку (§6, §14)', async ({ page }) => {
   await page.goto('./');
+  await openScene(page);
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1777');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Сохранено' })).toBeVisible();
@@ -121,6 +123,8 @@ test('сохранённый проект переживает непредви�
   });
 
   await page.reload();
+
+  await openScene(page);
 
   // Проект вернулся тем же. Код лежит в кэше, данные — в IndexedDB, и
   // ошибка не касается ни того, ни другого.
@@ -160,6 +164,14 @@ test('недоступный WebGL объясняется, а не превра�
 
   await page.goto('./');
 
+  /*
+    Здесь `openScene` не годится: он ждёт холст сцены, а холста в этом
+    сценарии не будет — WebGL отказал, и вместо изделия появится
+    объяснение. Переключатель нажимается напрямую, а ожидание — то, что
+    на самом деле должно появиться.
+  */
+  await page.getByRole('radio', { name: 'Сцена', exact: true }).check();
+
   await expect(page.getByText('Трёхмерный просмотр недоступен')).toBeVisible({ timeout: 20_000 });
 
   // Приложение при этом целое: правка доходит до модели, производство
@@ -173,6 +185,7 @@ test('данные для отчёта собираются локально и 
   page,
 }) => {
   await page.goto('./');
+  await openScene(page);
   // Габарит вводится ДО ошибки: он не должен попасть в отчёт.
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1888');
 

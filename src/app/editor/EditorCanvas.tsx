@@ -43,6 +43,15 @@ export interface EditorCanvasProps {
   readonly selectedParts: readonly PartId[];
   readonly selectedNodes: readonly NodeId[];
   readonly hoveredNode: NodeId | undefined;
+  /**
+   * Человекочитаемые имена ячеек (PROMPT 54 §7).
+   *
+   * Приходят готовыми, а не считаются здесь: холст не знает мебельных
+   * правил и не должен узнать (§30). Подпись прямоугольника ячейки —
+   * то же имя, что показывает инспектор, чтобы выбранное в одном месте
+   * называлось так же в другом.
+   */
+  readonly cellNames: ReadonlyMap<NodeId, string>;
   readonly width: number;
   readonly height: number;
   readonly onSelectPart: (id: PartId) => void;
@@ -190,6 +199,7 @@ export function EditorCanvas(props: EditorCanvasProps): React.JSX.Element {
           if (isPart) props.onSelectPart(rect.id as PartId);
           else props.onSelectNode(rect.id as NodeId);
         };
+        const name = isPart ? undefined : props.cellNames.get(rect.id as NodeId);
         return (
           <Fragment key={rect.id}>
             <rect
@@ -207,7 +217,7 @@ export function EditorCanvas(props: EditorCanvasProps): React.JSX.Element {
               role="button"
               tabIndex={0}
               aria-pressed={selected}
-              aria-label={`${rect.label}, ${formatMm(rect.width)} на ${formatMm(rect.height)} миллиметров`}
+              aria-label={`${props.cellNames.get(rect.id as NodeId) ?? rect.label}, ${formatMm(rect.width)} на ${formatMm(rect.height)} миллиметров`}
               onPointerDown={(event) => {
                 event.stopPropagation();
                 select();
@@ -225,6 +235,22 @@ export function EditorCanvas(props: EditorCanvasProps): React.JSX.Element {
                 }
               }}
             />
+            {/*
+              Имя ячейки прямо на схеме (PROMPT 54 §5): пустое место
+              должно само сообщать, что оно — редактируемое пространство,
+              а не пробел между деталями. Подпись не перехватывает
+              указатель — щелчок по ней достаётся прямоугольнику под ней.
+            */}
+            {name === undefined ? null : (
+              <text
+                className={styles.cellName}
+                x={rect.x + rect.width / 2}
+                y={flipY(rect.y, rect.height) + rect.height / 2}
+                aria-hidden="true"
+              >
+                {name}
+              </text>
+            )}
           </Fragment>
         );
       })}

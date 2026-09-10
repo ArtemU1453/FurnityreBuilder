@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
@@ -19,7 +20,6 @@ const PHONE = { width: 390, height: 844 };
 const PHONE_LANDSCAPE = { width: 844, height: 390 };
 const TABLET = { width: 768, height: 1024 };
 
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 const overflowOf = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
@@ -28,6 +28,7 @@ test.describe('телефон', () => {
 
   test('холст занимает экран, а параметры приходят листом (§4, §7)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
 
     // Панели не лежат стопкой под холстом: пока лист не открыт, их нет.
     await expect(page.getByRole('region', { name: 'Размеры' })).toBeHidden();
@@ -46,6 +47,7 @@ test.describe('телефон', () => {
 
   test('правка в листе сразу меняет изделие (§8)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     await page.getByRole('button', { name: 'Размеры', exact: true }).click();
 
     const width = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
@@ -55,6 +57,7 @@ test.describe('телефон', () => {
 
   test('шаги — текущий и переходы, весь список в листе (§24)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     const bar = page.getByRole('navigation', { name: 'Этапы конструктора' });
     await expect(bar).toContainText('Шаг 1 из 11');
 
@@ -76,6 +79,7 @@ test.describe('телефон', () => {
 
   test('страница не едет вбок ни на одном разделе (§35)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     for (const name of ['Библиотека', 'Помещение', 'Производство', 'Конструктор']) {
       await page.getByRole('radio', { name }).click();
       await page.waitForTimeout(150);
@@ -85,6 +89,7 @@ test.describe('телефон', () => {
 
   test('цели для пальца не меньше 40 px (§11)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     const small = await page.evaluate(() => {
       const out: string[] = [];
       for (const el of document.querySelectorAll('button, a[href], input, select')) {
@@ -102,15 +107,29 @@ test.describe('телефон', () => {
 
   test('касание выбирает деталь и открывает её лист (§18)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     const box = (await scene(page).boundingBox())!;
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
 
-    await page.getByRole('button', { name: 'Объект' }).click();
+    /*
+      Лист открывается САМ (PROMPT 54 §18 C, E).
+
+      До PROMPT 54 его открывала отдельная кнопка «Объект», и касание
+      детали не меняло на экране ничего: тот же дефект «выбрал — и
+      непонятно, выбрал ли», который аудит PROMPT 53 измерил в сцене.
+      Утверждение здесь стало строже, а не мягче: раньше проверялось,
+      что лист откроется по кнопке, теперь — что он открылся от самого
+      касания.
+    */
     await expect(page.getByRole('dialog', { name: 'Выбранный объект' })).toBeVisible();
+
+    // Кнопка «Объект» остаётся: лист можно закрыть и открыть снова.
+    await expect(page.getByRole('button', { name: 'Объект' })).toBeAttached();
   });
 
   test('жест на сцене отменяется, а не залипает (§12)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     const before = await scene(page).getAttribute('aria-label');
     const box = (await scene(page).boundingBox())!;
 
@@ -142,6 +161,7 @@ test.describe('телефон', () => {
 
   test('весь путь до производства проходится пальцем (§48)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
 
     // Размеры.
     await page.getByRole('button', { name: 'Размеры', exact: true }).click();
@@ -182,6 +202,7 @@ test.describe('телефон', () => {
 
     // Перезагрузка: работа на месте.
     await page.reload();
+    await openScene(page);
     await page.getByRole('radio', { name: 'Конструктор' }).click();
     await page.getByRole('button', { name: 'Размеры', exact: true }).click();
     await expect(page.getByRole('spinbutton', { name: 'Ширина', exact: true })).toHaveValue('1600');
@@ -189,6 +210,7 @@ test.describe('телефон', () => {
 
   test('уточнения на производстве свёрнуты, ошибки — нет (§31, §33)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     await page.getByRole('radio', { name: 'Производство' }).click();
     const disclosure = page.getByText(/Требуется уточнение: \d+/).first();
     await expect(disclosure).toBeVisible();
@@ -199,6 +221,7 @@ test.describe('телефон', () => {
 
   test('помещение: холст, мебель и свойства листами (§28)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Сохранено' })).toBeVisible();
 
@@ -223,6 +246,7 @@ test.describe('крупный проект', () => {
 
   test('много секций, рядов и полок остаются управляемыми (§41)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
 
     // 4 секции × сетка 3×3 с полками — заметно больше деталей, чем в
     // изделии по умолчанию. Смысл проверки не в числе, а в том, что при
@@ -286,6 +310,7 @@ test.describe('поворот экрана', () => {
 
   test('поворот не теряет ни работу, ни размеры (§42)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     await page.getByRole('button', { name: 'Размеры', exact: true }).click();
     await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1700');
     await expect(scene(page)).toHaveAttribute('aria-label', /1700/);
@@ -310,6 +335,7 @@ test.describe('планшет', () => {
 
   test('колонка параметров остаётся, листов нет (§3)', async ({ page }) => {
     await page.goto('./');
+    await openScene(page);
     // На планшете панель шага видна сразу, без нажатия.
     await expect(page.getByRole('region', { name: 'Размеры' })).toBeVisible();
     // И это полная лестница шагов, а не полоса с одним шагом.
@@ -340,6 +366,7 @@ for (const width of [375, 390, 430]) {
       page,
     }) => {
       await page.goto('./');
+      await openScene(page);
 
       // Раскладка телефона, а не десктопная в узком окне.
       await expect(page.getByRole('navigation', { name: 'Этапы конструктора' })).toContainText(

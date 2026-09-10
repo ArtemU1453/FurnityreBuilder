@@ -61,7 +61,9 @@ test('десктоп: навигация вверху, инспектор ряд
   expect(nav.y).toBeLessThan(200);
 
   // Три колонки: параметры, холст, инспектор — инспектор правее холста.
-  const canvas = (await page.getByRole('img', { name: /Трёхмерный вид/ }).boundingBox())!;
+  // Холст по умолчанию — схема (PROMPT 54 §4); проверяется РАСКЛАДКА,
+  // а не то, какой из двух видов в средней колонке открыт.
+  const canvas = (await page.getByRole('application', { name: /Схема изделия/ }).boundingBox())!;
   const inspector = (await page.getByLabel('Свойства объекта').boundingBox())!;
   expect(inspector.x).toBeGreaterThan(canvas.x);
 });

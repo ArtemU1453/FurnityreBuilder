@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
@@ -15,7 +16,6 @@ import type { Page } from '@playwright/test';
  * тридцать два раза одно начало и ни разу — переходы.
  */
 
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 const rail = (page: Page) => page.getByRole('navigation', { name: 'Этапы конструктора' });
 const step = (page: Page, title: string) => rail(page).getByRole('button', { name: title });
 const section = (page: Page, title: string) =>
@@ -27,6 +27,7 @@ test('весь путь: проект → конструктор → помещ�
 
   // 1. Новый проект.
   await page.goto('./');
+  await openScene(page);
   await expect(page.getByRole('heading', { name: 'Новый проект' })).toBeVisible();
   await expect(scene(page)).toBeVisible();
 
@@ -112,6 +113,7 @@ test('весь путь: проект → конструктор → помещ�
 
   // 12. Перезагрузка: работа на месте.
   await page.reload();
+  await openScene(page);
   await expect(scene(page)).toHaveAttribute('aria-label', /1800/);
   expect(await scene(page).getAttribute('aria-label')).toBe(beforeReload);
 
@@ -192,6 +194,8 @@ test('весь путь: проект → конструктор → помещ�
   const summaryBefore = await page.getByLabel('Результат расчёта').textContent();
 
   await page.reload();
+
+  await openScene(page);
   await expect(scene(page)).toHaveAttribute('aria-label', /1800/);
   // Тот же проект — тот же расчёт: перезагрузка ничего не пересчитала иначе.
   expect(await page.getByLabel('Результат расчёта').textContent()).toBe(summaryBefore);

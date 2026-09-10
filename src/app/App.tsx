@@ -44,6 +44,7 @@ import { describeLoadFailure } from './load-failure.js';
 import { useGlobalErrors } from './use-global-errors.js';
 import { DiagnosticsDialog } from './DiagnosticsDialog.js';
 import { describeGridReplacement, gridReplacementLoss, losesWork } from './editor/grid-replacement.js';
+import { cellName, cellNames } from './editor/cell-identity.js';
 import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
@@ -435,6 +436,20 @@ export function App(): React.JSX.Element {
    * спецификацию она не попадает. Поэтому здесь берётся `CellBox` из
    * результата расчёта, а не деталь из `parts`.
    */
+  /*
+    Имена ячеек (PROMPT 54 §7). Считаются от результата геометрии, а не
+    хранятся: имя — такая же производная величина, как деталировка.
+    Один раз на пересчёт, а не на каждый прямоугольник схемы.
+  */
+  const namesOfCells = useMemo(
+    () => (geometry === undefined ? new Map<NodeId, string>() : cellNames(geometry)),
+    [geometry],
+  );
+  const cellNameOf = useCallback(
+    (id: NodeId): string => (geometry === undefined ? 'Ячейка' : cellName(id, geometry)),
+    [geometry],
+  );
+
   const selectedCell =
     selectedCellId === '' || geometry === undefined
       ? undefined
@@ -542,7 +557,37 @@ export function App(): React.JSX.Element {
    * Состояние интерфейса: в проект не сохраняется и по Ctrl+Z не
    * отменяется, как и выделение (PROMPT 22 §5, PROMPT 23 §36).
    */
-  const [canvasMode, setCanvasMode] = useState<'3d' | '2d'>('3d');
+  /*
+    Основной вид построения — схема (PROMPT 54 §4).
+
+    До PROMPT 54 приложение открывалось в трёхмерной сцене. Аудит
+    PROMPT 53 измерил, чем это кончается: девять щелчков по изделию в
+    сцене дали пять раз заднюю стенку, четыре раза изделие целиком и НИ
+    РАЗУ ячейку, — потому что ячейка невидима, а `pick()` по умолчанию не
+    пускает невидимые объёмы в выбор (`src/scene/raycast.ts`). На схеме
+    та же ячейка — настоящая кнопка, и выбор срабатывает всегда.
+
+    Критерий выбора вида по умолчанию — не красота, а измеренная
+    надёжность: 3 из 3 против 0 из 9. Сцена никуда не делась и остаётся
+    в одном щелчке: она лучше показывает изделие, а схема — лучше
+    позволяет его строить.
+  */
+  const [canvasMode, setCanvasMode] = useState<'3d' | '2d'>('2d');
+
+  /*
+    Как именно выбрать ячейку — словами, которые соответствуют
+    действительности (PROMPT 54 §9, §12).
+
+    До PROMPT 54 все три пустых состояния говорили «выберите ячейку на
+    холсте или в сцене». В сцене это невозможно: невидимый объём не
+    участвует в выборе. Инструкция обязана совпадать с тем, что можно
+    сделать, поэтому текст зависит от открытого вида, а не от надежды.
+  */
+  const pickCellHint =
+    canvasMode === '2d'
+      ? 'Щёлкните любое отделение на схеме — оно подписано и подсвечивается при наведении.'
+      : 'Отделения выбираются на схеме: в трёхмерной сцене щелчок попадает в деталь, а не в пространство между деталями.';
+
 
   // ── Планировщик помещения (PROMPT 24) ─────────────────────────────────────
 
@@ -854,6 +899,24 @@ export function App(): React.JSX.Element {
   const [productionSection, setProductionSection] = useState<ProductionSectionId>(FIRST_SECTION);
 
   const [sheet, setSheet] = useState<'params' | 'object' | 'steps' | null>(null);
+
+  /*
+    На телефоне выбранное показывается листом (PROMPT 54 §18 C, E).
+
+    На широком экране инспектор стоит справа от холста и появляется сам:
+    щёлкнул отделение — увидел, что выбрано и что можно сделать. На
+    телефоне того же места нет, и инспектор живёт листом, который до
+    PROMPT 54 открывался ОТДЕЛЬНОЙ кнопкой «Объект». Получалось, что
+    касание отделения не меняло на экране ничего — тот же P0, что и в
+    сцене, только на другом размере окна.
+
+    Лист немодальный: изделие остаётся видно, и следующее отделение
+    можно выбрать, не закрывая лист.
+  */
+  const revealSelection = useCallback(() => {
+    if (usesSheets(layout)) setSheet('object');
+  }, [layout]);
+
   const closeSheet = (): void => {
     setSheet(null);
   };
@@ -2144,11 +2207,29 @@ export function App(): React.JSX.Element {
               {selectedCell === undefined ? (
                 <EmptyState
                   compact
-                  title="Ячейка не выбрана"
-                  description="Выберите ячейку на холсте или в сцене — здесь появятся её номер, размеры и наполнение."
+                  title="Отделение не выбрано"
+                  description={`${pickCellHint} Здесь появятся его имя, размеры и наполнение.`}
+                  action={
+                    canvasMode === '2d' ? undefined : (
+                      <Button
+                        onClick={() => {
+                          setCanvasMode('2d');
+                        }}
+                      >
+                        Открыть схему
+                      </Button>
+                    )
+                  }
                 />
               ) : (
                 <dl className={styles.stats}>
+                  {/* Что выбрано — первой строкой и по имени (PROMPT 54 §7):
+                      размер сам по себе не отличает одно отделение от
+                      соседнего такого же. */}
+                  <div className={styles.stat}>
+                    <dt className={styles.statLabel}>Выбрано</dt>
+                    <dd className={styles.statValue}>{cellNameOf(selectedCell.nodeId)}</dd>
+                  </div>
                   <div className={styles.stat}>
                     <dt className={styles.statLabel}>Размер</dt>
                     <dd className={styles.statValue}>
@@ -2173,8 +2254,8 @@ export function App(): React.JSX.Element {
               {selectedCell === undefined ? (
                 <EmptyState
                   compact
-                  title="Ячейка не выбрана"
-                  description="Полки принадлежат ячейке. Выберите ячейку на холсте или в сцене."
+                  title="Отделение не выбрано"
+                  description={`Полки принадлежат отделению. ${pickCellHint}`}
                   action={
                     <Button
                       onClick={() => {
@@ -2218,8 +2299,8 @@ export function App(): React.JSX.Element {
               {selectedCell === undefined ? (
                 <EmptyState
                   compact
-                  title="Ячейка не выбрана"
-                  description="Выберите ячейку на холсте или в сцене, чтобы задать её наполнение."
+                  title="Отделение не выбрано"
+                  description={`${pickCellHint} После выбора здесь появится, что в него можно поставить.`}
                 />
               ) : (
                 <>
@@ -2277,7 +2358,9 @@ export function App(): React.JSX.Element {
                       const drawers = drawerCount === 0 ? '' : ` — ящиков: ${String(drawerCount)}`;
                       return {
                         value: cell.nodeId,
-                        label: `${cell.nodeId} (${formatMm(cell.box.size.x)} × ${formatMm(cell.box.size.y)})${door}${drawers}`,
+                        // Имя, а не UUID (PROMPT 54 §10). Идентификатор
+                        // остаётся значением: он и адресует команду.
+                        label: `${cellNameOf(cell.nodeId)} · ${formatMm(cell.box.size.x)} × ${formatMm(cell.box.size.y)} мм${door}${drawers}`,
                       };
                     }),
                   ]}
@@ -2991,9 +3074,11 @@ export function App(): React.JSX.Element {
                 limits={{ min: 100, max: 6000 }}
                 onSelectPart={(id) => {
                   selectParts([id]);
+                  revealSelection();
                 }}
                 onSelectNode={(id) => {
                   selectNodes([id]);
+                  revealSelection();
                 }}
                 onClearSelection={clearSelection}
                 onResizeCommit={runGizmoResize}
@@ -3009,14 +3094,17 @@ export function App(): React.JSX.Element {
                 selectedParts={selectedParts}
                 selectedNodes={selectedNodes}
                 hoveredNode={hoveredNode}
+                cellNames={namesOfCells}
                 width={furniture.dimensions.width}
                 height={furniture.dimensions.height}
                 limits={{ min: 100, max: 6000 }}
                 onSelectPart={(id) => {
                   selectParts([id]);
+                  revealSelection();
                 }}
                 onSelectNode={(id) => {
                   selectNodes([id]);
+                  revealSelection();
                 }}
                 onHoverNode={setHovered}
                 onClearSelection={clearSelection}

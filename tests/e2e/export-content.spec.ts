@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openScene, scene } from './open-scene.js';
 import type { Page } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import { PDFDocument } from 'pdf-lib';
@@ -27,7 +28,6 @@ import { PDFDocument } from 'pdf-lib';
  * сверяется файл.
  */
 
-const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 
 /** Число деталей, как его объявляет сцена для скринридера. */
 async function scenePartCount(page: Page): Promise<number> {
@@ -44,6 +44,7 @@ const DEPTH = 540;
 
 async function buildProject(page: Page): Promise<void> {
   await page.goto('./');
+  await openScene(page);
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill(String(WIDTH));
   await page.getByRole('spinbutton', { name: 'Высота', exact: true }).fill(String(HEIGHT));
   await page.getByRole('spinbutton', { name: 'Глубина', exact: true }).fill(String(DEPTH));
