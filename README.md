@@ -309,6 +309,7 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) | Версии, теги, выпуск и откат по номеру версии |
 | [`docs/RELEASE_VERSIONING_REPORT.md`](docs/RELEASE_VERSIONING_REPORT.md) | Состояние системы выпусков: что проверено и что нет |
 | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Что проверить перед выкладкой |
+| [`docs/FINAL_RELEASE_REPORT.md`](docs/FINAL_RELEASE_REPORT.md) | Итог финальной проверки выпуска на конкретном коммите |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
 | [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |
