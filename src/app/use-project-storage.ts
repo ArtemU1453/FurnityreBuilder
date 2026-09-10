@@ -39,7 +39,18 @@ import { sharedRepository } from './repository.js';
  * избежать.
  */
 
-export type StorageStatus = 'saved' | 'unsaved' | 'saving' | 'error';
+/**
+ * Состояние записи проекта.
+ *
+ * `new` — проект ещё ни разу не сохраняли И в нём ничего не меняли. Это
+ * НЕ то же самое, что `unsaved`, и различие не косметическое: «есть
+ * несохранённые изменения» — утверждение о работе, которую можно
+ * потерять. Сказанное человеку, который только что открыл приложение и
+ * ничего не трогал, оно ложно, а предупреждение, срабатывающее всегда,
+ * перестают читать — и не прочитают в тот раз, когда терять
+ * действительно есть что.
+ */
+export type StorageStatus = 'new' | 'saved' | 'unsaved' | 'saving' | 'error';
 
 export interface ProjectStorage {
   readonly status: StorageStatus;
@@ -72,10 +83,16 @@ export interface ProjectStorageOptions {
 }
 
 export function useProjectStorage(project: Project, options: ProjectStorageOptions): ProjectStorage {
-  const [status, setStatus] = useState<StorageStatus>('unsaved');
+  const [status, setStatus] = useState<StorageStatus>('new');
   const [message, setMessage] = useState('Проект не сохранён');
   const [ephemeral, setEphemeral] = useState(false);
   const savedRef = useRef<Project | undefined>(undefined);
+  /*
+    Проект, с которого начали. Состояние иммутабельно, поэтому равенство
+    по ссылке отвечает точно: пока `project` — тот же объект, ни одна
+    команда не выполнялась и менять было нечего.
+  */
+  const initialRef = useRef(project);
 
   // Колбэк держится в ссылке: иначе `save` пересоздавалась бы на каждый
   // рендер приложения и тянула бы за собой все зависящие от неё эффекты.
@@ -86,6 +103,13 @@ export function useProjectStorage(project: Project, options: ProjectStorageOptio
   // ссылке возможно именно потому, что состояние иммутабельно.
   useEffect(() => {
     if (savedRef.current === project) return;
+    // Ни одной записи не было и ни одной правки тоже — проект просто
+    // новый. Об изменениях говорить не о чем, и говорить их нельзя.
+    if (savedRef.current === undefined && project === initialRef.current) {
+      setStatus((current) => (current === 'saving' ? current : 'new'));
+      setMessage('Проект не сохранён');
+      return;
+    }
     setStatus((current) => (current === 'saving' ? current : 'unsaved'));
     setMessage('Есть несохранённые изменения');
   }, [project]);

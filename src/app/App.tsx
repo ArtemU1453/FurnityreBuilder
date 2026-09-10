@@ -14,6 +14,7 @@ import {
 } from '../domain/furniture/defaults.js';
 import {
   DEFAULT_EDGE,
+  DIMENSION_LABELS,
   NO_EDGE,
   asId,
   createRandomIdFactory,
@@ -52,6 +53,7 @@ import { draftsOf } from './editor/drafts.js';
 import { FILL_HINTS, FILL_LABELS, FILL_OPTIONS, UI_FILL_KINDS } from './editor/fill-vocabulary.js';
 import { registerServiceWorker } from './service-worker.js';
 import { useUndoShortcuts } from './use-undo-shortcuts.js';
+import { dedupeIssues } from './status.js';
 import type { UpdateState } from './service-worker.js';
 import type { InspectorAction } from './editor/selection.js';
 import type { GizmoTarget } from '../scene/index.js';
@@ -123,10 +125,19 @@ import styles from './App.module.css';
  */
 
 
+/*
+  Подписи полей габарита берутся из домена, а не объявляются здесь.
+
+  Их и так было два набора: этот и тот, которым валидация подписывала
+  ошибки, — и второй был на английском («Габарит «width»…»). Один
+  источник закрывает и расхождение подписей, и расхождение языков.
+  Поле толщины подписано короче: в столбце рядом с тремя габаритами
+  «Толщина плиты» не помещается, а спутать её там не с чем.
+*/
 const AXES = [
-  { key: 'width', label: 'Ширина' },
-  { key: 'height', label: 'Высота' },
-  { key: 'depth', label: 'Глубина' },
+  { key: 'width', label: DIMENSION_LABELS.width },
+  { key: 'height', label: DIMENSION_LABELS.height },
+  { key: 'depth', label: DIMENSION_LABELS.depth },
   { key: 'panelThickness', label: 'Толщина' },
 ] as const;
 
@@ -1022,8 +1033,15 @@ export function App(): React.JSX.Element {
   // доступное пространство») оставляла схему пустой БЕЗ объяснения. Это
   // прямо противоречит принципу «ошибка объясняется текстом», ради которого
   // существует эта панель.
+  //
+  // Склейка проходит через `dedupeIssues`: движок и валидация проверяют
+  // одно и то же каждый за себя, и одна и та же фраза приходила
+  // пользователю дважды подряд (PROMPT 38, дефект П-005).
   const problems = useMemo(
-    () => (geometry === undefined ? report.issues : [...geometry.diagnostics, ...report.issues]),
+    () =>
+      dedupeIssues(
+        geometry === undefined ? report.issues : [...geometry.diagnostics, ...report.issues],
+      ),
     [geometry, report],
   );
   // `import.meta.env.DEV` внутри useMemo, а не только вокруг <DebugSchema/>:

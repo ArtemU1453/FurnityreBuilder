@@ -372,7 +372,14 @@ function confirmations(
       {items.map((item) => (
         <li key={item.id} className={styles.confirmation}>
           <span className={styles.rule}>{item.rule}</span>
-          <span className={styles.detail}>Применяется: {item.source}</span>
+          {/*
+            Ссылка на место в коде — для того, кто будет уточнять правило,
+            а не для мебельщика. Подпись это и говорит: «Применяется:
+            src/hardware/rules/hinge» читалось так, будто пользователю
+            полагается понимать, что это. Информация полезная и остаётся,
+            но названа тем, что она есть.
+          */}
+          <span className={styles.detail}>Правило в коде: {item.source}</span>
           <span className={styles.detail}>Влияние: {item.impact}</span>
           <span className={styles.detail}>Идентификатор: {item.id}</span>
         </li>

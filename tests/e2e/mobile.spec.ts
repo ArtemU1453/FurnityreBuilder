@@ -193,7 +193,7 @@ test.describe('телефон', () => {
     await expect(disclosure).toBeVisible();
     // Содержимое приходит по требованию, а не занимает экран заранее.
     await disclosure.click();
-    await expect(page.getByText(/Применяется:/).first()).toBeVisible();
+    await expect(page.getByText(/Правило в коде:/).first()).toBeVisible();
   });
 
   test('помещение: холст, мебель и свойства листами (§28)', async ({ page }) => {

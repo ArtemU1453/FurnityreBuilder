@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateProject } from '../../../src/validation/engine.js';
 import { createProject } from '../../../src/domain/project/factory.js';
 import { asId, createSequentialIdFactory } from '../../../src/domain/ids.js';
+import { DIMENSION_LABELS } from '../../../src/domain/index.js';
 import type { Project } from '../../../src/domain/index.js';
 
 const base = (): Project =>
@@ -185,5 +186,64 @@ describe('валидация: структура дерева', () => {
       ],
     };
     expect(codes(nested)).toContain('NESTED_SPLIT_SAME_AXIS');
+  });
+});
+
+describe('сообщения написаны на языке пользователя (PROMPT 38, дефект П-004)', () => {
+  /*
+    Ошибка валидации — это текст, который увидит мебельщик. Он читал
+    «Габарит «width» должен быть больше нуля», заполняя поле с подписью
+    «Ширина»: внутреннее имя ключа, английское, в русской фразе, про
+    поле, которое так нигде и не называется.
+
+    Проверяется правило, а не конкретная формулировка: в сообщении не
+    должно быть ключей модели. Иначе следующее сообщение напишут так же.
+    */
+  const KEYS = ['width', 'height', 'depth', 'panelThickness'];
+
+  const messagesOf = (project: Project): string[] =>
+    validateProject(project).issues.map((i) => i.message);
+
+  const withDimensions = (value: number): Project => {
+    const project = base();
+    const first = project.furniture[0]!;
+    return {
+      ...project,
+      furniture: [
+        {
+          ...first,
+          dimensions: { ...first.dimensions, width: value, height: value, depth: value },
+        },
+      ],
+    };
+  };
+
+  it('нулевой габарит: сообщение без ключей модели', () => {
+    for (const message of messagesOf(withDimensions(0))) {
+      for (const key of KEYS) {
+        expect(message, `ключ «${key}» в тексте: ${message}`).not.toContain(`«${key}»`);
+      }
+    }
+  });
+
+  it('нулевой габарит: сообщение называет поле так же, как интерфейс', () => {
+    const messages = messagesOf(withDimensions(0));
+    expect(messages.some((m) => m.includes(DIMENSION_LABELS.width))).toBe(true);
+    expect(messages.some((m) => m.includes(DIMENSION_LABELS.height))).toBe(true);
+  });
+
+  it('выход за диапазон: тоже подпись, а не ключ', () => {
+    const messages = messagesOf(withDimensions(9000));
+    const range = messages.filter((m) => m.includes('диапазон'));
+    expect(range.length).toBeGreaterThan(0);
+    for (const message of range) {
+      for (const key of KEYS) expect(message).not.toContain(`«${key}»`);
+    }
+  });
+
+  it('словарь подписей покрывает все габариты', () => {
+    for (const key of KEYS) {
+      expect(DIMENSION_LABELS[key as keyof typeof DIMENSION_LABELS]).toBeTruthy();
+    }
   });
 });

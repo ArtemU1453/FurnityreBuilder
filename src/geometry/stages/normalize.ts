@@ -1,4 +1,4 @@
-import { DIMENSION_LIMITS, gtMm, isFiniteMm, lteMm } from '../../domain/index.js';
+import { DIMENSION_LABELS, DIMENSION_LIMITS, gtMm, isFiniteMm, lteMm } from '../../domain/index.js';
 import type { GeometryContext, GeometryStage } from '../context.js';
 
 /**
@@ -20,17 +20,19 @@ export const normalizeStage: GeometryStage = {
     ] as const;
 
     for (const [name, value] of entries) {
+      // Подпись поля, а не имя ключа (PROMPT 38, дефект П-004).
+      const label = DIMENSION_LABELS[name];
       if (!isFiniteMm(value)) {
         ctx.report(
           'DIMENSION_NOT_FINITE',
           'error',
-          `Габарит «${name}» не является числом.`,
+          `«${label}»: значение не является числом.`,
           { path: `dimensions.${name}` },
         );
         continue;
       }
       if (lteMm(value, 0)) {
-        ctx.report('DIMENSION_NOT_POSITIVE', 'error', `Габарит «${name}» должен быть больше нуля.`, {
+        ctx.report('DIMENSION_NOT_POSITIVE', 'error', `«${label}»: значение должно быть больше нуля.`, {
           path: `dimensions.${name}`,
         });
       }
@@ -64,11 +66,12 @@ export const normalizeStage: GeometryStage = {
 
     for (const [name, value, limit] of soft) {
       if (!isFiniteMm(value)) continue;
+      const label = DIMENSION_LABELS[name];
       if (value < limit.min || value > limit.max) {
         ctx.report(
           'DIMENSION_OUT_OF_RECOMMENDED_RANGE',
           'warning',
-          `Габарит «${name}» вне рекомендуемого диапазона ${String(limit.min)}–${String(limit.max)} мм.`,
+          `«${label}»: значение вне рекомендуемого диапазона ${String(limit.min)}–${String(limit.max)} мм.`,
           { path: `dimensions.${name}` },
         );
       }

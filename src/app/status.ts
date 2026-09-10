@@ -125,6 +125,15 @@ export const PROJECT_STATUS: Readonly<Record<ProjectStatus, StatusView>> = {
  * замечать и в тот раз, когда сохранения не произошло.
  */
 export const STORAGE_STATUS: Readonly<Record<StorageStatus, StatusView>> = {
+  // Нейтрально и без слова «изменения»: менять ещё нечего. Предупреждать
+  // человека, который ничего не сделал, не о чем — а ложная тревога на
+  // первом же экране обесценивает настоящую.
+  new: {
+    label: 'Проект не сохранён',
+    short: 'Не сохранён',
+    tone: 'neutral',
+    hint: 'Новый проект живёт в этой вкладке, пока вы не нажмёте «Сохранить».',
+  },
   saved: { label: 'Сохранено', short: 'Сохранено', tone: 'neutral' },
   unsaved: {
     label: 'Есть несохранённые изменения',
@@ -174,6 +183,39 @@ export const SEVERITY_LABEL: Readonly<Record<Severity, string>> = {
   warning: 'Предупреждение',
   info: 'Сообщение',
 };
+
+/**
+ * Одна проблема — одна строка (PROMPT 38, дефект П-005).
+ *
+ * Список проблем склеивается из диагностики движка и отчёта валидации, а
+ * оба слоя проверяют одно и то же — каждый за себя. Разделение верное:
+ * движок обязан защищать свой вход независимо от того, вызвали ли перед
+ * ним валидацию. Но пользователю от этого доставалось одно и то же
+ * предложение дважды подряд, и он читал вторую строку как второй дефект.
+ *
+ * Схлопывается по тому, ЧТО ВИДНО: уровень плюс текст. Повторить
+ * человеку ту же фразу — не сообщить ничего нового, каким бы кодом она
+ * ни была порождена.
+ *
+ * Остаётся ПЕРВОЕ вхождение, и это не безразлично: первым идёт
+ * диагностика движка, а её путь (`dimensions.width`) привязывается к
+ * шагу конструктора. У пары из валидации путь другой
+ * (`furniture.0.dimensions.width`) и к шагу не привязывается — оставь мы
+ * её, переход «к проблеме» перестал бы работать.
+ */
+export function dedupeIssues<T extends { readonly severity: Severity; readonly message: string }>(
+  issues: readonly T[],
+): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const issue of issues) {
+    const key = `${issue.severity}\u0000${issue.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(issue);
+  }
+  return out;
+}
 
 /** Сводка по списку проблем: то, что показывает строка состояния. */
 export function summarizeIssues(issues: readonly { readonly severity: Severity }[]): StatusView {

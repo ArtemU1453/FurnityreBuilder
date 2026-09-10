@@ -1,5 +1,5 @@
 import type { Issue, Project } from '../../domain/index.js';
-import { DIMENSION_LIMITS, isFiniteMm, issue, lteMm } from '../../domain/index.js';
+import { DIMENSION_LABELS, DIMENSION_LIMITS, isFiniteMm, issue, lteMm } from '../../domain/index.js';
 import type { ValidationRule } from '../types.js';
 
 /** Высота цоколя, участвующая в вертикальном бюджете (PROMPT 15 §6). */
@@ -31,22 +31,25 @@ export const valuesRule: ValidationRule = {
 
       for (const [name, value, limit] of dims) {
         const path = `furniture.${String(fi)}.dimensions.${name}`;
+        // Человеку — подпись поля, а не имя ключа: «width» он нигде в
+        // приложении не видел (PROMPT 38, дефект П-004).
+        const label = DIMENSION_LABELS[name];
 
         if (typeof value !== 'number' || Number.isNaN(value)) {
           issues.push(
-            issue('VALUE_NAN', 'error', `Габарит «${name}» не является числом.`, { path }),
+            issue('VALUE_NAN', 'error', `«${label}»: значение не является числом.`, { path }),
           );
           continue;
         }
         if (!Number.isFinite(value)) {
           issues.push(
-            issue('VALUE_NOT_FINITE', 'error', `Габарит «${name}» бесконечен.`, { path }),
+            issue('VALUE_NOT_FINITE', 'error', `«${label}»: значение бесконечно.`, { path }),
           );
           continue;
         }
         if (lteMm(value, 0)) {
           issues.push(
-            issue('VALUE_NOT_POSITIVE', 'error', `Габарит «${name}» должен быть больше нуля.`, {
+            issue('VALUE_NOT_POSITIVE', 'error', `«${label}»: значение должно быть больше нуля.`, {
               path,
             }),
           );
@@ -59,7 +62,7 @@ export const valuesRule: ValidationRule = {
             issue(
               'VALUE_OUT_OF_RECOMMENDED_RANGE',
               'warning',
-              `Габарит «${name}» = ${String(value)} мм вне рекомендуемого диапазона ${String(limit.min)}–${String(limit.max)} мм.`,
+              `«${label}»: ${String(value)} мм вне рекомендуемого диапазона ${String(limit.min)}–${String(limit.max)} мм.`,
               { path },
             ),
           );

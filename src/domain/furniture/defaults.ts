@@ -76,6 +76,23 @@ export const DIMENSION_LIMITS = {
   panelThickness: { min: 8, max: 40 },
 } as const;
 
+/**
+ * Как габарит называется для человека (PROMPT 38, дефект П-004).
+ *
+ * Живёт в домене, потому что нужен и чистым слоям, и интерфейсу.
+ * Валидация и движок геометрии сообщали об ошибке словами «Габарит
+ * «width» должен быть больше нуля» — внутренним английским именем поля,
+ * в русском тексте, тому самому человеку, который на соседнем экране
+ * заполняет поле с подписью «Ширина». Второго словаря заводить не
+ * станем: этот — единственный.
+ */
+export const DIMENSION_LABELS: Readonly<Record<keyof typeof DIMENSION_LIMITS, string>> = {
+  width: 'Ширина',
+  height: 'Высота',
+  depth: 'Глубина',
+  panelThickness: 'Толщина плиты',
+};
+
 export const DEFAULT_DIMENSIONS: Dimensions = {
   width: 1000,
   height: 2000,

@@ -448,10 +448,15 @@ test('проект сохраняется и восстанавливается 
 
   // Состояние сохранения живёт в верхней строке рядом с именем проекта
   // (PROMPT 26 §6): один ответ на вопрос в одном месте, а не в двух.
-  const saveState = page.getByRole('status').filter({ hasText: /Сохран|несохранённ/ });
-  await expect(saveState).toContainText('Есть несохранённые изменения');
+  const saveState = page.getByRole('status').filter({ hasText: /сохран/i });
+  // Только что открытое приложение НЕ заявляет об изменениях: менять
+  // ещё нечего, а ложная тревога на первом экране обесценивает
+  // настоящую (PROMPT 38, дефект П-002).
+  await expect(saveState).toContainText('Проект не сохранён');
 
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1234');
+  // А вот теперь изменения действительно есть, и об этом сказано.
+  await expect(saveState).toContainText('Есть несохранённые изменения');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(saveState).toContainText('Сохранено');
 
@@ -555,11 +560,25 @@ test('единица измерения стоит в поле, а не в по�
   // Недопустимое значение объясняется словами и НЕ зажимается молча:
   // ноль доходит до домена, и сообщение приходит от него, а не от поля.
   await width.fill('0');
-  await expect(page.getByText('Значение должно быть больше нуля.')).toBeVisible();
+  // Сообщение поля — короткое, у самого поля.
+  await expect(page.getByRole('alert').filter({ hasText: 'Значение должно быть больше нуля' })).toBeVisible();
+  // Сообщение модели называет поле так же, как подпись над ним, и
+  // приходит ровно один раз: движок и валидация об одном и том же
+  // сообщают каждый за себя, но пользователю это одна проблема
+  // (PROMPT 38, дефекты П-004 и П-005).
+  // Считается ИМЕННО в списке проблем: строка состояния показывает ту же
+  // проблему своей кнопкой, и это другая поверхность, а не повтор.
+  const fromModel = page
+    .getByRole('list')
+    .getByText('«Ширина»: значение должно быть больше нуля.');
+  await expect(fromModel).toHaveCount(1);
   await expect(width).toHaveValue('0');
 
   await width.fill('900');
-  await expect(page.getByText('Значение должно быть больше нуля.')).toBeHidden();
+  await expect(fromModel).toHaveCount(0);
+  await expect(
+    page.getByText('«Ширина»: значение должно быть больше нуля.'),
+  ).toHaveCount(0);
 });
 
 test('состояния имеют одни и те же слова во всех разделах (§14, §37)', async ({ page }) => {

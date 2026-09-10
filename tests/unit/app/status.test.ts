@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CHECK_MARK,
   CHECK_STATUS,
+  dedupeIssues,
   PRODUCTION_STATUS,
   PROJECT_STATUS,
   ROOM_STATUS,
@@ -117,5 +118,80 @@ describe('сводка по проблемам', () => {
 
   it('сообщения уровня info в счёт не идут', () => {
     expect(summarizeIssues([info, info]).tone).toBe('success');
+  });
+});
+
+describe('состояние записи не пугает раньше времени (PROMPT 38, дефект П-002)', () => {
+  /*
+    Новый проект и проект с несохранёнными правками — разные состояния, и
+    разными их делает не оттенок, а утверждение. «Есть несохранённые
+    изменения» говорит человеку, что он может потерять работу. Сказанное
+    тому, кто только открыл приложение и ничего не трогал, оно ложно.
+
+    Так и было: приложение объявляло об изменениях на первом же экране.
+    Предупреждение, срабатывающее всегда, читать перестают — и не
+    прочитают тогда, когда терять действительно есть что.
+  */
+  it('у нового проекта своё состояние, а не «несохранённые изменения»', () => {
+    expect(STORAGE_STATUS.new).toBeDefined();
+    expect(STORAGE_STATUS.new.label).not.toContain('изменени');
+  });
+
+  it('новый проект не тревожит: тон нейтральный', () => {
+    // Предупреждающий тон приберегается для настоящей потери работы.
+    expect(STORAGE_STATUS.new.tone).toBe('neutral');
+    expect(STORAGE_STATUS.unsaved.tone).toBe('warning');
+  });
+
+  it('об изменениях говорит только состояние, где они есть', () => {
+    expect(STORAGE_STATUS.unsaved.label).toContain('изменени');
+  });
+
+  it('состояния различимы: подписи не совпадают', () => {
+    expect(STORAGE_STATUS.new.label).not.toBe(STORAGE_STATUS.unsaved.label);
+    expect(STORAGE_STATUS.new.label).not.toBe(STORAGE_STATUS.saved.label);
+  });
+});
+
+describe('одна проблема — одна строка (PROMPT 38, дефект П-005)', () => {
+  /*
+    Список проблем склеен из диагностики движка и отчёта валидации. Оба
+    слоя проверяют вход независимо — это верно, и менять это незачем. Но
+    пользователю доставалось одно и то же предложение дважды подряд, и
+    вторую строку он читал как второй дефект.
+  */
+  const err = (message: string) => ({ severity: 'error' as const, message, code: 'X' });
+
+  it('одинаковые сообщения одного уровня схлопываются', () => {
+    const out = dedupeIssues([err('Ширина должна быть больше нуля.'), err('Ширина должна быть больше нуля.')]);
+    expect(out).toHaveLength(1);
+  });
+
+  it('остаётся первое вхождение: у него привязка к шагу', () => {
+    // Первой идёт диагностика движка — её путь ведёт к шагу конструктора.
+    const first = { severity: 'error' as const, message: 'та же фраза', code: 'DIMENSION_NOT_POSITIVE' };
+    const second = { severity: 'error' as const, message: 'та же фраза', code: 'VALUE_NOT_POSITIVE' };
+    expect(dedupeIssues([first, second])[0]).toBe(first);
+  });
+
+  it('разные сообщения остаются оба', () => {
+    expect(dedupeIssues([err('первое'), err('второе')])).toHaveLength(2);
+  });
+
+  it('один текст разного уровня — разные проблемы', () => {
+    const out = dedupeIssues([
+      { severity: 'error' as const, message: 'текст' },
+      { severity: 'warning' as const, message: 'текст' },
+    ]);
+    expect(out).toHaveLength(2);
+  });
+
+  it('порядок сохраняется', () => {
+    const out = dedupeIssues([err('а'), err('б'), err('а'), err('в')]);
+    expect(out.map((i) => i.message)).toEqual(['а', 'б', 'в']);
+  });
+
+  it('пустой список остаётся пустым', () => {
+    expect(dedupeIssues([])).toEqual([]);
   });
 });
