@@ -39,11 +39,18 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # ТРЕБУЕТ, чтобы Pages были включены в настройках репозитория:
+      # Settings → Pages → Source: GitHub Actions.
+      #
+      # `enablement: true` пытается включить их сам, но токен workflow
+      # этого права не имеет — GitHub отвечает «Resource not accessible by
+      # integration». Создание сайта Pages остаётся действием владельца
+      # репозитория, и обойти это из workflow нельзя. Флаг оставлен: когда
+      # Pages включены, шаг просто находит готовый сайт и идёт дальше.
       - id: pages
+        name: Определить адрес и базовый путь Pages
         uses: actions/configure-pages@v5
         with:
-          # Позволяет включить Pages из самого workflow: отдельного
-          # ручного шага в настройках репозитория не требуется.
           enablement: true
 
       - name: Сборка под фактический базовый путь

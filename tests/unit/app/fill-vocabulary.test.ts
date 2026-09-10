@@ -7,6 +7,7 @@ import {
   PART_WORDS,
   UI_FILL_KINDS,
 } from '../../../src/app/editor/fill-vocabulary.js';
+import { STEP_BY_ID } from '../../../src/app/workflow/steps.js';
 import { emptyProject, geometryOf, productionOf, run } from '../integration/fixtures.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
 import { createDrawersLeaf, createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
@@ -115,6 +116,41 @@ describe('подпись не называет деталь, которой не
     // Короб назван, не строится, оговорки нет — ровно то, что ловит
     // проверка выше.
     expect(/не стро|пока не|не подтвержд/.test(hint)).toBe(false);
+  });
+});
+
+describe('подпись шага не обещает больше, чем список наполнения', () => {
+  /*
+    Обещание пользователю живёт в двух местах: в списке видов наполнения и
+    в подписи шага «Наполнение». Первое место закрыто проверкой выше,
+    второе оставалось открытым — и разошлось: список штангу не предлагал,
+    а подпись шага её называла. Дефект нашёлся только в PROMPT 37, через
+    три этапа после того, как список был исправлен.
+
+    Поэтому проверяется не текст подписи, а правило: подпись шага не имеет
+    права назвать вид наполнения, которого в списке нет.
+  */
+  const HIDDEN = (Object.keys(FILL_LABELS) as LeafFill['kind'][]).filter(
+    (kind) => !(UI_FILL_KINDS as readonly string[]).includes(kind),
+  );
+
+  it('в модели есть виды, которых интерфейс не предлагает', () => {
+    // Иначе проверка ниже была бы пустой и молча ничего не сторожила.
+    expect(HIDDEN.length).toBeGreaterThan(0);
+  });
+
+  it('подпись шага «Наполнение» не называет ни одного из них', () => {
+    const hint = STEP_BY_ID.fill.hint.toLowerCase();
+    for (const kind of HIDDEN) {
+      // Сравнение по корню слова: «штанга», «штангу», «штангой».
+      const stem = FILL_LABELS[kind].toLowerCase().slice(0, 5);
+      expect(hint.includes(stem), `подпись шага обещает «${FILL_LABELS[kind]}»`).toBe(false);
+    }
+  });
+
+  it('регрессия: прежняя подпись шага эту проверку не проходила', () => {
+    const wasWrong = 'Что стоит внутри ячейки: полки, ящики, штанга.'.toLowerCase();
+    expect(wasWrong).toContain(FILL_LABELS.rod.toLowerCase().slice(0, 5));
   });
 });
 
