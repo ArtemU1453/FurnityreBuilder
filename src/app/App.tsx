@@ -38,6 +38,11 @@ import { calculateCutting, toProductionParts } from '../production/index.js';
 import { calculateDrilling, formatDrillingDebug } from '../drilling/index.js';
 import { calculateProduction, formatProductionDebug } from '../bom/index.js';
 import { exportPdf, exportXlsx } from './export-actions.js';
+import { collectDiagnostics } from './diagnostics.js';
+import type { DiagnosticCategory } from './diagnostics.js';
+import { describeLoadFailure } from './load-failure.js';
+import { useGlobalErrors } from './use-global-errors.js';
+import { DiagnosticsDialog } from './DiagnosticsDialog.js';
 import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
@@ -201,6 +206,14 @@ export function App(): React.JSX.Element {
   // непонятно какой из них актуален (§19).
   const [exporting, setExporting] = useState<'pdf' | 'xlsx' | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  /*
+    Перезагрузка предлагается ТОЛЬКО когда она действительно чинит
+    (PROMPT 45 §12, §13): не доехал чанк экспорта — значит вкладка старше
+    выложенной версии, и повторное нажатие даст ту же ошибку. При любой
+    другой причине кнопки нет: приучать перезагружаться на каждую беду
+    значит обесценить единственный совет, который иногда верен.
+  */
+  const [exportStale, setExportStale] = useState(false);
   // Выбранная для управления дверью ячейка (PROMPT 10 §19). Черновой выбор,
   // а не команда: сам по себе он ничего в проекте не меняет.
   // Выделение живёт в состоянии СЕССИИ (`src/state/session-store.ts`,
@@ -342,6 +355,7 @@ export function App(): React.JSX.Element {
     if (exporting !== null || furniture === undefined || geometry === undefined) return;
     setExporting(kind);
     setExportError(null);
+    setExportStale(false);
     try {
       const context = {
         project,
@@ -351,9 +365,25 @@ export function App(): React.JSX.Element {
       if (kind === 'pdf') await exportPdf(context);
       else await exportXlsx(context);
     } catch (error) {
-      // Ошибку показываем текстом и оставляем кнопку рабочей: экспорт
-      // должен быть повторяемым, а не заканчиваться тупиком (§19).
-      setExportError(error instanceof Error ? error.message : 'Не удалось сформировать документ.');
+      /*
+        Ошибку показываем текстом и оставляем кнопку рабочей: экспорт
+        должен быть повторяемым, а не заканчиваться тупиком (§19).
+
+        Текст при этом не сырой. Генераторы едут отдельными чанками, и
+        самый частый отказ здесь — не сбой расчёта, а не доехавший файл
+        (PROMPT 45 §5, §13). «Failed to fetch dynamically imported
+        module» человеку не говорит ничего; «часть приложения не
+        загрузилась, перезагрузите страницу» говорит всё.
+      */
+      const failure = describeLoadFailure(error);
+      setExportStale(failure.action === 'reload');
+      setExportError(
+        failure.kind === 'unknown'
+          ? failure.message === ''
+            ? 'Не удалось сформировать документ.'
+            : failure.message
+          : failure.message,
+      );
     } finally {
       setExporting(null);
     }
@@ -933,6 +963,40 @@ export function App(): React.JSX.Element {
   // (§28). Регистрации нет, «моих проектов» нет — но и терять работу
   // из-за закрытой вкладки пользователь не должен. Загрузка идёт один
   // раз: `restore` стабильна, а повторный вызов затёр бы правки.
+  /*
+    Отчёт об ошибке для границ раздела (PROMPT 45 §8–§9).
+
+    Категория — единственное, что различается: остальное (версия,
+    сборка, браузер, время) одинаково и берётся из одного места. Ни
+    проекта, ни его размеров сюда не попадает — положить их некуда,
+    `DiagnosticInput` такого поля не имеет.
+  */
+  const diagnosticsFor =
+    (category: DiagnosticCategory) =>
+    (error: Error): string =>
+      collectDiagnostics({ category, error });
+
+  /*
+    Ошибки, до которых границы не дотягиваются (PROMPT 45 §11): отказ в
+    обработчике события, в таймере, отклонённое обещание. Их не ловит ни
+    одна граница React, и без этого хука они не оставляли на экране
+    ничего — человек видел приложение, которое перестало отвечать на
+    одно действие, и не знал почему.
+  */
+  const globalErrors = useGlobalErrors();
+  /*
+    Лист с данными для отчёта (PROMPT 45 §9).
+
+    Ошибка вне отрисовки не показывает панели с подробностями — она
+    сообщает о себе полосой наверху, и полоса не место для двадцати строк
+    текста. Поэтому отчёт открывается отдельным листом: человек читает
+    ровно то, что собирается кому-то отправить, и решает сам.
+
+    Считается лениво и только при открытии: до нажатия отчёт никому не
+    нужен.
+  */
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
   const restore = storage.restore;
   const markClean = storage.markClean;
   useEffect(() => {
@@ -1561,7 +1625,56 @@ export function App(): React.JSX.Element {
         />
       }
       banner={
-        update.kind !== 'ready' ? undefined : (
+        /*
+          В полосе баннера два сообщения, и порядок между ними не
+          произволен: непойманная ошибка важнее предложения обновиться.
+          Показывать их одновременно незачем — полоса одна, и второе
+          сообщение вытеснило бы первое за край экрана на телефоне.
+        */
+        globalErrors.latest !== undefined ? (
+          <>
+            <StatusIndicator
+              tone="danger"
+              label="Приложение столкнулось с непредвиденной ошибкой"
+              detail={
+                globalErrors.latest.source === 'rejection'
+                  ? 'Одно из действий не завершилось. Проект и сохранённые данные не затронуты; если что-то перестало отвечать — перезагрузите страницу.'
+                  : 'Одно из действий прервалось ошибкой. Проект и сохранённые данные не затронуты; если что-то перестало отвечать — перезагрузите страницу.'
+              }
+              live
+            />
+            <Button
+              variant="secondary"
+              onClick={() => {
+                window.location.reload();
+              }}
+            >
+              Перезагрузить
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowDiagnostics(true);
+              }}
+            >
+              Данные для диагностики
+            </Button>
+            {/*
+              Закрыть можно: сообщение информирует, а не блокирует. Оно
+              рассказывает о том, что уже случилось, — держать его на
+              экране силой значит мешать работать дальше.
+            */}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowDiagnostics(false);
+                globalErrors.dismiss();
+              }}
+            >
+              Скрыть
+            </Button>
+          </>
+        ) : update.kind !== 'ready' ? undefined : (
           <>
             <StatusIndicator
               tone="info"
@@ -1585,6 +1698,20 @@ export function App(): React.JSX.Element {
       }
     >
       {/*
+        Данные для отчёта о непойманной ошибке (PROMPT 45 §9). Лист
+        живёт вне разделов: ошибка вне отрисовки не привязана ни к
+        одному из них, и открыт может быть любой.
+      */}
+      <DiagnosticsDialog
+        open={showDiagnostics && globalErrors.latest !== undefined}
+        error={globalErrors.latest?.error}
+        category="unhandled"
+        onClose={() => {
+          setShowDiagnostics(false);
+        }}
+      />
+
+      {/*
         Границы ошибки вокруг каждого раздела (PROMPT 30 §20).
 
         Раздел падает — падает раздел, а не приложение вместе с
@@ -1598,6 +1725,7 @@ export function App(): React.JSX.Element {
       {screen === 'library' ? (
         <ErrorBoundary
           title="Библиотека проектов недоступна"
+          diagnostics={diagnosticsFor('library')}
           description="Список проектов не удалось показать. Сами проекты в хранилище не затронуты."
           resetKey={screen}
         >
@@ -1618,6 +1746,7 @@ export function App(): React.JSX.Element {
         <div className={workspace.workspace} data-stacked="">
           <ErrorBoundary
             title="Производственный раздел недоступен"
+          diagnostics={diagnosticsFor('production')}
             description="Расчёт или его показ прервались ошибкой. Проект и его данные не затронуты; конструктор работает."
             resetKey={`${screen}:${productionSection}`}
           >
@@ -1672,6 +1801,13 @@ export function App(): React.JSX.Element {
                 materials={project.materials}
                 exporting={exporting}
                 exportError={exportError}
+                onReloadApp={
+                  !exportStale
+                    ? null
+                    : () => {
+                        window.location.reload();
+                      }
+                }
                 compact={mobile}
                 onExport={(kind) => {
                   void runExport(kind);
@@ -1707,6 +1843,7 @@ export function App(): React.JSX.Element {
       {screen === 'room' ? (
         <ErrorBoundary
           title="Планировщик помещения недоступен"
+          diagnostics={diagnosticsFor('room')}
           description="Сцена помещения прервалась ошибкой. Изделия и расстановка сохранены; конструктор работает."
           resetKey={screen}
         >
@@ -2768,6 +2905,7 @@ export function App(): React.JSX.Element {
           */}
           <ErrorBoundary
             title="Трёхмерный вид недоступен"
+          diagnostics={diagnosticsFor('scene')}
             description="Сцена прервалась ошибкой. Переключитесь на «Схему» — она показывает то же изделие, — или попробуйте снова."
             resetKey={canvasMode}
           >

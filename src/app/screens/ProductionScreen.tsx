@@ -78,6 +78,15 @@ export interface ProductionScreenProps {
   readonly compact?: boolean;
   readonly exporting: 'pdf' | 'xlsx' | null;
   readonly exportError: string | null;
+  /**
+   * Что делать с этой ошибкой, если перезагрузка её чинит.
+   *
+   * `null` — не чинит, и кнопки нет. Отказ экспорта чаще всего означает
+   * не сбой расчёта, а не доехавший чанк у вкладки, открытой до выхода
+   * новой версии (PROMPT 45 §13); тогда повтор даст ту же ошибку, а
+   * перезагрузка вернёт работоспособность.
+   */
+  readonly onReloadApp: (() => void) | null;
   readonly onExport: (kind: 'pdf' | 'xlsx') => void;
 }
 
@@ -248,6 +257,12 @@ export function ProductionScreen(props: ProductionScreenProps): React.JSX.Elemen
           <p className={styles.message} role="status" aria-live="polite">
             {props.exportError ?? (props.exporting === null ? '' : 'Идёт формирование документа…')}
           </p>
+
+          {props.onReloadApp === null ? null : (
+            <Button variant="secondary" onClick={props.onReloadApp}>
+              Перезагрузить приложение
+            </Button>
+          )}
         </Panel>
       )}
     </>

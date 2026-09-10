@@ -25,3 +25,42 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/*
+ * Действия и отчёт о диагностике (PROMPT 45 §3, §9).
+ *
+ * Кнопки в строку и с переносом: на узком экране их три, и три кнопки в
+ * ряд на телефоне вылезли бы за край.
+ */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/*
+ * Отчёт нейтрален по цвету, в отличие от `.detail`: это не ошибка, а
+ * сведения о ней. Высота ограничена — иначе на телефоне текст отчёта
+ * уводит кнопку «Скопировать» за пределы экрана.
+ */
+.report {
+  margin: 0;
+  max-height: 40vh;
+  padding: var(--sp-2) var(--sp-3);
+  overflow: auto;
+  background: var(--bg-sunken);
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+  font-family: var(--font-num);
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

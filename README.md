@@ -294,6 +294,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/PRODUCTION_DEPLOYMENT_REPORT.md`](docs/PRODUCTION_DEPLOYMENT_REPORT.md) | Отчёт о проверке выкладки: что проверено и что осталось непроверенным |
 | [`docs/PERFORMANCE_BUDGETS.md`](docs/PERFORMANCE_BUDGETS.md) | Бюджеты размера: что измеряется, какие потолки и как их менять |
 | [`docs/PERFORMANCE_BASELINE_REPORT.md`](docs/PERFORMANCE_BASELINE_REPORT.md) | Факты замера: первая загрузка, отложенное, что автоматизировано и что нет |
+| [`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md) | Что происходит при ошибке: границы, восстановление, диагностика и её приватность |
+| [`docs/ERROR_HANDLING_REPORT.md`](docs/ERROR_HANDLING_REPORT.md) | Факты проверки обработки ошибок: что подтверждено управляемым отказом |
 | [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md) | Действующие ограничения с причинами |
 | [`docs/UX_FLOW.md`](docs/UX_FLOW.md) | Полный сценарий работы |
 | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | Уровни тестов и что именно проверяется |

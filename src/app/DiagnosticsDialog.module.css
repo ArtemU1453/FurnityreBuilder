@@ -1,0 +1,29 @@
+/*
+ * Данные для отчёта об ошибке (PROMPT 45 §9).
+ *
+ * Оформления минимум: это текст, который читают и копируют, а не
+ * иллюстрация.
+ */
+
+.report {
+  margin: 0;
+  max-height: 50vh;
+  padding: var(--sp-2) var(--sp-3);
+  overflow: auto;
+  background: var(--bg-sunken);
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+  font-family: var(--font-num);
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  /* Переносы обязательны: строка с user agent длиннее любого экрана. */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+  color: var(--text-secondary);
+}

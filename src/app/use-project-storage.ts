@@ -138,23 +138,57 @@ export function useProjectStorage(project: Project, options: ProjectStorageOptio
     }
   }, [project]);
 
+  /*
+    Чтение тоже может не удаться (PROMPT 45 §1, §11).
+
+    Запись свой отказ показывала с самого начала, а чтение — нет: до
+    этого места отказ IndexedDB при открытии вкладки уходил
+    необработанным обещанием. На экране не менялось ничего: приложение
+    открывалось пустым проектом, будто сохранённых не было вовсе. Это
+    худший вид отказа — он неотличим от нормальной работы, и человек
+    решает, что его проекты пропали.
+
+    Хранилище при этом НЕ трогается: чтение не удалось — читать нечего,
+    но и стирать нечего тоже. Ни одна ветка здесь ничего не удаляет и не
+    перезаписывает (§6).
+  */
   const load = useCallback(async (id: ProjectId): Promise<Project | undefined> => {
-    const repository = await sharedRepository();
-    const document = await repository.load(id);
-    if (document === undefined) return undefined;
-    savedRef.current = document.project;
-    setStatus('saved');
-    setMessage('Загружено');
-    return document.project;
+    try {
+      const repository = await sharedRepository();
+      const document = await repository.load(id);
+      if (document === undefined) return undefined;
+      savedRef.current = document.project;
+      setStatus('saved');
+      setMessage('Загружено');
+      return document.project;
+    } catch (error) {
+      setStatus('error');
+      setMessage(
+        error instanceof Error
+          ? `Не удалось прочитать проект: ${error.message}`
+          : 'Не удалось прочитать проект из хранилища.',
+      );
+      return undefined;
+    }
   }, []);
 
   const restore = useCallback(async (): Promise<Project | undefined> => {
-    const repository = await sharedRepository();
-    setEphemeral(!repository.isPersistent());
-    const summaries = [...(await repository.list())].sort(byUpdatedAtDesc);
-    const latest = summaries[0];
-    if (latest === undefined) return undefined;
-    return load(latest.id);
+    try {
+      const repository = await sharedRepository();
+      setEphemeral(!repository.isPersistent());
+      const summaries = [...(await repository.list())].sort(byUpdatedAtDesc);
+      const latest = summaries[0];
+      if (latest === undefined) return undefined;
+      return await load(latest.id);
+    } catch (error) {
+      setStatus('error');
+      setMessage(
+        error instanceof Error
+          ? `Не удалось прочитать сохранённые проекты: ${error.message}`
+          : 'Не удалось прочитать сохранённые проекты.',
+      );
+      return undefined;
+    }
   }, [load]);
 
   return { status, message, ephemeral, save, load, restore, markClean };
