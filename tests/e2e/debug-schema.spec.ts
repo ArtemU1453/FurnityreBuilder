@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -54,7 +55,7 @@ test('применение сетки перестраивает схему: п�
 
   await page.getByLabel('Строк').fill('2');
   await page.getByLabel('Колонок').fill('3');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
 
   // 2×3: 4 детали каркаса + 4 вертикальные перегородки (2 на ряд × 2 ряда)
   // + 1 горизонтальный разделитель = 9 деталей, плюс 6 ячеек = 15.
@@ -88,7 +89,7 @@ test('полки появляются в схеме как отдельные д
   await expect(schema.locator('rect')).toHaveCount(6);
 
   await page.getByLabel('Полок в каждой ячейке').fill('3');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
 
   // 4 детали каркаса + 3 полки + 1 ячейка = 8 прямоугольников.
   await expect(schema.locator('rect')).toHaveCount(9);
@@ -176,7 +177,7 @@ test('наполнение ячейки подписано в схеме и ме
   await expect(schema.getByText('CONTENT: ПУСТО')).toBeVisible();
 
   await page.getByLabel('Полок в каждой ячейке').fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
 
   await expect(schema.getByText('CONTENT: ПОЛКИ')).toBeVisible();
   await expect(schema.getByText('CONTENT: ПУСТО')).toHaveCount(0);
@@ -291,7 +292,7 @@ test('материал и толщина детали подписаны в сх
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await page.getByLabel('Полок в каждой ячейке').fill('1');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
   await page.getByLabel('Показывать ID и координаты').check();
 
   // Подпись детали несёт имя материала, толщину и кромку (§22).
@@ -319,7 +320,7 @@ test('назначение материала роли меняет матери
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await page.getByLabel('Полок в каждой ячейке').fill('1');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
   await page.getByLabel('Показывать ID и координаты').check();
 
   const shelfLabel = () => schema.locator('text').filter({ hasText: 'shelf-adjustable ·' }).first();
@@ -531,7 +532,7 @@ test('карта раскроя строится из деталей и пере
   // Добавление полок добавляет детали в раскрой само — без команды
   // «пересчитать»: карта производна от геометрии.
   await page.getByLabel('Полок в каждой ячейке').fill('3');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
   // Три полки одинакового размера — одна позиция количеством 3, то есть
   // три отдельных размещения (§22), а не одно на троих.
   await expect(shelvesOnSheets).toHaveCount(3);
@@ -554,7 +555,7 @@ test('карта присадки объясняет, чего не хватае
 
   // Полки добавляют не отверстия, а точное указание недостающей связи.
   await page.getByLabel('Полок в каждой ячейке').fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
   await expect(list.getByText(/какая боковина или перегородка держит полку/)).toBeVisible();
   await expect(list.getByText('— ни одной операции не рассчитано —')).toBeVisible();
 });
@@ -583,7 +584,7 @@ test('спецификация собирается из всех расчёто
 
   // Полки появляются в деталировке сами, одной строкой на три штуки.
   await page.getByLabel('Полок в каждой ячейке').fill('3');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
   await expect(
     list.getByText(/Полка · shelf · Корпусная плита 16 мм · 16 · \d+ · \d+ · 3 ·/),
   ).toBeVisible();

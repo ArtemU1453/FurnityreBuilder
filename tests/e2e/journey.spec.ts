@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -58,7 +59,7 @@ test('весь путь: проект → конструктор → помещ�
   await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('2');
   await page.getByRole('spinbutton', { name: 'Колонок', exact: true }).fill('3');
   await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
   const afterShelves = (await scene(page).getAttribute('aria-label')) ?? '';
   expect(Number(/Деталей: (\d+)/.exec(afterShelves)?.[1] ?? 0)).toBeGreaterThan(15);
 

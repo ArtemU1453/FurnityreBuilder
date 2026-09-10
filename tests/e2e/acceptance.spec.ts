@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -52,7 +53,7 @@ test('FLOW A — первый проект: габариты, секции, по
   await step(page, 'Ячейки').click();
   const withSections = await partCount(page);
   await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
   expect(await partCount(page)).toBeGreaterThan(withSections);
 
   await save(page);
@@ -75,7 +76,7 @@ test('FLOW B — сложное изделие: ни NaN, ни пустого р
   await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('2');
   await page.getByRole('spinbutton', { name: 'Колонок', exact: true }).fill('2');
   await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
 
   // Дверь и ящики.
   await step(page, 'Фасады').click();
@@ -133,7 +134,7 @@ test('FLOW D — отмена и повтор возвращают ровно т
 
   await step(page, 'Ячейки').click();
   await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
   const afterShelves = await partCount(page);
 
   // Назад: сетка, затем секции.
@@ -154,7 +155,7 @@ test('FLOW E — производство: все разделы отвечаю�
   await step(page, 'Ячейки').click();
   await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('2');
   await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
 
   await page.getByRole('radio', { name: 'Производство' }).click();
   for (const section of ['Детали', 'Раскрой', 'Фурнитура', 'Присадка']) {

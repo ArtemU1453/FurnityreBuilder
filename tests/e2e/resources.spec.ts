@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -164,7 +165,7 @@ test('крупный проект остаётся отзывчивым (§18, �
   await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('3');
   await page.getByRole('spinbutton', { name: 'Колонок', exact: true }).fill('4');
   await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
 
   const label = (await scene(page).getAttribute('aria-label')) ?? '';
   const parts = Number(/Деталей: (\d+)/.exec(label)?.[1] ?? 0);

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -257,7 +258,7 @@ test.describe('крупный проект', () => {
     await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('3');
     await page.getByRole('spinbutton', { name: 'Колонок', exact: true }).fill('3');
     await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-    await page.getByRole('button', { name: /Применить сетку/ }).click();
+    await applyGrid(page);
     await page
       .getByRole('dialog', { name: 'Ячейки' })
       .getByRole('button', { name: 'Закрыть' })

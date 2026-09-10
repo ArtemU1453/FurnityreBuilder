@@ -43,6 +43,7 @@ import type { DiagnosticCategory } from './diagnostics.js';
 import { describeLoadFailure } from './load-failure.js';
 import { useGlobalErrors } from './use-global-errors.js';
 import { DiagnosticsDialog } from './DiagnosticsDialog.js';
+import { describeGridReplacement, gridReplacementLoss, losesWork } from './editor/grid-replacement.js';
 import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
@@ -997,6 +998,9 @@ export function App(): React.JSX.Element {
   */
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
+  /** Спрошено ли подтверждение замены дерева сеткой (PROMPT 46 §18). */
+  const [gridConfirm, setGridConfirm] = useState(false);
+
   const restore = storage.restore;
   const markClean = storage.markClean;
   useEffect(() => {
@@ -1150,7 +1154,19 @@ export function App(): React.JSX.Element {
   // state/commands.ts) — построение равномерной сетки rows×columns здесь
   // и есть демонстрация PROMPT 4 §11: изменение количества строк/колонок
   // пересчитывает перегородки, ячейки и bounding box за один шаг истории.
-  const applyGrid = (): void => {
+  /*
+    Замена дерева сеткой — разрушающее действие (PROMPT 46 §18).
+
+    `SetRoot` меняет ВСЁ дерево: секции, набранные на предыдущем шаге,
+    наполнение ячеек и фасады исчезают. До аудита это происходило молча,
+    и заметить потерю было нечем — число деталей после замены могло даже
+    вырасти. Путь при этом самый обычный: лестница шагов ведёт «Секции»
+    → «Ячейки», то есть прямо сюда.
+
+    Спрашиваем только когда есть что терять: пустое изделие с одной
+    ячейкой заменяется сеткой без потерь, и вопрос был бы шумом.
+  */
+  const buildGrid = (): void => {
     const ids = createRandomIdFactory();
     // Наполнение ячейки (полки, PROMPT 6) задаётся фабрикой листа: структура
     // сетки и содержимое ячейки — разные решения, см. `SectionContentFactory`.
@@ -1173,6 +1189,25 @@ export function App(): React.JSX.Element {
       { type: 'SetRoot', furnitureIndex: 0, root },
       `Сетка ${String(rowsDraft)}×${String(columnsDraft)}, полок в ячейке: ${String(shelvesDraft)}`,
     );
+    /*
+      Дерево заменено целиком — значит черновики обязаны прийти к нему.
+
+      Без этого поле «Секций» продолжало показывать 3 у изделия, где
+      секций больше нет: ровно та рассинхронизация, которую PROMPT 31
+      убрал для открытия проекта, но через другую дверь. Правило модуля
+      `drafts.ts` одно и то же: черновик выводится из дерева тогда, когда
+      дерево меняется целиком.
+    */
+    setSectionsDraft(1);
+    setSectionWidthsDraft('');
+  };
+
+  const applyGrid = (): void => {
+    if (losesWork(gridReplacementLoss(furniture))) {
+      setGridConfirm(true);
+      return;
+    }
+    buildGrid();
   };
 
   // Изменение числа секций идёт ОТДЕЛЬНОЙ командой, а не пересборкой дерева
@@ -1697,6 +1732,43 @@ export function App(): React.JSX.Element {
         />
       }
     >
+      {/*
+        Подтверждение замены дерева сеткой (PROMPT 46 §18).
+
+        Диалог называет ИМЕННО то, что исчезнет, числом — «3 секции,
+        наполнение 6 ячеек». «Вы уверены?» без перечня не даёт человеку
+        ничего: согласиться с ним можно только вслепую.
+      */}
+      <Dialog
+        open={gridConfirm}
+        title="Сетка заменит внутреннее устройство"
+        description={`Будет заменено: ${describeGridReplacement(gridReplacementLoss(furniture))}. Габариты, корпус и материалы останутся прежними. Действие отменяется через «Отменить».`}
+        onClose={() => {
+          setGridConfirm(false);
+        }}
+        actions={
+          <>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setGridConfirm(false);
+                buildGrid();
+              }}
+            >
+              Заменить
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setGridConfirm(false);
+              }}
+            >
+              Отмена
+            </Button>
+          </>
+        }
+      />
+
       {/*
         Данные для отчёта о непойманной ошибке (PROMPT 45 §9). Лист
         живёт вне разделов: ошибка вне отрисовки не привязана ни к

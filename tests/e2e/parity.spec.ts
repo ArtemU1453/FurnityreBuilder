@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -166,7 +167,7 @@ test('проём переживает перезагрузку: он часть 
 async function fillCellWithDrawers(page: Page): Promise<void> {
   await step(page, 'Ячейки').click();
   await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGrid(page);
 
   // Список ячеек живёт в панели «Двери» на шаге «Фасады» — на шаге
   // «Наполнение» своего выбора нет, ячейка берётся из общего выделения.
