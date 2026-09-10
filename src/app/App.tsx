@@ -50,12 +50,18 @@ import { Inspector } from './editor/Inspector.js';
 import { describeSelection, resolveSelection } from './editor/selection.js';
 import { draftsOf } from './editor/drafts.js';
 import { registerServiceWorker } from './service-worker.js';
+import { useUndoShortcuts } from './use-undo-shortcuts.js';
 import type { UpdateState } from './service-worker.js';
 import type { InspectorAction } from './editor/selection.js';
 import type { GizmoTarget } from '../scene/index.js';
 import { extentKey, findPlacement, furnitureExtent, validateRoom } from '../room/index.js';
 import type { ExtentLookup } from '../room/index.js';
-import { createFurnitureInstance, createRectangularRoom } from '../domain/index.js';
+import {
+  createFurnitureInstance,
+  createObstacle,
+  createOpening,
+  createRectangularRoom,
+} from '../domain/index.js';
 import type {
   Furniture,
   Issue,
@@ -63,7 +69,11 @@ import type {
   InstanceId,
   Project,
   ProjectId,
+  ObstacleKind,
+  OpeningKind,
+  Tolerances,
   Vec3,
+  WallId,
 } from '../domain/index.js';
 import { validateProject } from '../validation/index.js';
 import { useDocumentStore } from '../state/index.js';
@@ -233,6 +243,7 @@ export function App(): React.JSX.Element {
   const clearSelection = useSessionStore((state) => state.clearSelection);
 
   const furniture = project.furniture[0];
+  const tolerances = project.settings.tolerances;
 
   // Пересчёт синхронный и мемоизированный по ссылке на проект. Immer даёт
   // структурное разделение, поэтому ссылка меняется только при реальном
@@ -657,6 +668,48 @@ export function App(): React.JSX.Element {
     })();
   };
 
+  /*
+    Проёмы и препятствия помещения (PROMPT 33 §22, дефект Д-001).
+
+    Команды `AddOpening`/`AddObstacle` существуют с PROMPT 24 и до этого
+    этапа вызывались только из тестов. Здесь они наконец получают точку
+    входа из интерфейса — новой модели при этом не заводится, идут те же
+    команды через тот же `execute`.
+  */
+  const addOpening = (
+    wallId: WallId,
+    kind: OpeningKind,
+    position: number,
+    width: number,
+    height: number,
+    sillHeight: number,
+  ): void => {
+    execute(
+      {
+        type: 'AddOpening',
+        opening: createOpening(createRandomIdFactory(), wallId, kind, position, width, height, sillHeight),
+      },
+      `Проём: ${kind}`,
+    );
+  };
+
+  /**
+   * Препятствие ставится в угол помещения.
+   *
+   * Не в центр и не под курсор: центр занят мебелью, а курсора у кнопки
+   * нет. Из угла объект видно сразу и оттуда его двигают тем же жестом,
+   * что и мебель.
+   */
+  const addObstacle = (kind: ObstacleKind, size: Vec3): void => {
+    execute(
+      {
+        type: 'AddObstacle',
+        obstacle: createObstacle(createRandomIdFactory(), kind, { x: 0, y: 0, z: 0 }, size),
+      },
+      `Препятствие: ${kind}`,
+    );
+  };
+
   const duplicateInstance = (instanceId: InstanceId): void => {
     const source = room?.furnitureInstances.find((item) => item.id === instanceId);
     if (source === undefined) return;
@@ -973,6 +1026,19 @@ export function App(): React.JSX.Element {
     Проекты при этом не при чём: кэш держит код, IndexedDB — данные, и
     обновление не касается второй области (§8).
   */
+  /*
+    Ctrl+Z и Ctrl+Shift+Z (PROMPT 33 §29, дефект Д-003).
+
+    Кнопки подписаны этими сочетаниями с PROMPT 26, а обработчика не было
+    ни одного: приложение обещало то, чего не делало.
+  */
+  useUndoShortcuts({
+    undo,
+    redo,
+    canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0,
+  });
+
   const [update, setUpdate] = useState<UpdateState>({ kind: 'idle' });
   useEffect(() => registerServiceWorker({ onUpdate: setUpdate }), []);
 
@@ -1276,6 +1342,20 @@ export function App(): React.JSX.Element {
     execute(
       { type: 'SetBackPanel', furnitureIndex: 0, patch: { segmentation } },
       'Разделение задней стенки',
+    );
+  };
+
+  /**
+   * Одна из трёх конвенций габарита (PROMPT 33 §14).
+   *
+   * Команда `SetTolerances` принимает объект целиком: правки идут по
+   * одному флагу, поэтому остальные два переносятся как есть. Второго
+   * места, где эти значения живут, нет — источник один, `project.settings`.
+   */
+  const setTolerance = (key: keyof Tolerances, value: boolean): void => {
+    execute(
+      { type: 'SetTolerances', tolerances: { ...tolerances, [key]: value } },
+      `Габарит: ${key} = ${String(value)}`,
     );
   };
 
@@ -1701,6 +1781,14 @@ export function App(): React.JSX.Element {
                 { type: 'SetInstanceFlags', instanceId: id, ...patch },
                 'Свойства экземпляра',
               );
+            }}
+            onAddOpening={addOpening}
+            onRemoveOpening={(id) => {
+              execute({ type: 'RemoveOpening', openingId: id }, 'Убрать проём');
+            }}
+            onAddObstacle={addObstacle}
+            onRemoveObstacle={(id) => {
+              execute({ type: 'RemoveObstacle', obstacleId: id }, 'Убрать препятствие');
             }}
             onDuplicate={duplicateInstance}
             onRemove={(id) => {
@@ -2318,6 +2406,69 @@ export function App(): React.JSX.Element {
               >
                 Убрать фальшпанель
               </Button>
+            </Panel>
+          )}
+
+          {/*
+            Что входит в габарит (PROMPT 33 §14, дефект Д-002).
+
+            Три величины, каждая из которых меняет размеры КАЖДОЙ детали
+            изделия: считать ли цоколь частью высоты, а заднюю стенку и
+            накладной фасад — частью глубины. Конвенции референса не
+            установлены (`docs/UNKNOWNS.json`: T-CAR-04, T-CAR-05,
+            T-DOOR-02), поэтому в модели они лежат как `Tolerances` с
+            пометкой ASSUMPTION, а команда `SetTolerances` существует с
+            PROMPT 3.
+
+            До этого этапа поля не было: пользователь получал предположение
+            движка, не зная ни что оно сделано, ни как его изменить. Для
+            неподтверждённого правила это худший из вариантов — молча
+            выбрать за человека и не сказать. Теперь выбор виден, назван
+            своими словами и объяснён.
+          */}
+          {step !== 'construction' ? null : (
+            <Panel
+              id="tolerances"
+              title="Что входит в габарит"
+              subtitle="Правила не подтверждены источником, поэтому выбор остаётся за вами. От него зависят размеры всех деталей."
+              tone="sunken"
+            >
+              <Switch
+                label="Цоколь входит в высоту"
+                hint={
+                  tolerances.heightIncludesBase
+                    ? 'Высота задаёт изделие целиком: корпус = H − цоколь − надстройки.'
+                    : 'Высота задаёт только корпус: цоколь и надстройки прибавляются к ней.'
+                }
+                checked={tolerances.heightIncludesBase}
+                onChange={(next) => {
+                  setTolerance('heightIncludesBase', next);
+                }}
+              />
+              <Switch
+                label="Задняя стенка входит в глубину"
+                hint={
+                  tolerances.depthIncludesBackPanel
+                    ? 'Глубина задаёт изделие целиком, вместе со стенкой.'
+                    : 'Глубина задаёт корпус, стенка прибавляется сзади.'
+                }
+                checked={tolerances.depthIncludesBackPanel}
+                onChange={(next) => {
+                  setTolerance('depthIncludesBackPanel', next);
+                }}
+              />
+              <Switch
+                label="Накладной фасад входит в глубину"
+                hint={
+                  tolerances.depthIncludesFacade
+                    ? 'Глубина задаёт изделие целиком, вместе с фасадом.'
+                    : 'Глубина задаёт корпус, фасад выступает вперёд.'
+                }
+                checked={tolerances.depthIncludesFacade}
+                onChange={(next) => {
+                  setTolerance('depthIncludesFacade', next);
+                }}
+              />
             </Panel>
           )}
 

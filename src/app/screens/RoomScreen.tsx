@@ -3,9 +3,14 @@ import type {
   FurnitureInstance,
   InstanceId,
   MaterialLibrary,
+  ObstacleId,
+  ObstacleKind,
+  OpeningId,
+  OpeningKind,
   ProjectId,
   Room,
   Vec3,
+  WallId,
 } from '../../domain/index.js';
 import type { GeometryResult } from '../../geometry/index.js';
 import type { ExtentLookup, RoomStatus } from '../../room/index.js';
@@ -13,6 +18,7 @@ import type { ProjectSummary } from '../../persistence/index.js';
 import {
   Button,
   EmptyState,
+  NumberInput,
   Panel,
   Select,
   StatusIndicator,
@@ -24,6 +30,15 @@ import { WorkspaceSlot } from './WorkspaceSlot.js';
 import { RoomPlanner } from '../editor/RoomPlanner.js';
 import { RoomInspector } from '../editor/RoomInspector.js';
 import { ROOM_STATUS } from '../status.js';
+import {
+  OBSTACLE_LABELS,
+  OPENING_LABELS,
+  obstacleSizeOf,
+  openingDraftOf,
+  openingFits,
+  wallLabel,
+  wallLength,
+} from '../editor/room-features.js';
 import layout from './Workspace.module.css';
 
 /**
@@ -73,6 +88,18 @@ export interface RoomScreenProps {
   readonly onFlags: (id: InstanceId, patch: { locked?: boolean; visible?: boolean }) => void;
   readonly onDuplicate: (id: InstanceId) => void;
   readonly onRemove: (id: InstanceId) => void;
+  /** Проёмы и препятствия (PROMPT 33 §22). Команды существовали с PROMPT 24, формы — не было. */
+  readonly onAddOpening: (
+    wallId: WallId,
+    kind: OpeningKind,
+    position: number,
+    width: number,
+    height: number,
+    sillHeight: number,
+  ) => void;
+  readonly onRemoveOpening: (id: OpeningId) => void;
+  readonly onAddObstacle: (kind: ObstacleKind, size: Vec3) => void;
+  readonly onRemoveObstacle: (id: ObstacleId) => void;
 }
 
 export function RoomScreen(props: RoomScreenProps): React.JSX.Element {
@@ -80,6 +107,31 @@ export function RoomScreen(props: RoomScreenProps): React.JSX.Element {
   const [cutawayWalls, setCutawayWalls] = useState(true);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [placing, setPlacing] = useState('');
+
+  /*
+    Черновик проёма (PROMPT 33 §22, дефект Д-001).
+
+    Проём — не команда одним нажатием: у него стена, вид, положение и три
+    размера. Значения не хранятся в модели до нажатия «Добавить» — это
+    тот же черновик, что у сетки в конструкторе.
+
+    Смена вида и стены подставляет разумные размеры (`openingDraftOf`),
+    а не обнуляет поля: дверь и окно отличаются размерами настолько, что
+    заставлять набирать их заново значило бы делать работу за
+    приложение.
+  */
+  const [openingWall, setOpeningWall] = useState('');
+  const [openingKind, setOpeningKind] = useState<OpeningKind>('door');
+  const [opening, setOpening] = useState(() => openingDraftOf('door', undefined));
+  const [obstacleKind, setObstacleKind] = useState<ObstacleKind>('column');
+
+  const walls = props.room?.walls ?? [];
+  const activeWall = walls.find((wall) => wall.id === openingWall);
+
+  /** Подставить размеры под выбранную стену и вид. */
+  const resetOpening = (kind: OpeningKind, wallId: string): void => {
+    setOpening(openingDraftOf(kind, walls.find((wall) => wall.id === wallId)));
+  };
 
   // Режим раскладки и открытый лист — состояние интерфейса, как и в
   // конструкторе: помещение, мебель и их координаты от размера экрана не
@@ -163,6 +215,183 @@ export function RoomScreen(props: RoomScreenProps): React.JSX.Element {
               detail="Они удалены из библиотеки. Расстановка сохранена и вернётся вместе с проектом."
               live
             />
+          )}
+        </Panel>
+
+        {/*
+          Проёмы и препятствия (PROMPT 33 §22, дефект Д-001).
+
+          Модель, команды, проверка и отрисовка в сцене существуют с
+          PROMPT 24 — не было только формы, и возможность оставалась
+          недостижимой: шкаф вставал в дверной проём, а сказать
+          приложению про дверь было нечем.
+
+          Панель `sunken`: это обстановка помещения, а не мебель, ради
+          которой человек сюда пришёл.
+        */}
+        <Panel
+          id="room-features"
+          title="Проёмы и препятствия"
+          subtitle="Двери, окна, колонны и радиаторы. Мебель их не перекрывает — проверка предупредит."
+          tone="sunken"
+        >
+          {walls.length === 0 ? (
+            <EmptyState
+              compact
+              title="Сначала помещение"
+              description="Проём принадлежит стене, а стен пока нет."
+            />
+          ) : (
+            <>
+              <Select
+                label="Стена"
+                value={openingWall}
+                onChange={(next) => {
+                  setOpeningWall(next);
+                  resetOpening(openingKind, next);
+                }}
+                options={[
+                  { value: '', label: '— выберите —' },
+                  ...walls.map((wall) => ({
+                    value: wall.id,
+                    label: `${wallLabel(props.room as Room, wall.id)} · ${String(Math.round(wallLength(wall)))} мм`,
+                  })),
+                ]}
+              />
+              <Select
+                label="Вид проёма"
+                value={openingKind}
+                onChange={(next) => {
+                  setOpeningKind(next as OpeningKind);
+                  resetOpening(next as OpeningKind, openingWall);
+                }}
+                options={Object.entries(OPENING_LABELS).map(([value, label]) => ({ value, label }))}
+              />
+              <NumberInput
+                label="Отступ от начала стены"
+                unit="мм"
+                value={opening.position}
+                min={0}
+                onChange={(next) => {
+                  setOpening({ ...opening, position: next });
+                }}
+              />
+              <NumberInput
+                label="Ширина проёма"
+                unit="мм"
+                value={opening.width}
+                min={1}
+                onChange={(next) => {
+                  setOpening({ ...opening, width: next });
+                }}
+              />
+              <NumberInput
+                label="Высота проёма"
+                unit="мм"
+                value={opening.height}
+                min={1}
+                onChange={(next) => {
+                  setOpening({ ...opening, height: next });
+                }}
+              />
+              <NumberInput
+                label="Высота низа проёма"
+                unit="мм"
+                value={opening.sillHeight}
+                min={0}
+                hint="У двери 0, у окна — высота подоконника."
+                onChange={(next) => {
+                  setOpening({ ...opening, sillHeight: next });
+                }}
+              />
+              {/*
+                Проверка ДО нажатия: команда отказывает молча, и без этой
+                подсказки кнопка выглядела бы сломанной.
+              */}
+              {activeWall === undefined ||
+              openingFits(activeWall, opening.position, opening.width) ? null : (
+                <StatusIndicator
+                  tone="warning"
+                  label="Проём не помещается в стену"
+                  detail={`Отступ и ширина в сумме дают ${String(Math.round(opening.position + opening.width))} мм при длине стены ${String(Math.round(wallLength(activeWall)))} мм.`}
+                  live
+                />
+              )}
+              <Button
+                variant="primary"
+                disabled={!openingFits(activeWall, opening.position, opening.width)}
+                onClick={() => {
+                  if (activeWall === undefined) return;
+                  props.onAddOpening(
+                    activeWall.id,
+                    openingKind,
+                    opening.position,
+                    opening.width,
+                    opening.height,
+                    opening.sillHeight,
+                  );
+                }}
+              >
+                Добавить проём
+              </Button>
+
+              {props.room === undefined || props.room.openings.length === 0 ? null : (
+                <ul className={layout.featureList} aria-label="Проёмы помещения">
+                  {props.room.openings.map((item) => (
+                    <li key={item.id} className={layout.featureRow}>
+                      <span>
+                        {OPENING_LABELS[item.kind]} · {wallLabel(props.room as Room, item.wallId)} ·{' '}
+                        {String(Math.round(item.width))}×{String(Math.round(item.height))} мм
+                      </span>
+                      <Button
+                        onClick={() => {
+                          props.onRemoveOpening(item.id);
+                        }}
+                      >
+                        Убрать
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <Select
+                label="Вид препятствия"
+                value={obstacleKind}
+                onChange={(next) => {
+                  setObstacleKind(next as ObstacleKind);
+                }}
+                options={Object.entries(OBSTACLE_LABELS).map(([value, label]) => ({ value, label }))}
+                hint="Ставится в угол помещения — дальше двигается как мебель."
+              />
+              <Button
+                onClick={() => {
+                  props.onAddObstacle(obstacleKind, obstacleSizeOf(obstacleKind));
+                }}
+              >
+                Добавить препятствие
+              </Button>
+
+              {props.room === undefined || props.room.obstacles.length === 0 ? null : (
+                <ul className={layout.featureList} aria-label="Препятствия помещения">
+                  {props.room.obstacles.map((item) => (
+                    <li key={item.id} className={layout.featureRow}>
+                      <span>
+                        {OBSTACLE_LABELS[item.kind]} · {String(Math.round(item.size.x))}×
+                        {String(Math.round(item.size.z))} мм
+                      </span>
+                      <Button
+                        onClick={() => {
+                          props.onRemoveObstacle(item.id);
+                        }}
+                      >
+                        Убрать
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </Panel>
 
