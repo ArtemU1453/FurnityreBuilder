@@ -286,6 +286,7 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/THIRD_PARTY_NOTICES.md`](docs/THIRD_PARTY_NOTICES.md) | Зависимости и их лицензии |
 | [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) | Что реализовано, что поддерживается, что ограничено |
 | [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) | Версии, теги, выпуск и откат по номеру версии |
+| [`docs/RELEASE_VERSIONING_REPORT.md`](docs/RELEASE_VERSIONING_REPORT.md) | Состояние системы выпусков: что проверено и что нет |
 | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Что проверить перед выкладкой |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
