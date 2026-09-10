@@ -1,4 +1,18 @@
-# Ворота качества (PROMPT 39).
+# Ворота качества и выкладка (PROMPT 39, PROMPT 40).
+#
+# Один workflow, три задачи по цепочке:
+#
+#     verify → build-pages → deploy
+#
+# Так выкладка структурно не может обогнать проверки: `needs` не
+# запускает задачу, пока предыдущая не завершилась успехом. Раньше
+# публикация жила отдельным workflow и шла ПАРАЛЛЕЛЬНО с CI — коммит с
+# красными воротами попал бы в production, и ничто бы этому не помешало.
+#
+# Второй выигрыш неочевиден, но важнее: выкладывается ровно тот коммит,
+# который проверили. Связка через `workflow_run` этого не гарантирует —
+# там задача берёт голову ветки, а она к моменту запуска может уже
+# уехать вперёд.
 #
 # Всё, что здесь запускается, — реальные команды из `package.json`. Ни
 # одной выдуманной: список сверен со `scripts`.
@@ -16,8 +30,8 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Минимум прав: workflow только читает репозиторий. Ничего не
-# комментирует, не помечает, не публикует.
+# По умолчанию — только чтение. Права на публикацию выданы точечно, тем
+# двум задачам, которым они нужны, и ни одной другой.
 permissions:
   contents: read
 
@@ -112,3 +126,73 @@ jobs:
             test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  # ── Выкладка ─────────────────────────────────────────────────────
+  #
+  # Обе задачи идут только на push в ветку по умолчанию. Pull request
+  # проходит ворота, но production не подменяет: проверка — не выпуск.
+  build-pages:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/claude/furniture-designer-audit-cjvvuf'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Базовый путь берётся отсюда, а не пишется руками: страницы
+      # проекта отдаются в подкаталоге `/репозиторий/`, а с собственным
+      # доменом станут корнем. Сборка обязана заметить это сама
+      # (docs/DEPLOYMENT.md §2).
+      - id: pages
+        name: Определить адрес и базовый путь Pages
+        uses: actions/configure-pages@v5
+
+      - name: Сборка под фактический базовый путь
+        env:
+          APP_BASE: ${{ steps.pages.outputs.base_path }}
+        run: npm run build
+
+      # Согласованность базового пути в разметке, манифесте и service
+      # worker'е. Разойдясь, они дают белый экран без единого сообщения —
+      # и это последнее место, где такую сборку ещё можно не отдать людям.
+      - name: Проверка пакета
+        env:
+          APP_BASE: ${{ steps.pages.outputs.base_path }}
+        run: npm run check:release
+
+      # Выгружается только `dist/`. Ни исходников, ни node_modules, ни
+      # тестов, ни конфигурации разработки.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build-pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/claude/furniture-designer-audit-cjvvuf'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # Публикации не наслаиваются. Начатую не обрываем: оборванная на
+    # середине выкладка оставила бы людям половину сборки. Очередь при
+    # этом не копится — GitHub держит в ней только самый свежий прогон,
+    # поэтому старая версия не может встать поверх новой.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+

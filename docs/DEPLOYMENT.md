@@ -59,19 +59,16 @@ APP_BASE=/репозиторий/ npm run build       # подкаталог
 
 ### GitHub Pages
 
-Публикация настроена (`.github/workflows/deploy-pages.yml`): сборка идёт
-под фактический базовый путь, который отдаёт `actions/configure-pages`,
-поэтому подключение собственного домена (база станет корнем) ничего
-менять в проекте не потребует.
+Приложение **опубликовано** по адресу
+`https://artemu1453.github.io/FurnityreBuilder/`.
 
-**Прежде чем workflow заработает, Pages нужно включить вручную:**
-Settings → Pages → Source: **GitHub Actions**. Токен workflow создать
-сайт Pages не может — GitHub отвечает `Resource not accessible by
-integration`. Это право владельца репозитория, и обойти его из workflow
-нельзя.
+Публикация встроена в `.github/workflows/ci.yml` цепочкой
+`verify → build-pages → deploy`: сначала ворота качества, и только потом
+сборка под фактический базовый путь и выкладка. Базовый путь отдаёт
+`actions/configure-pages`, поэтому подключение собственного домена (база
+станет корнем) ничего менять в проекте не потребует.
 
-После включения выкладка идёт сама на каждый push в ветку по умолчанию;
-запустить вручную — Actions → Deploy to GitHub Pages → Run workflow.
+Подробно, вместе с откатом версии — `docs/GITHUB_PAGES_DEPLOYMENT.md`.
 
 ## 3. SPA-fallback
 

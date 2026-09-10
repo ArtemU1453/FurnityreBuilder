@@ -40,8 +40,19 @@ const EXTERNAL_PATTERNS = [
  * имён XML в формате XLSX (PROMPT 20). Он обязан присутствовать в файле
  * дословно, иначе книгу не откроет ни один редактор таблиц, и никогда не
  * запрашивается по сети: это имя, а не адрес.
+ *
+ * `artemu1453.github.io` — АДРЕС САМОГО ПРОДУКТА (PROMPT 40). Проверка
+ * существует, чтобы приложение ни к кому не ходило и ничьим брендом не
+ * прикрывалось; ссылка на собственную публикацию не является ни тем, ни
+ * другим. Разрешён именно этот хост, а не `github.io` целиком: чужая
+ * страница на том же домене осталась бы нарушением.
+ *
+ * Главная гарантия при этом не трогается: собранный бандл проверяется
+ * отдельно и ниже, и в нём внешних адресов по-прежнему быть не должно —
+ * README в бандл не попадает.
  */
-const ALLOWED_URL = /(schema\.org|www\.w3\.org|claude\.ai|github\.com\/emilkowalski|schemas\.openxmlformats\.org)/i;
+const ALLOWED_URL =
+  /(schema\.org|www\.w3\.org|claude\.ai|github\.com\/emilkowalski|schemas\.openxmlformats\.org|artemu1453\.github\.io)/i;
 
 function walk(dir, files = []) {
   if (!existsSync(dir)) return files;
