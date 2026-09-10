@@ -1,6 +1,7 @@
 import { createProject } from '../../../src/domain/project/factory.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
 import { createUniformGrid } from '../../../src/domain/furniture/sections.js';
+import { isSplit } from '../../../src/domain/index.js';
 import {
   createDrawersLeaf,
   createHingedFacade,
@@ -206,12 +207,108 @@ export function fixtureComplex(): Project {
   ]);
 }
 
+/**
+ * Приёмочная фикстура «Секции» (PROMPT 35 §4).
+ *
+ * Несколько секций НЕРАВНОЙ ширины: равные секции проверяются
+ * `fixtureShelves`, а неравные — отдельный случай, потому что в них
+ * работает `SizeSpec.fixed` и раскладка остатка, а не деление поровну.
+ */
+export function fixtureSections(): Project {
+  const ids = createSequentialIdFactory('sec');
+  const base = run(emptyProject('sec'), [
+    { type: 'SetDimension', furnitureIndex: 0, axis: 'width', value: 1800 },
+    { type: 'SetDimension', furnitureIndex: 0, axis: 'height', value: 2000 },
+    {
+      type: 'SetSectionCount',
+      furnitureIndex: 0,
+      count: 3,
+      splitId: ids.next<'Node'>(),
+      newSectionIds: [ids.next<'Node'>(), ids.next<'Node'>(), ids.next<'Node'>()],
+      dividerThickness: 16,
+    },
+  ]);
+
+  // Ширины: 500 фиксированная, 700 фиксированная, третья забирает остаток.
+  const root = base.furniture[0]!.root;
+  const children = isSplit(root) ? root.children : [];
+  return run(
+    base,
+    children.slice(0, 2).map((child, index) => ({
+      type: 'SetChildSize' as const,
+      furnitureIndex: 0,
+      childId: child.node.id,
+      size: { mode: 'fixed' as const, value: index === 0 ? 500 : 700 },
+    })),
+  );
+}
+
+/**
+ * Приёмочная фикстура «Нагрузка» (PROMPT 35 §4).
+ *
+ * Сетка 5 × 4 с наполнением в каждой ячейке — двадцать ячеек против
+ * девяти у `fixtureComplex`. Нужна не ради «побольше», а чтобы проверить
+ * то, что на малом проекте не проявляется: устойчивость идентификаторов
+ * при десятках объектов, отсутствие дублей в спецификации и поведение
+ * раскроя, когда деталей больше, чем помещается на один лист.
+ *
+ * Ширина 2400, а не 3000, намеренно. При 3000 горизонтали изделия дают
+ * 2968 мм против рабочей ширины листа 2730 — и раскрой честно отказывает
+ * ВОСЬМИ деталям сразу. Отказ верный, но тогда фикстура проверяла бы
+ * путь «деталь больше листа», который уже закреплён `fixtureComplex`, а
+ * не то, ради чего заведена: поведение конвейера на десятках деталей.
+ * Фикстура должна нагружать то, что обещает.
+ */
+export function fixtureStress(): Project {
+  const base = run(emptyProject('st'), [
+    { type: 'SetDimension', furnitureIndex: 0, axis: 'width', value: 2400 },
+    { type: 'SetDimension', furnitureIndex: 0, axis: 'height', value: 2400 },
+    { type: 'SetDimension', furnitureIndex: 0, axis: 'depth', value: 550 },
+    {
+      type: 'SetRoot',
+      furnitureIndex: 0,
+      root: createUniformGrid(createSequentialIdFactory('sg'), 5, 4, 16, 16),
+    },
+    { type: 'SetBackPanel', furnitureIndex: 0, patch: { mount: { kind: 'overlay', thickness: 4 } } },
+    { type: 'SetBase', furnitureIndex: 0, base: createPlinthBase(100) },
+  ]);
+
+  const shelfIds = createSequentialIdFactory('ss');
+  const drawerIds = createSequentialIdFactory('sd');
+  const commands: Command[] = geometryOf(base).cells.map((cell, index) => ({
+    type: 'SetFill' as const,
+    furnitureIndex: 0,
+    nodeId: cell.nodeId,
+    fill:
+      index % 2 === 0
+        ? createShelvesLeaf(shelfIds, 3).fill
+        : createDrawersLeaf(drawerIds, 2).fill,
+  }));
+
+  const filled = run(base, commands);
+  const facadeIds = createSequentialIdFactory('sf');
+  // Двери на ячейки с полками: на ячейку с ящиками дверь ставить нельзя.
+  const doorCells = geometryOf(filled)
+    .cells.filter((_, index) => index % 2 === 0)
+    .slice(0, 4);
+  return run(
+    filled,
+    doorCells.map((cell) => ({
+      type: 'AddFacade' as const,
+      furnitureIndex: 0,
+      facade: createHingedFacade(facadeIds, cell.nodeId, 1),
+    })),
+  );
+}
+
 export const FIXTURES = {
   carcass: fixtureCarcass,
+  sections: fixtureSections,
   shelves: fixtureShelves,
   doors: fixtureDoors,
   drawers: fixtureDrawers,
   complex: fixtureComplex,
+  stress: fixtureStress,
 } as const;
 
 export type FixtureName = keyof typeof FIXTURES;

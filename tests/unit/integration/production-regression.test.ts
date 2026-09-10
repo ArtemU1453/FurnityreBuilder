@@ -53,6 +53,21 @@ const BASELINES: Readonly<Record<FixtureName, Baseline>> = {
     status: 'NEEDS_CONFIRMATION',
     readiness: 'NEEDS_CONFIRMATION',
   },
+  // 1800×2000, три секции неравной ширины (500 / 700 / остаток):
+  // две боковины, дно, крышка, две перегородки, задняя стенка.
+  // Фурнитуры нет: полок и фасадов в фикстуре нет.
+  sections: {
+    bomPositions: 5,
+    partQuantity: 7,
+    hardwareLines: 0,
+    drillingOperations: 0,
+    sheets: 3,
+    placed: 7,
+    unplaced: 0,
+    status: 'NEEDS_CONFIRMATION',
+    readiness: 'NEEDS_CONFIRMATION',
+    note: 'Неравные секции: SizeSpec.fixed на первых двух, третья забирает остаток.',
+  },
   // Тот же корпус и три съёмные полки: +3 детали, +1 строка фурнитуры
   // (полкодержатели), деталировка группирует полки в одну позицию.
   shelves: {
@@ -111,6 +126,25 @@ const BASELINES: Readonly<Record<FixtureName, Baseline>> = {
     status: 'INVALID',
     readiness: 'INVALID',
     note: 'цельная задняя стенка 2100×2400 не помещается на лист 2750×1830',
+  },
+  // 2400×2400×550, сетка 5 × 4 — двадцать ячеек с полками и ящиками,
+  // четыре двери. Семьдесят девять деталей: проверяется поведение
+  // конвейера на количестве, а не на одном хитром случае.
+  //
+  // Одна деталь не размещается намеренно и это ВЕРНЫЙ ответ: цельная
+  // задняя стенка 2300 × 2400 не помещается в рабочую область листа
+  // 2730 × 1810 ни в одном повороте. Тот же случай, что у `complex`.
+  stress: {
+    bomPositions: 10,
+    partQuantity: 79,
+    hardwareLines: 2,
+    drillingOperations: 0,
+    sheets: 8,
+    placed: 78,
+    unplaced: 1,
+    status: 'INVALID',
+    readiness: 'INVALID',
+    note: 'Задняя стенка одним листом больше формата — раскрой честно отказывает и объясняет.',
   },
 };
 
