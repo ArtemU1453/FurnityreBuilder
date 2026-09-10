@@ -37,3 +37,7 @@ jobs:
       # — на ней же проверяются PWA, офлайн и чистота консоли.
       - run: npx playwright test --project=chromium
       - run: npx playwright test --project=chromium-dev
+
+# Оба проекта обязаны пройти: `chromium` отвечает за продукт на
+# production-сборке, `chromium-dev` — за технический debug-режим, который
+# в production-сборку не попадает вовсе.
