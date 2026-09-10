@@ -292,7 +292,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
 | [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |
 | [`docs/PRODUCTION_DEPLOYMENT_REPORT.md`](docs/PRODUCTION_DEPLOYMENT_REPORT.md) | Отчёт о проверке выкладки: что проверено и что осталось непроверенным |
-| [`docs/PERFORMANCE_BUDGET.md`](docs/PERFORMANCE_BUDGET.md) | Бюджеты размера и времени с текущими значениями |
+| [`docs/PERFORMANCE_BUDGETS.md`](docs/PERFORMANCE_BUDGETS.md) | Бюджеты размера: что измеряется, какие потолки и как их менять |
+| [`docs/PERFORMANCE_BASELINE_REPORT.md`](docs/PERFORMANCE_BASELINE_REPORT.md) | Факты замера: первая загрузка, отложенное, что автоматизировано и что нет |
 | [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md) | Действующие ограничения с причинами |
 | [`docs/UX_FLOW.md`](docs/UX_FLOW.md) | Полный сценарий работы |
 | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | Уровни тестов и что именно проверяется |

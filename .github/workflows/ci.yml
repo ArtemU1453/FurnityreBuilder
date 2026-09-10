@@ -92,7 +92,7 @@ jobs:
       - name: Самостоятельность продукта
         run: npm run check:brand
 
-      - name: Размер главного чанка
+      - name: Бюджеты производительности
         run: npm run check:bundle
 
       - name: Готовность пакета
