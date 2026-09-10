@@ -2,17 +2,27 @@ import type { Issue } from '../../domain/index.js';
 import type { ProductionStatus } from '../../workflow/index.js';
 import { StatusIndicator } from '../../design-system/index.js';
 import { PRODUCTION_STATUS, SEVERITY_LABEL, SEVERITY_TONE, summarizeIssues } from '../status.js';
-import type { StorageStatus } from '../use-project-storage.js';
 import { APP_VERSION, BUILD_ID } from '../version.js';
 import styles from './StatusBar.module.css';
 
 /**
  * Строка состояния (PROMPT 26 §3, §14, §15).
  *
- * Отвечает на три вопроса, которые пользователь обязан видеть всегда:
- * есть ли ошибки, готов ли проект к производству, сохранён ли он.
- * Слова и тона берутся из `src/app/status.ts` — того же места, откуда
- * их берут тулбар и инспектор, поэтому разойтись они не могут.
+ * Отвечает на два вопроса, которые пользователь обязан видеть всегда:
+ * есть ли ошибки и готов ли проект к производству. Слова и тона берутся
+ * из `src/app/status.ts` — того же места, откуда их берут тулбар и
+ * инспектор, поэтому разойтись они не могут.
+ *
+ * ## Почему состояния записи здесь НЕТ
+ *
+ * Оно живёт рядом с именем проекта (`ProjectContext`) — там, где человек
+ * читает, ЧТО открыто, и там же узнаёт, сохранено ли оно. Второе место
+ * для того же самого — не подстраховка, а шум: два индикатора одного
+ * состояния рано или поздно разойдутся.
+ *
+ * До PROMPT 48 компонент принимал `storage` и НЕ показывал его, а этот
+ * комментарий обещал обратное. Ложное обещание в документации хуже
+ * отсутствующей документации: по нему принимают решения.
  *
  * Первая проблема — кнопка: нажатие переводит выделение на затронутый
  * объект, чтобы от текста ошибки можно было дойти до детали, а не
@@ -24,7 +34,6 @@ import styles from './StatusBar.module.css';
 export interface StatusBarProps {
   readonly issues: readonly Issue[];
   readonly production: ProductionStatus | undefined;
-  readonly storage: StorageStatus;
   readonly onSelectIssue: (issue: Issue) => void;
 }
 

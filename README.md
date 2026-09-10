@@ -294,6 +294,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/PRODUCTION_DEPLOYMENT_REPORT.md`](docs/PRODUCTION_DEPLOYMENT_REPORT.md) | Отчёт о проверке выкладки: что проверено и что осталось непроверенным |
 | [`docs/PERFORMANCE_BUDGETS.md`](docs/PERFORMANCE_BUDGETS.md) | Бюджеты размера: что измеряется, какие потолки и как их менять |
 | [`docs/PERFORMANCE_BASELINE_REPORT.md`](docs/PERFORMANCE_BASELINE_REPORT.md) | Факты замера: первая загрузка, отложенное, что автоматизировано и что нет |
+| [`docs/UX_CLARITY_ISSUES.md`](docs/UX_CLARITY_ISSUES.md) | Реестр проблем понятности: что подтверждено, что признано не проблемой |
+| [`docs/UX_CLARITY_AUDIT_REPORT.md`](docs/UX_CLARITY_AUDIT_REPORT.md) | Аудит понятности интерфейса и accessibility baseline |
 | [`docs/ACCEPTANCE_GAP_REGISTER.md`](docs/ACCEPTANCE_GAP_REGISTER.md) | Реестр пробелов приёмки: severity, влияние на пользователя и решение по каждому |
 | [`docs/ACCEPTANCE_GAP_CLOSURE_REPORT.md`](docs/ACCEPTANCE_GAP_CLOSURE_REPORT.md) | Что закрыто, чем доказано и что осталось открытым |
 | [`docs/CRITICAL_REGRESSION_MAP.md`](docs/CRITICAL_REGRESSION_MAP.md) | Какой пользовательский путь каким тестом сторожится |

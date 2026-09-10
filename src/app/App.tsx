@@ -1724,12 +1724,7 @@ export function App(): React.JSX.Element {
         )
       }
       status={
-        <StatusBar
-          issues={problems}
-          production={readiness?.status}
-          storage={storage.status}
-          onSelectIssue={goToIssue}
-        />
+        <StatusBar issues={problems} production={readiness?.status} onSelectIssue={goToIssue} />
       }
     >
       {/*

@@ -23,7 +23,11 @@ export interface ProjectContextProps {
   readonly name: string;
   readonly size: Dimensions | undefined;
   readonly storage: StorageStatus;
-  /** Подробность записи: приватный режим, причина ошибки. */
+  /**
+   * Подробность записи, если она конкретнее общей подсказки:
+   * приватный режим, причина ошибки. Без неё показывается `hint`
+   * состояния — см. ниже, почему это важно.
+   */
   readonly storageDetail?: string;
 }
 
@@ -38,10 +42,27 @@ export function ProjectContext(props: ProjectContextProps): React.JSX.Element {
           {formatMm(props.size.depth)} мм
         </p>
       )}
+      {/*
+        Подробность: сначала конкретная, потом общая подсказка состояния
+        (PROMPT 48, UX-01).
+
+        До этого аудита `hint` из `STORAGE_STATUS` не показывался НИГДЕ —
+        ни для одного состояния. Хуже всего это било по отказу записи:
+        человек видел «Не удалось сохранить», но не видел единственного
+        совета, который спасал работу, — «выгрузите проект файлом».
+        Проверено настоящим отказом IndexedDB: после перезагрузки правки
+        не возвращались, а на экране не было сказано, как их сохранить.
+
+        Приоритет у `storageDetail`: «только память вкладки» конкретнее
+        любой общей фразы, и подменять его подсказкой нельзя.
+      */}
       <StatusIndicator
         tone={status.tone}
         label={status.label}
-        {...(props.storageDetail === undefined ? {} : { detail: props.storageDetail })}
+        {...(() => {
+          const detail = props.storageDetail ?? status.hint;
+          return detail === undefined ? {} : { detail };
+        })()}
         compact
         live
       />
