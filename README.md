@@ -153,6 +153,8 @@ npm ci                                        # установка строго 
 npm run verify                                # девять проверок подряд, до первой упавшей
 npx playwright test --project=chromium        # E2E на production-сборке
 npx playwright test --project=chromium-dev    # E2E технического режима
+
+PLAYWRIGHT_BASE_URL=<адрес> npm run smoke     # проверка опубликованного
 ```
 
 `npm run verify` — это реестр предположений, линтер, типы, тесты, сборка,
@@ -289,6 +291,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | Уровни тестов и что именно проверяется |
 | [`docs/CI_QUALITY_GATES.md`](docs/CI_QUALITY_GATES.md) | Ворота качества: что проверяет CI и что блокирует выпуск |
 | [`docs/GITHUB_PAGES_DEPLOYMENT.md`](docs/GITHUB_PAGES_DEPLOYMENT.md) | Как приложение попадает в production и как откатить версию |
+| [`docs/PRODUCTION_SMOKE_TESTING.md`](docs/PRODUCTION_SMOKE_TESTING.md) | Проверка опубликованной версии: зачем и что именно проверяется |
+| [`docs/PRODUCTION_SMOKE_TEST_REPORT.md`](docs/PRODUCTION_SMOKE_TEST_REPORT.md) | Факты прогона дымовой проверки |
 | [`docs/GITHUB_PAGES_DEPLOYMENT_REPORT.md`](docs/GITHUB_PAGES_DEPLOYMENT_REPORT.md) | Факты выкладки: что подтверждено и что осталось непроверенным |
 
 ## Лицензия

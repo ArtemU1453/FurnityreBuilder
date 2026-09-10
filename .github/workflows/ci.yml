@@ -140,6 +140,11 @@ jobs:
       contents: read
       pages: write
       id-token: write
+    outputs:
+      # Имя кэша service worker'а содержит отпечаток содержимого сборки.
+      # По нему дымовая проверка узнаёт, что по адресу лежит ИМЕННО ТО,
+      # что собрали здесь, а не предыдущая версия (PROMPT 41 §11).
+      cache: ${{ steps.stamp.outputs.cache }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -169,6 +174,17 @@ jobs:
           APP_BASE: ${{ steps.pages.outputs.base_path }}
         run: npm run check:release
 
+      - id: stamp
+        name: Отпечаток сборки
+        run: |
+          cache=$(grep -oE 'furniture-builder-v[0-9A-Za-z.-]+' dist/sw.js | head -1)
+          if [ -z "$cache" ]; then
+            echo "В dist/sw.js не нашлось имени кэша — сборка не та, что ожидалась." >&2
+            exit 1
+          fi
+          echo "Отпечаток: $cache"
+          echo "cache=$cache" >> "$GITHUB_OUTPUT"
+
       # Выгружается только `dist/`. Ни исходников, ни node_modules, ни
       # тестов, ни конфигурации разработки.
       - uses: actions/upload-pages-artifact@v3
@@ -185,6 +201,10 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      # Адрес берётся из вывода самой выкладки, а не пишется руками:
+      # проверяться должно ровно то, что опубликовано (PROMPT 41 §9).
+      url: ${{ steps.deployment.outputs.page_url }}
     # Публикации не наслаиваются. Начатую не обрываем: оборванная на
     # середине выкладка оставила бы людям половину сборки. Очередь при
     # этом не копится — GitHub держит в ней только самый свежий прогон,
@@ -195,4 +215,75 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # ── Дымовая проверка опубликованного ─────────────────────────────
+  #
+  # Успешная выкладка не доказывает, что приложение работает. Между
+  # зелёным прогоном и живой страницей лежит чужой хостинг, его
+  # заголовки, его кэш и базовый путь. Сборка под неверную базу не
+  # падает — она отдаёт белый экран, и до этой проверки его увидел бы
+  # пользователь, а не CI.
+  #
+  # Это НЕ повтор набора E2E: тот прошёл выше и отвечает за
+  # функциональность. Здесь ищутся дефекты именно выкладки, и на это
+  # уходят секунды.
+  smoke:
+    needs: [build-pages, deploy]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/claude/furniture-designer-audit-cjvvuf'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # Ожидание не «на всякий случай»: у него есть условие готовности.
+      # Ждём, пока по адресу окажется service worker С ТЕМ САМЫМ именем
+      # кэша, которое собрали в build-pages. Значит доехала именно эта
+      # версия, а не предыдущая.
+      #
+      # Предел жёсткий: 30 попыток по 10 секунд — пять минут. Дальше шаг
+      # падает, а не ждёт вечно и не притворяется успешным.
+      - name: Дождаться, пока выложенное доедет
+        env:
+          URL: ${{ needs.deploy.outputs.url }}
+          CACHE: ${{ needs.build-pages.outputs.cache }}
+        run: |
+          echo "Адрес:     $URL"
+          echo "Отпечаток: $CACHE"
+          for attempt in $(seq 1 30); do
+            body=$(curl -fsS --max-time 15 "${URL}sw.js" 2>/dev/null || true)
+            if printf '%s' "$body" | grep -qF "$CACHE"; then
+              echo "Готово с попытки $attempt."
+              exit 0
+            fi
+            echo "Попытка $attempt: выложенного ещё нет, ждём 10 с."
+            sleep 10
+          done
+          echo "За пять минут по адресу так и не появилась выложенная версия." >&2
+          exit 1
+
+      - name: Дымовая проверка опубликованного приложения
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ needs.deploy.outputs.url }}
+        run: npm run smoke
+
+      # Отчёт, трассы и снимки экрана — только при падении. Секретов в
+      # них нет: сценарий работает в пустом браузере на публичном адресе.
+      - name: Диагностика упавшей проверки
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-smoke-diagnostics
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 

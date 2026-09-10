@@ -48,7 +48,9 @@ export default defineConfig({
       // (import.meta.env.DEV, docs/GEOMETRY_RULES.md §12) и в этот прогон,
       // построенный на production-сборке, не попадает — для него отдельный
       // проект ниже, направленный на dev-сервер.
-      testIgnore: '**/debug-schema.spec.ts',
+      // Дымовая проверка выкладки сюда не входит: она идёт по
+      // ОПУБЛИКОВАННОМУ адресу и своим проектом (PROMPT 41).
+      testIgnore: ['**/debug-schema.spec.ts', '**/production-smoke.spec.ts'],
       use: {
         ...devices['Desktop Chrome'],
         // Средам с предустановленным браузером (контейнеры разработки) можно
@@ -65,6 +67,30 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         baseURL: 'http://127.0.0.1:4174',
+        ...(process.env.PLAYWRIGHT_CHROMIUM_PATH === undefined
+          ? {}
+          : { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }),
+      },
+    },
+    {
+      /*
+        Дымовая проверка опубликованного приложения (PROMPT 41).
+
+        Отдельный проект, а не файл в общем наборе: цель у него другая.
+        Общий набор отвечает на вопрос «работает ли продукт» и идёт до
+        выкладки; этот — на вопрос «доехало ли то, что мы выложили», и
+        идёт по живому адресу. Смешав их, пришлось бы гонять четыре
+        минуты функциональных сценариев ради ответа, который даётся за
+        двадцать секунд.
+
+        Адрес обязателен и приходит снаружи — из вывода самой выкладки:
+
+          PLAYWRIGHT_BASE_URL=<адрес> npm run smoke
+      */
+      name: 'production-smoke',
+      testMatch: '**/production-smoke.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
         ...(process.env.PLAYWRIGHT_CHROMIUM_PATH === undefined
           ? {}
           : { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }),
