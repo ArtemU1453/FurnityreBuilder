@@ -15,7 +15,7 @@ const step = (page: Page, title: string) => rail(page).getByRole('button', { nam
 const scene = (page: Page) => page.getByRole('img', { name: /Трёхмерный вид изделия/ });
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 });
 
 test('конвенции габарита доступны и меняют изделие (§14, Д-002)', async ({ page }) => {

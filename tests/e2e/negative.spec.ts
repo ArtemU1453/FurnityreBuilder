@@ -17,7 +17,7 @@ const step = (page: Page, title: string) => rail(page).getByRole('button', { nam
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
+  await page.goto('./');
 });
 
 test('нулевая ширина объясняется словами и отменяется', async ({ page }) => {

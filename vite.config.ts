@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { readFileSync } from 'node:fs';
+// @ts-expect-error — общий модуль без типов: он же читается сборочными
+// скриптами на чистом JS, и заводить ради него .d.ts не за чем.
+import { appBase } from './scripts/app-base.mjs';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
   version: string;
@@ -28,6 +31,13 @@ const buildDate = new Date(
   .slice(0, 10);
 
 export default defineConfig({
+  /*
+    Базовый путь. По умолчанию корень домена; `APP_BASE` переводит сборку
+    в подкаталог — так приложение публикуется на GitHub Pages
+    (`docs/DEPLOYMENT.md` §2). Значение читается общим модулем, потому
+    что тот же путь нужен манифесту, service worker'у и проверке пакета.
+  */
+  base: appBase() as string,
   plugins: [react()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

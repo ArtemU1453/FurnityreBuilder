@@ -63,7 +63,7 @@ async function instrument(page: Page): Promise<void> {
 test('переключение разделов не накапливает холсты и слушателей (§19)', async ({ page }) => {
   await instrument(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
+  await page.goto('./');
   await expect(scene(page)).toBeVisible();
 
   const baseline = await counters(page);
@@ -90,7 +90,7 @@ test('переключение разделов не накапливает хо
 
 test('переключение вида холста не теряет контекст WebGL (§14)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
+  await page.goto('./');
 
   const lost = await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
@@ -120,7 +120,7 @@ test('переключение вида холста не теряет конт�
 test('экспорт создаёт ровно один объектный URL на документ (§19)', async ({ page }) => {
   await instrument(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('radio', { name: 'Производство' }).click();
   await page.getByRole('radio', { name: 'Документы', exact: true }).click();
 
@@ -152,7 +152,7 @@ test('экспорт создаёт ровно один объектный URL �
 
 test('крупный проект остаётся отзывчивым (§18, §44)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
+  await page.goto('./');
 
   // 4 секции, сетка 3×3, по 2 полки в ячейке — заметно больше деталей,
   // чем в изделии по умолчанию.
@@ -188,7 +188,7 @@ test('крупный проект остаётся отзывчивым (§18, �
 
 test('выделение детали не пересчитывает производство (§43)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('radio', { name: 'Производство' }).click();
   await page.getByRole('radio', { name: 'Детали', exact: true }).click();
 

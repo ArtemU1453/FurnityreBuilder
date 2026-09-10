@@ -26,11 +26,13 @@ async function waitForServiceWorker(page: Page): Promise<void> {
 }
 
 test('манифест отдаётся и описывает устанавливаемое приложение (§5)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   const href = await page.getAttribute('link[rel="manifest"]', 'href');
-  expect(href).toBe('/manifest.webmanifest');
+  // Адрес сверяется с базой приложения, а не с корнем домена:
+  // приложение может быть опубликовано в подкаталоге (PROMPT 37 §2).
+  expect(href).toBe(`${new URL(page.url()).pathname}manifest.webmanifest`);
 
-  const response = await page.request.get('/manifest.webmanifest');
+  const response = await page.request.get('manifest.webmanifest');
   expect(response.ok()).toBe(true);
   const manifest = (await response.json()) as {
     name: string;
@@ -48,8 +50,11 @@ test('манифест отдаётся и описывает устанавли
   // поэтому короткое имя — одно слово: рядом со значком оно однозначно.
   expect(manifest.short_name).toBe('Furniture');
   expect(manifest.short_name.length).toBeLessThanOrEqual(12);
-  expect(manifest.start_url).toBe('/');
-  expect(manifest.scope).toBe('/');
+  // Оба поля равны базе приложения, какой бы она ни была: `scope` вне
+  // области действия страницы делает манифест недействительным целиком.
+  const base = new URL(page.url()).pathname;
+  expect(manifest.start_url).toBe(base);
+  expect(manifest.scope).toBe(base);
   expect(manifest.display).toBe('standalone');
   expect(manifest.icons.map((i) => i.sizes)).toEqual(
     expect.arrayContaining(['192x192', '512x512']),
@@ -65,10 +70,10 @@ test('манифест отдаётся и описывает устанавли
 });
 
 test('iOS-теги на месте: манифест там не читают (§5)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
     'href',
-    '/apple-touch-icon.png',
+    `${new URL(page.url()).pathname}apple-touch-icon.png`,
   );
   await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute(
     'content',
@@ -78,7 +83,7 @@ test('iOS-теги на месте: манифест там не читают (�
 });
 
 test('service worker регистрируется и предзагружает оболочку (§6)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await waitForServiceWorker(page);
 
   const cached = await page.evaluate(async () => {
@@ -91,13 +96,19 @@ test('service worker регистрируется и предзагружает 
 
   // Ровно один кэш приложения: старые версии удаляются на активации.
   expect(cached.names).toHaveLength(1);
-  expect(cached.urls).toContain('/');
-  expect(cached.urls.some((u) => /^\/assets\/index-.*\.js$/.test(u))).toBe(true);
+  // Ключи кэша — от базы приложения: в подкаталоге навигационная запись
+  // лежит под «/подкаталог/», и искать её под «/» значило бы проверять
+  // не тот адрес, по которому воркер её потом ищет сам.
+  const swBase = new URL(page.url()).pathname;
+  expect(cached.urls).toContain(swBase);
+  expect(cached.urls.some((u) => u.startsWith(`${swBase}assets/index-`) && u.endsWith('.js'))).toBe(
+    true,
+  );
   expect(cached.urls.some((u) => u.endsWith('.css'))).toBe(true);
 });
 
 test('приложение открывается и работает без сети (§6)', async ({ page, context }) => {
-  await page.goto('/');
+  await page.goto('./');
   await waitForServiceWorker(page);
   await expect(scene(page)).toBeVisible();
 
@@ -122,7 +133,7 @@ test('приложение открывается и работает без с�
 });
 
 test('без сети доступны все разделы, включая производство (§6)', async ({ page, context }) => {
-  await page.goto('/');
+  await page.goto('./');
   await waitForServiceWorker(page);
 
   await context.setOffline(true);
@@ -144,7 +155,7 @@ test('без сети доступны все разделы, включая п�
 });
 
 test('сохранённый проект переживает перезагрузку без сети (§8)', async ({ page, context }) => {
-  await page.goto('/');
+  await page.goto('./');
   await waitForServiceWorker(page);
 
   await page.getByRole('spinbutton', { name: 'Глубина', exact: true }).fill('480');
@@ -159,7 +170,7 @@ test('сохранённый проект переживает перезагр�
 });
 
 test('обновление приложения не трогает проекты пользователя (§7, §8)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await waitForServiceWorker(page);
 
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1444');
@@ -181,7 +192,7 @@ test('обновление приложения не трогает проект
 });
 
 test('экспорт PDF и XLSX работает без сети (§6)', async ({ page, context }) => {
-  await page.goto('/');
+  await page.goto('./');
   await waitForServiceWorker(page);
 
   // Догрузка тяжёлых ресурсов идёт после активации: шрифт для PDF и оба
@@ -218,7 +229,7 @@ test('экспорт PDF и XLSX работает без сети (§6)', async 
 });
 
 test('неизвестный адрес отдаёт приложение, а не страницу хостинга (§11, §12)', async ({ page }) => {
-  const response = await page.request.get('/404.html');
+  const response = await page.request.get('404.html');
   expect(response.ok()).toBe(true);
   // 404.html — копия входной страницы: на хостингах без rewrite
   // приложение всё равно открывается.

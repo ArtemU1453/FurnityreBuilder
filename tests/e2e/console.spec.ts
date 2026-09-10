@@ -62,7 +62,7 @@ function collect(page: Page): Collected {
 test('основной путь не оставляет в консоли ни одной жалобы', async ({ page }) => {
   const { messages, failures } = collect(page);
 
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.getByRole('img', { name: /Трёхмерный вид изделия/ })).toBeVisible();
 
   // Проход по всем четырём экранам: React ругается на ключи и состояние
@@ -83,7 +83,7 @@ test('основной путь не оставляет в консоли ни �
 test('экспорт PDF и XLSX не пишет в консоль (§22)', async ({ page }) => {
   const { messages, failures } = collect(page);
 
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('radio', { name: 'Производство' }).click();
 
   for (const format of ['PDF', 'XLSX']) {

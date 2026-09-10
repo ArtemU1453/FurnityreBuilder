@@ -15,7 +15,7 @@ import type { Page } from '@playwright/test';
 const section = (page: Page, name: string) => page.getByRole('radio', { name, exact: true });
 
 async function openProduction(page: Page): Promise<void> {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('radio', { name: 'Производство' }).click();
   await expect(page.getByRole('region', { name: 'Сводка' })).toBeVisible();
 }

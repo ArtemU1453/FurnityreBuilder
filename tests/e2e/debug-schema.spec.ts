@@ -28,7 +28,7 @@ async function goToStep(page: Page, title: string): Promise<void> {
 }
 
 test('схема появляется в режиме разработки и отражает реальную геометрию', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   await expect(schema).toBeVisible();
@@ -46,7 +46,7 @@ test('схема появляется в режиме разработки и о
 test('применение сетки перестраивает схему: перегородки и ячейки появляются вживую', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -62,7 +62,7 @@ test('применение сетки перестраивает схему: п�
 });
 
 test('переключатель debug-инфо показывает и скрывает подписи ID и координат', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   const toggle = page.getByLabel('Показывать ID и координаты');
   await expect(toggle).not.toBeChecked();
@@ -81,7 +81,7 @@ test('переключатель debug-инфо показывает и скры
 test('полки появляются в схеме как отдельные детали и подписываются в debug-инфо', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -105,7 +105,7 @@ test('полки появляются в схеме как отдельные д
 });
 
 test('изменение числа секций перестраивает перегородки и подписывает секции', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Секции');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -131,7 +131,7 @@ test('изменение числа секций перестраивает пе
 });
 
 test('индивидуальные ширины секций применяются и видны в схеме', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   const stats = page.getByRole('region', { name: 'Результат расчёта' });
 
@@ -168,7 +168,7 @@ test('индивидуальные ширины секций применяют�
 });
 
 test('наполнение ячейки подписано в схеме и меняется вместе с моделью', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -183,7 +183,7 @@ test('наполнение ячейки подписано в схеме и ме
 });
 
 test('дверь появляется в схеме и подписана содержимым ячейки (PROMPT 10 §18)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Фасады');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -211,7 +211,7 @@ test('дверь появляется в схеме и подписана сод
 test('фасады ящиков появляются в схеме и подписаны CONTENT: ЯЩИКИ (PROMPT 11 §20)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Фасады');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -247,7 +247,7 @@ test('фасады ящиков появляются в схеме и подпи
 });
 
 test('ручка появляется в схеме и подписана в CONTENT ячейки (PROMPT 12 §18)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Фасады');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -272,7 +272,7 @@ test('ручка появляется в схеме и подписана в CON
 });
 
 test('изменение габарита в поле обновляет схему сразу, без перезагрузки', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
   const widthDimBefore = await schema.getByText('1000 мм').count();
@@ -286,7 +286,7 @@ test('изменение габарита в поле обновляет схе�
 test('материал и толщина детали подписаны в схеме, смена толщины материала видна сразу (PROMPT 13 §22–23)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -314,7 +314,7 @@ test('материал и толщина детали подписаны в сх
 test('назначение материала роли меняет материал уже построенных деталей (PROMPT 13 §23)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Ячейки');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -341,7 +341,7 @@ test('назначение материала роли меняет матери
 test('задняя стенка и цоколь появляются в схеме и пересчитывают корпус (PROMPT 14 §21, §27)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Корпус');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -376,7 +376,7 @@ test('задняя стенка и цоколь появляются в схем
 test('разделение задней стенки по секциям даёт сегмент на секцию (PROMPT 14 §6–§7)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Секции');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -399,7 +399,7 @@ test('разделение задней стенки по секциям даё�
 test('модификаторы корпуса пересчитывают геометрию и видны в схеме (PROMPT 15 §16, §21)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Конструкция');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -438,7 +438,7 @@ test('модификаторы корпуса пересчитывают гео�
 test('фальшпанель и режим установки проходят через команды (PROMPT 15 §13, §21)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Конструкция');
 
   const schema = page.getByRole('img', { name: 'Техническая схема изделия' });
@@ -462,7 +462,7 @@ test('фальшпанель и режим установки проходят �
 test('спецификация фурнитуры пересчитывается вместе с моделью (PROMPT 16 §20, §26)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Фасады');
 
   const hardware = page.getByRole('heading', { name: 'Фурнитура (расчёт)' });
@@ -511,7 +511,7 @@ test('спецификация фурнитуры пересчитывается
 test('карта раскроя строится из деталей и пересчитывается вместе с ними (PROMPT 17 §30)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Ячейки');
 
   await expect(page.getByRole('heading', { name: 'Карта раскроя (debug)' })).toBeVisible();
@@ -540,7 +540,7 @@ test('карта раскроя строится из деталей и пере
 test('карта присадки объясняет, чего не хватает, вместо выдуманных отверстий (PROMPT 18 §28)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Ячейки');
 
   await expect(page.getByRole('heading', { name: 'Присадка (расчёт)' })).toBeVisible();
@@ -562,7 +562,7 @@ test('карта присадки объясняет, чего не хватае
 test('спецификация собирается из всех расчётов и не прячет ограничений (PROMPT 19 §25)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Ячейки');
 
   await expect(page.getByRole('heading', { name: 'Спецификация (расчёт)' })).toBeVisible();
@@ -592,7 +592,7 @@ test('спецификация собирается из всех расчёто
 test('debug-режим сцены показывает состав и счётчики отрисовки (PROMPT 23 §27, §31)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   const canvas = page.getByRole('img', { name: /Трёхмерный вид изделия/ });
   await expect(canvas).toBeVisible();

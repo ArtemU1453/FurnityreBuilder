@@ -28,7 +28,7 @@ async function save(page: Page): Promise<void> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 });
 
 test('FLOW A — первый проект: габариты, секции, полки, сохранение', async ({ page }) => {

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/build-sw.mjs && node scripts/build-404.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/build-manifest.mjs && node scripts/build-sw.mjs && node scripts/build-404.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit --pretty",
     "lint": "eslint .",

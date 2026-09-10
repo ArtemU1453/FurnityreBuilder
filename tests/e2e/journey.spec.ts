@@ -25,7 +25,7 @@ test('весь путь: проект → конструктор → помещ�
   await page.setViewportSize({ width: 1440, height: 900 });
 
   // 1. Новый проект.
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Новый проект' })).toBeVisible();
   await expect(scene(page)).toBeVisible();
 

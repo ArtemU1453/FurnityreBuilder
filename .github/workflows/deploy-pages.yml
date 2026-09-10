@@ -1,0 +1,75 @@
+# Публикация приложения на GitHub Pages (PROMPT 37 §2, §3).
+#
+# Почему именно Pages: это единственный способ выложить продукт бесплатно
+# из того, что у репозитория уже есть. Ни второго хостинга, ни платного
+# сервиса, ни учётных данных заводить не пришлось — приложение статическое,
+# и Pages отдаёт его как есть.
+#
+# Страницы проекта отдаются по адресу вида `имя.github.io/репозиторий/`,
+# то есть В ПОДКАТАЛОГЕ. Базовый путь берётся из `configure-pages`, а не
+# пишется руками: при подключении собственного домена он станет корнем, и
+# сборка обязана это заметить сама (docs/DEPLOYMENT.md §2).
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [claude/furniture-designer-audit-cjvvuf]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Выкладки не наслаиваются: параллельные публикации перетирали бы друг
+# друга. Начатую не отменяем — оборванная на середине выкладка оставила бы
+# пользователю половину сборки.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - id: pages
+        uses: actions/configure-pages@v5
+        with:
+          # Позволяет включить Pages из самого workflow: отдельного
+          # ручного шага в настройках репозитория не требуется.
+          enablement: true
+
+      - name: Сборка под фактический базовый путь
+        env:
+          APP_BASE: ${{ steps.pages.outputs.base_path }}
+        run: npm run build
+
+      # Целостность пакета проверяется и здесь, а не только в CI: выкладка
+      # — последнее место, где ошибку ещё можно не отдать пользователю.
+      # Проверка следит за согласованностью базового пути в разметке,
+      # манифесте и service worker'е — разойдясь, они дают белый экран.
+      - name: Проверка пакета
+        env:
+          APP_BASE: ${{ steps.pages.outputs.base_path }}
+        run: npm run check:release
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

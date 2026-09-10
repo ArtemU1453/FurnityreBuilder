@@ -26,7 +26,7 @@ async function goToStep(page: Page, title: string): Promise<void> {
 }
 
 test('приложение запускается и показывает рассчитанный результат', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await expect(page).toHaveTitle(/Furniture Builder/);
   // Заголовок редактора — имя проекта (PROMPT 22 §3): «Furniture Builder»
   // как надпись в шапке больше не выводится.
@@ -53,7 +53,7 @@ test('приложение не выполняет ни одного внешн�
     if (!['localhost', '127.0.0.1'].includes(url.hostname)) external.push(request.url());
   });
 
-  await page.goto('/');
+  await page.goto('./');
   await page.waitForLoadState('networkidle');
 
   // Продукт обязан работать без внешних сервисов: ни шрифтов, ни аналитики,
@@ -62,7 +62,7 @@ test('приложение не выполняет ни одного внешн�
 });
 
 test('изменение габарита сразу пересчитывает геометрию, без задержки', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   const width = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
   await expect(page.locator('li', { hasText: 'Внутренняя ширина' })).toContainText('968');
@@ -73,7 +73,7 @@ test('изменение габарита сразу пересчитывает 
 });
 
 test('отмена возвращает предыдущее состояние', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('1400');
   await expect(page.locator('li', { hasText: 'Внутренняя ширина' })).toContainText('1368');
 
@@ -82,7 +82,7 @@ test('отмена возвращает предыдущее состояние'
 });
 
 test('ошибка объясняется текстом, а не только цветом, и не блокирует работу', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('spinbutton', { name: 'Глубина', exact: true }).fill('0');
 
   const message = page.getByRole('alert').first();
@@ -94,7 +94,7 @@ test('ошибка объясняется текстом, а не только �
 });
 
 test('интерфейс доступен с клавиатуры и имеет ссылку пропуска навигации', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   // Дождаться отрисованного интерфейса перед первым Tab: до неё фокус
   // ещё на документе, и первое нажатие уходит в никуда.
   await expect(page.getByRole('heading', { name: 'Новый проект' })).toBeVisible();
@@ -109,13 +109,13 @@ test('интерфейс доступен с клавиатуры и имеет 
 });
 
 test('кнопки отмены и возврата отключены, пока нечего отменять', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Вернуть' })).toBeDisabled();
 });
 
 test('дверь можно добавить на выбранную ячейку и убрать (PROMPT 10 §19)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Фасады');
   await expect(page.locator('li', { hasText: 'Дверей' })).toContainText('0');
 
@@ -138,7 +138,7 @@ test('дверь можно добавить на выбранную ячейк�
 });
 
 test('ящики можно добавлять и убирать на выбранной ячейке (PROMPT 11 §21)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Фасады');
   await expect(page.locator('li', { hasText: 'Фасадов ящиков' })).toContainText('0');
 
@@ -174,7 +174,7 @@ test('ящики можно добавлять и убирать на выбра
 });
 
 test('способ открывания двери можно выбрать и снять (PROMPT 12 §19)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Фасады');
   await expect(page.locator('li', { hasText: 'Ручек' })).toContainText('0');
   await expect(page.locator('li', { hasText: 'Push-to-open' })).toContainText('0');
@@ -197,7 +197,7 @@ test('способ открывания двери можно выбрать и 
 });
 
 test('способ открывания ящиков можно выбрать (PROMPT 12 §19)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await goToStep(page, 'Фасады');
   await page.getByLabel('Ячейка').selectOption({ index: 1 });
   await page
@@ -217,7 +217,7 @@ test('способ открывания ящиков можно выбрать (
 test('производственная документация скачивается и не запускается дважды (PROMPT 20 §19)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   // Производство — раздел приложения, а не панель в колонке параметров
   // (PROMPT 26 §26).
   await page.getByRole('radio', { name: 'Производство' }).click();
@@ -257,7 +257,7 @@ test('производственная документация скачивае
 test('чеклист готовности к производству виден и обновляется вместе с проектом (PROMPT 21 §17)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('radio', { name: 'Производство' }).click();
 
   // Общий статус: подтверждены не все производственные правила, и об этом
@@ -312,7 +312,7 @@ test('чеклист готовности к производству виден
  * жест и отмену на SVG-схеме.
  */
 async function openSchema(page: Page): Promise<void> {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('radio', { name: 'Схема' }).click();
   await expect(page.getByRole('application', { name: /Схема изделия/ })).toBeVisible();
 }
@@ -444,7 +444,7 @@ test('Esc отменяет жест изменения габарита до о�
 test('проект сохраняется и восстанавливается после перезагрузки (PROMPT 22 §28)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   // Состояние сохранения живёт в верхней строке рядом с именем проекта
   // (PROMPT 26 §6): один ответ на вопрос в одном месте, а не в двух.
@@ -465,7 +465,7 @@ test('проект сохраняется и восстанавливается 
 test('строка состояния ведёт от текста ошибки к затронутому объекту (PROMPT 22 §29)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   await page.getByRole('spinbutton', { name: 'Ширина', exact: true }).fill('-100');
 
@@ -484,7 +484,7 @@ test('строка состояния ведёт от текста ошибки 
 test('путь Библиотека → Конструктор → Помещение → Производство и обратно (§32, §34)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   const nav = page.getByRole('radiogroup', { name: 'Раздел' });
   await expect(nav).toBeVisible();
@@ -540,7 +540,7 @@ test('путь Библиотека → Конструктор → Помеще�
 });
 
 test('единица измерения стоит в поле, а не в подписи (§9)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   // Подпись отвечает на вопрос «что это», единица — «в чём измеряется».
   const width = page.getByRole('spinbutton', { name: 'Ширина', exact: true });
@@ -563,7 +563,7 @@ test('единица измерения стоит в поле, а не в по�
 });
 
 test('состояния имеют одни и те же слова во всех разделах (§14, §37)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   // Компактная плашка в верхней строке и полная подпись в строке
   // состояния — одно состояние, один словарь.

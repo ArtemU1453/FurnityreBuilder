@@ -20,7 +20,7 @@ async function saveCurrent(page: Page): Promise<void> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 });
 
 test('поля шага показывают структуру ОТКРЫТОГО проекта, а не единицы пустого (§5)', async ({

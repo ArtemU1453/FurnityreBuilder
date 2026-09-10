@@ -26,7 +26,7 @@ async function horizontalOverflow(page: Page): Promise<number> {
 for (const size of SIZES) {
   test(`${size.name}: страница не едет вбок ни в одном разделе`, async ({ page }) => {
     await page.setViewportSize({ width: size.width, height: size.height });
-    await page.goto('/');
+    await page.goto('./');
 
     for (const section of ['Конструктор', 'Библиотека', 'Помещение', 'Производство']) {
       await page.getByRole('radio', { name: section }).click();
@@ -38,7 +38,7 @@ for (const size of SIZES) {
 
 test('телефон: навигация внизу, под большим пальцем', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('./');
 
   const nav = page.getByRole('radiogroup', { name: 'Раздел' });
   const top = page.getByRole('heading', { level: 1 });
@@ -55,7 +55,7 @@ test('телефон: навигация внизу, под большим па�
 
 test('десктоп: навигация вверху, инспектор рядом с холстом', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
+  await page.goto('./');
 
   const nav = (await page.getByRole('radiogroup', { name: 'Раздел' }).boundingBox())!;
   expect(nav.y).toBeLessThan(200);
@@ -68,7 +68,7 @@ test('десктоп: навигация вверху, инспектор ряд
 
 test('зоны попадания не меньше 44 px (§28)', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('./');
 
   /*
     Проверяется ЗОНА ПОПАДАНИЯ, а не высота рисунка. Кнопка остаётся

@@ -15,7 +15,7 @@ const canvas = (page: Page) => page.getByRole('img', { name: /Помещение
 const inspector = (page: Page) => page.getByLabel('Свойства помещения');
 
 async function openPlanner(page: Page): Promise<void> {
-  await page.goto('/');
+  await page.goto('./');
   // Проект нужно сохранить: в помещение ставят проекты из библиотеки, а
   // несохранённого проекта в библиотеке нет (PROMPT 25 §13).
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();

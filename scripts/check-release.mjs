@@ -156,9 +156,8 @@ if (!sizes.has('192x192') || !sizes.has('512x512')) {
 if (!manifest.icons.some((icon) => icon.purpose === 'maskable')) {
   fail('manifest: нет maskable-иконки — на Android знак обрежется по краю');
 }
-for (const icon of manifest.icons) {
-  if (!files.includes(icon.src.replace(/^\//, ''))) fail(`manifest: иконки нет в пакете: ${icon.src}`);
-}
+// Проверка наличия файлов иконок — ниже, вместе с базовым путём (§6a):
+// пока он не определён, отрезать от адреса нечего.
 
 /* ── 6. Страница ссылается на манифест и иконки (§5, §13) ──────────── */
 
@@ -174,33 +173,50 @@ for (const [what, re] of [
   if (!re.test(html)) fail(`index.html: нет ${what}`);
 }
 
-/* ── 6a. Все ссылки идут от корня домена (PROMPT 36 §5) ────────────── */
+/* ── 6a. Базовый путь везде один (PROMPT 36 §5, PROMPT 37 §2) ─────── */
 
 /**
- * Приложение рассчитано на размещение В КОРНЕ домена.
+ * Базовый путь приложения объявлен в ЧЕТЫРЁХ местах сразу: в ссылках
+ * разметки, в `start_url` и `scope` манифеста, в области действия
+ * service worker'а и во всём его списке предзагрузки.
  *
- * Это не случайность и не недосмотр: от корня идут ссылки в разметке,
- * `start_url` и `scope` манифеста, область действия service worker'а и
- * весь его список предзагрузки. Разместить такую сборку в подкаталоге
- * (`example.org/мебель/`, страницы проекта на GitHub Pages) нельзя — все
- * файлы дадут 404, и человек увидит белый экран без единого объяснения.
+ * Разойтись они могут молча. Приложение с неверной базой не падает с
+ * ошибкой — браузер запрашивает файлы не по тому адресу, хостинг
+ * отвечает 404, и человек видит белый экран без единого объяснения.
+ * Самый дорогой вид поломки: ничего не сломано на вид.
  *
- * Проверка следит не за самим правилом, а за его ЦЕЛОСТНОСТЬЮ: стоит
- * кому-то поменять базовый путь в одном месте из трёх, и приложение
- * сломается ровно тем же белым экраном. Требование записано в
- * `docs/DEPLOYMENT.md` §2.
+ * Поэтому проверяется не конкретное значение — оно зависит от того,
+ * куда выкладывают, — а именно СОГЛАСОВАННОСТЬ. За истину берётся
+ * разметка: это тот файл, который браузер читает первым.
  */
-const htmlRefs = [...html.matchAll(/(?:href|src)="([^"]+)"/g)].map((match) => match[1]);
-for (const ref of htmlRefs) {
+const baseMatch = /(?:href|src)="([^"]*\/)assets\/index-[^"]*\.js"/.exec(html);
+if (baseMatch === null) fail('index.html: не найдена ссылка на главный чанк — базовый путь не определить');
+const BASE = baseMatch === null ? '/' : baseMatch[1];
+notes.push(`Базовый путь: ${BASE}`);
+
+/** Путь внутри пакета для адреса, объявленного относительно базы. */
+const inPackage = (url) => url.slice(BASE.length);
+
+for (const ref of [...html.matchAll(/(?:href|src)="([^"]+)"/g)].map((m) => m[1])) {
   if (/^(https?:|data:|mailto:|#)/.test(ref)) continue;
-  if (!ref.startsWith('/')) {
-    fail(`index.html: ссылка не от корня домена — «${ref}». Сборка рассчитана на корень`);
+  if (!ref.startsWith(BASE)) {
+    fail(`index.html: ссылка «${ref}» вне базового пути ${BASE} — на хостинге даст 404`);
   }
 }
-if (manifest.start_url !== '/' || manifest.scope !== '/') {
+
+if (manifest.start_url !== BASE || manifest.scope !== BASE) {
   fail(
-    `manifest: start_url=${String(manifest.start_url)} и scope=${String(manifest.scope)} должны быть «/» — иначе они разойдутся с разметкой`,
+    `manifest: start_url=${String(manifest.start_url)}, scope=${String(manifest.scope)}, ` +
+      `а разметка собрана под ${BASE}. Вне области действия манифест недействителен целиком`,
   );
+}
+
+for (const icon of manifest.icons) {
+  if (!icon.src.startsWith(BASE)) {
+    fail(`manifest: адрес иконки «${icon.src}» вне базового пути ${BASE}`);
+  } else if (!files.includes(inPackage(icon.src))) {
+    fail(`manifest: иконки нет в пакете: ${icon.src}`);
+  }
 }
 
 /* ── 7. Service worker согласован со сборкой (§7) ──────────────────── */
@@ -214,15 +230,22 @@ const precache = /const PRECACHE = (\[[\s\S]*?\]);/.exec(sw);
 if (precache === null) fail('sw.js: не найден список предзагрузки');
 else {
   for (const url of JSON.parse(precache[1])) {
-    if (!files.includes(url.replace(/^\//, ''))) {
+    if (!url.startsWith(BASE)) {
+      fail(`sw.js: в предзагрузке адрес вне базового пути ${BASE}: ${url}`);
+    } else if (!files.includes(inPackage(url))) {
       fail(`sw.js: в предзагрузке файл, которого нет в пакете: ${url}`);
     }
   }
 }
 // Главный бандл обязан быть предзагружен: без него офлайн не откроется.
 const entry = bundles.find((f) => /^assets\/index-.*\.js$/.test(f) && statSync(join(DIST, f)).size > 100_000);
-if (entry !== undefined && precache !== null && !JSON.parse(precache[1]).includes(`/${entry}`)) {
+if (entry !== undefined && precache !== null && !JSON.parse(precache[1]).includes(`${BASE}${entry}`)) {
   fail(`sw.js: главный чанк ${entry} не в предзагрузке — офлайн приложение не откроется`);
+}
+const swBase = /const BASE = '([^']*)'/.exec(sw);
+if (swBase === null) fail('sw.js: не найден базовый путь');
+else if (swBase[1] !== BASE) {
+  fail(`sw.js: базовый путь ${swBase[1]} не совпадает с разметкой ${BASE} — офлайн не найдёт страницы`);
 }
 if (!sw.includes('SKIP_WAITING')) {
   fail('sw.js: нет управляемой активации — новая версия встанет под работающей вкладкой');

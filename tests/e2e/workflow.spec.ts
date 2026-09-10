@@ -21,14 +21,14 @@ const step = (page: Page, title: string) => rail(page).getByRole('button', { nam
 test('лестница показывает положение в сценарии, а не выдуманный процент (§29)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await expect(rail(page)).toContainText('Шаг 1 из 11');
   // Процента нет нигде: его невозможно посчитать честно.
   await expect(rail(page)).not.toContainText('%');
 });
 
 test('каждый шаг открывает свою панель и только её (§27)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   const panels: readonly (readonly [string, string])[] = [
     ['Размеры', 'Размеры'],
@@ -53,7 +53,7 @@ test('каждый шаг открывает свою панель и тольк
 });
 
 test('текущий шаг помечен для скринридера, а не только цветом (§27)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await expect(step(page, 'Размеры')).toHaveAttribute('aria-current', 'step');
   await step(page, 'Материалы').click();
   await expect(step(page, 'Материалы')).toHaveAttribute('aria-current', 'step');
@@ -63,7 +63,7 @@ test('текущий шаг помечен для скринридера, а н�
 test('шаг «Проверка» уводит на раздел производства и обратно возвращает туда же (§3)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await step(page, 'Материалы').click();
 
   await step(page, 'Проверка').click();
@@ -77,13 +77,13 @@ test('шаг «Проверка» уводит на раздел произво�
 });
 
 test('ни один шаг не заблокирован: с первого можно уйти на последний (§28)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await step(page, 'Производство').click();
   await expect(page.getByRole('button', { name: 'Скачать PDF' })).toBeVisible();
 });
 
 test('кнопки «Назад» и «Далее» ведут по порядку и упираются в края', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   const back = rail(page).getByRole('button', { name: 'Назад' });
   const forward = rail(page).getByRole('button', { name: 'Далее' });
 
@@ -96,7 +96,7 @@ test('кнопки «Назад» и «Далее» ведут по порядк
 });
 
 test('шаги доступны с клавиатуры и не перехватывают ввод чисел (§36)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   // Кнопка шага достижима табуляцией и открывается с клавиатуры.
   await step(page, 'Секции').focus();
@@ -114,7 +114,7 @@ test('шаги доступны с клавиатуры и не перехват
 });
 
 test('ошибка ведёт к своему шагу, а не просто светится в статусе (§24)', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await step(page, 'Материалы').click();
 
   // Нулевая ширина — ошибка шага «Размеры».
@@ -132,7 +132,7 @@ test('ошибка ведёт к своему шагу, а не просто с�
 
 test('на телефоне шаги остаются доступны и ничего не вылезает за экран (§35)', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('./');
 
   // С PROMPT 28 на телефоне видна не вся лестница, а текущий шаг с
   // переходами: одиннадцать целей для пальца на 390 px не помещаются, а

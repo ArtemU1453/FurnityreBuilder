@@ -84,7 +84,10 @@ export function registerServiceWorker(options: ServiceWorkerOptions): () => void
   navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
 
   void navigator.serviceWorker
-    .register('/sw.js', { scope: '/' })
+    // Адрес и область — от базового пути сборки: в подкаталоге
+    // воркер, зарегистрированный на «/», не получил бы права
+    // управлять собственной страницей приложения.
+    .register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
     .then((reg) => {
       if (disposed) return;
       registration = reg;

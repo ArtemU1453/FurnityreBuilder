@@ -33,7 +33,7 @@ test('выкладка новой версии доходит до пользо�
   test.slow();
   await deploy(VER_A as string);
 
-  await page.goto('/');
+  await page.goto('./');
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, {
     timeout: 20_000,
   });

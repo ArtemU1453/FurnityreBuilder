@@ -24,7 +24,10 @@ import type { ProductionExportData } from '../export/index.js';
  * тех, кто ничего не экспортирует.
  */
 
-const FONT_URL = '/fonts/LiberationSans-Regular.ttf';
+// Адрес строится от базового пути сборки, а не от корня домена:
+// приложение может быть опубликовано в подкаталоге
+// (`docs/DEPLOYMENT.md` §2), и тогда `/fonts/…` ушёл бы мимо.
+const FONT_URL = `${import.meta.env.BASE_URL}fonts/LiberationSans-Regular.ttf`;
 
 /** Имя файла: без пробелов и без даты — дату несёт сам документ. */
 export function exportFileName(project: Project, extension: string): string {

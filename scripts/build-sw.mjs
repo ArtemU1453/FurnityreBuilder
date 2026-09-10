@@ -28,9 +28,13 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';
+import { appBase, withBase } from './app-base.mjs';
 
 const ROOT = process.cwd();
 const DIST = join(ROOT, 'dist');
+// Базовый путь входит и в список предзагрузки, и в ключ навигационной
+// страницы: в подкаталоге адреса ресурсов начинаются не с «/».
+const BASE = appBase();
 
 /**
  * Предзагрузка идёт в два яруса, и это не оптимизация, а надёжность.
@@ -64,8 +68,10 @@ const all = walk(DIST)
   .map((f) => relative(DIST, f).split(sep).join('/'))
   .sort();
 
-const precache = all.filter((f) => !SHELL_SKIP.some((re) => re.test(f))).map((f) => `/${f}`);
-const warm = all.filter((f) => WARM_MATCH.some((re) => re.test(f))).map((f) => `/${f}`);
+const precache = all
+  .filter((f) => !SHELL_SKIP.some((re) => re.test(f)))
+  .map((f) => withBase(BASE, f));
+const warm = all.filter((f) => WARM_MATCH.some((re) => re.test(f))).map((f) => withBase(BASE, f));
 
 const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 // Отпечаток содержимого, а не времени сборки: две сборки одного и того же
@@ -96,6 +102,7 @@ const sw = `/*
  */
 
 const CACHE = '${CACHE}';
+const BASE = '${BASE}';
 const PRECACHE = ${JSON.stringify(precache, null, 2)};
 const WARM = ${JSON.stringify(warm, null, 2)};
 
@@ -125,12 +132,12 @@ self.addEventListener('install', (event) => {
     (async () => {
       const cache = await caches.open(CACHE);
       await cache.addAll(PRECACHE);
-      // Отдельно кладём '/': навигационные запросы приходят именно на
-      // него, а в списке предзагрузки лежит '/index.html'. Без этой
-      // строки первая же попытка открыть приложение офлайн сразу после
-      // установки не нашла бы страницы.
-      const shell = await cache.match('/index.html', { ignoreVary: true });
-      if (shell !== undefined) await cache.put('/', shell);
+      // Отдельно кладём сам базовый путь: навигационные запросы
+      // приходят именно на него, а в списке предзагрузки лежит
+      // «…/index.html». Без этой строки первая же попытка открыть
+      // приложение офлайн сразу после установки не нашла бы страницы.
+      const shell = await cache.match(BASE + 'index.html', { ignoreVary: true });
+      if (shell !== undefined) await cache.put(BASE, shell);
       // Ждать закрытия всех вкладок незачем: активацию всё равно
       // подтверждает пользователь через сообщение SKIP_WAITING.
     })(),
@@ -220,13 +227,13 @@ self.addEventListener('fetch', (event) => {
         try {
           const fresh = await fetch(request);
           const cache = await caches.open(CACHE);
-          await cache.put('/', fresh.clone());
+          await cache.put(BASE, fresh.clone());
           return fresh;
         } catch {
           // Сети нет — отдаём сохранённую страницу приложения. Любой
           // адрес внутри области действия ведёт к ней же: маршрутов у
           // приложения нет, вся навигация внутренняя.
-          const cached = (await match('/')) ?? (await match('/index.html'));
+          const cached = (await match(BASE)) ?? (await match(BASE + 'index.html'));
           if (cached !== undefined) return cached;
           return new Response(OFFLINE_PAGE, {
             status: 503,
@@ -258,7 +265,8 @@ self.addEventListener('fetch', (event) => {
 
 writeFileSync(join(DIST, 'sw.js'), sw);
 
-const sizeOf = (list) => list.reduce((sum, f) => sum + statSync(join(DIST, f.slice(1))).size, 0);
+const sizeOf = (list) =>
+  list.reduce((sum, f) => sum + statSync(join(DIST, f.slice(BASE.length))).size, 0);
 console.log(`sw.js собран. Кэш: ${CACHE}`);
 console.log(`Оболочка (install):   ${String(precache.length).padStart(2)} файлов, ${(sizeOf(precache) / 1024).toFixed(1).padStart(7)} КБ`);
 console.log(`Догрузка (activate):  ${String(warm.length).padStart(2)} файлов, ${(sizeOf(warm) / 1024).toFixed(1).padStart(7)} КБ`);
