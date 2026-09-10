@@ -123,8 +123,13 @@ Chrome Android. Устанавливать ничего не нужно, но п
 
 ## Запустить локально
 
-Нужен Node.js 20 или новее. Больше ничего: ни базы данных, ни сервера, ни
-переменных окружения — их у продукта нет вовсе.
+Нужен Node.js 20 или новее и npm. Больше ничего: ни базы данных, ни
+сервера, ни служб.
+
+**Обязательных переменных окружения нет.** Единственная, которую
+приложение вообще читает, — необязательная `APP_BASE`: она нужна только
+при сборке под подкаталог (см. «Развёртывание»). Без неё сборка идёт под
+корень домена. Файла `.env` в проекте нет и не требуется.
 
 ```bash
 npm install
@@ -144,9 +149,21 @@ npm run preview      # посмотреть собранное локально
 Полная проверка перед выпуском:
 
 ```bash
-npm run verify       # реестр предположений → lint → типы → тесты →
-                     # сборка → автономность → размер → готовность пакета
+npm run verify       # реестр предположений → lint → типы → тесты → сборка →
+                     # автономность → бюджеты → готовность пакета → вход
 ```
+
+## Что где лежит
+
+| Нужно | Где |
+| --- | --- |
+| Все команды одной таблицей | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) |
+| Как устроено приложение | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Правила расчёта мебели | [`docs/CALCULATION_RULES.md`](docs/CALCULATION_RULES.md) |
+| Что доказывает каждый вид тестов | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) |
+| Обязательные проверки и их порядок | [`docs/CI_QUALITY_GATES.md`](docs/CI_QUALITY_GATES.md) |
+| Как выпускается версия | [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) |
+| Где лежат проекты пользователя | [`docs/PROJECT_PERSISTENCE.md`](docs/PROJECT_PERSISTENCE.md) |
 
 ## Development Quality Checks
 
@@ -154,7 +171,7 @@ npm run verify       # реестр предположений → lint → ти
 
 ```bash
 npm ci                                        # установка строго из lock-файла
-npm run verify                                # десять проверок подряд, до первой упавшей
+npm run verify                                # девять проверок подряд, до первой упавшей
 npx playwright test --project=chromium        # E2E на production-сборке
 npx playwright test --project=chromium-dev    # E2E технического режима
 
@@ -162,8 +179,8 @@ PLAYWRIGHT_BASE_URL=<адрес> npm run smoke     # проверка опубл
 ```
 
 `npm run verify` — это реестр предположений, линтер, типы, тесты, сборка,
-самостоятельность продукта, размер главного чанка, готовность пакета и
-целостность публичного входа.
+самостоятельность продукта, бюджеты производительности, готовность пакета
+и целостность публичного входа.
 
 Что именно проверяется, чем блокируется и почему E2E разделён на два
 прогона — [`docs/CI_QUALITY_GATES.md`](docs/CI_QUALITY_GATES.md).
@@ -171,7 +188,7 @@ PLAYWRIGHT_BASE_URL=<адрес> npm run smoke     # проверка опубл
 ## Тесты
 
 ```bash
-npm run test         # 1975 модульных, интеграционных и property-тестов
+npm run test         # 2001 модульный, интеграционный и property-тест
 npm run typecheck    # vitest НЕ проверяет типы: этот шаг обязателен отдельно
 ```
 
@@ -274,7 +291,11 @@ domain → geometry → hardware/production → drilling → bom → export → 
 
 ## Документация
 
-Полный указатель — [`docs/`](docs/). Начать стоит с этих:
+В `docs/` больше сотни файлов, и они разного рода: действующие правила,
+руководства и **датированные отчёты о конкретных прогонах**. Карта по
+категориям — в
+[`docs/MAINTAINABILITY_AUDIT_REPORT.md`](docs/MAINTAINABILITY_AUDIT_REPORT.md).
+Начать стоит с этих:
 
 | Документ | Содержание |
 | --- | --- |
@@ -294,6 +315,9 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/PRODUCTION_DEPLOYMENT_REPORT.md`](docs/PRODUCTION_DEPLOYMENT_REPORT.md) | Отчёт о проверке выкладки: что проверено и что осталось непроверенным |
 | [`docs/PERFORMANCE_BUDGETS.md`](docs/PERFORMANCE_BUDGETS.md) | Бюджеты размера: что измеряется, какие потолки и как их менять |
 | [`docs/PERFORMANCE_BASELINE_REPORT.md`](docs/PERFORMANCE_BASELINE_REPORT.md) | Факты замера: первая загрузка, отложенное, что автоматизировано и что нет |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Все команды одной таблицей: среда, работа, сборка, проверки, выпуск |
+| [`docs/CALCULATION_RULES.md`](docs/CALCULATION_RULES.md) | Вход в правила расчёта: где что лежит и какие правила сквозные |
+| [`docs/MAINTAINABILITY_AUDIT_REPORT.md`](docs/MAINTAINABILITY_AUDIT_REPORT.md) | Проверка передачи проекта: clean start, команды, карта документации |
 | [`docs/UX_CLARITY_ISSUES.md`](docs/UX_CLARITY_ISSUES.md) | Реестр проблем понятности: что подтверждено, что признано не проблемой |
 | [`docs/UX_CLARITY_AUDIT_REPORT.md`](docs/UX_CLARITY_AUDIT_REPORT.md) | Аудит понятности интерфейса и accessibility baseline |
 | [`docs/ACCEPTANCE_GAP_REGISTER.md`](docs/ACCEPTANCE_GAP_REGISTER.md) | Реестр пробелов приёмки: severity, влияние на пользователя и решение по каждому |
