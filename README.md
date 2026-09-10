@@ -318,6 +318,10 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/CURRENT_APP_SCREEN_MAP.md`](docs/CURRENT_APP_SCREEN_MAP.md) | Карта экранов приложения: зоны, их размеры и что где лежит |
 | [`docs/CURRENT_APP_CONTROL_INVENTORY.md`](docs/CURRENT_APP_CONTROL_INVENTORY.md) | Инвентаризация органов управления по экранам и шагам |
 | [`docs/CURRENT_APP_USER_FLOW.md`](docs/CURRENT_APP_USER_FLOW.md) | Фактический сценарий работы от открытия до выгрузки |
+| [`docs/INTUITIVE_BUILDING_UX_AUDIT_REPORT.md`](docs/INTUITIVE_BUILDING_UX_AUDIT_REPORT.md) | Может ли новый человек сам дойти от «хочу шкаф» до производственных данных |
+| [`docs/FURNITURE_BUILDING_FRICTION_MAP.md`](docs/FURNITURE_BUILDING_FRICTION_MAP.md) | Где человек застревает: 18 наблюдений с измерениями и классом P0–P4 |
+| [`docs/IDEAL_FURNITURE_BUILDING_JOURNEY.md`](docs/IDEAL_FURNITURE_BUILDING_JOURNEY.md) | Каким путь должен быть: восемь требований и измеримые пороги |
+| [`docs/UX_REBUILD_PRIORITY_MATRIX.md`](docs/UX_REBUILD_PRIORITY_MATRIX.md) | Очередь правок понятности: влияние, цена, риск |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
 | [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |
