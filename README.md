@@ -47,7 +47,11 @@
 сборку при первом же внешнем обращении.
 
 **Версия 0.1.0.** Продукт функционально завершён. Что реализовано и что
-ограничено — [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md).
+ограничено — [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md); что
+менялось — [`CHANGELOG.md`](CHANGELOG.md); как выпускается версия —
+[`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md).
+
+Номер текущей версии виден в самом приложении, в строке состояния внизу.
 
 ## Возможности
 
@@ -281,6 +285,7 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/PRIVACY.md`](docs/PRIVACY.md) | Что хранится, где и что не отправляется наружу |
 | [`docs/THIRD_PARTY_NOTICES.md`](docs/THIRD_PARTY_NOTICES.md) | Зависимости и их лицензии |
 | [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) | Что реализовано, что поддерживается, что ограничено |
+| [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) | Версии, теги, выпуск и откат по номеру версии |
 | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Что проверить перед выкладкой |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |

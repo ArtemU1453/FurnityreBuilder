@@ -173,6 +173,36 @@ for (const [what, re] of [
   if (!re.test(html)) fail(`index.html: нет ${what}`);
 }
 
+/* ── 5. Версия в пакете та же, что в package.json (PROMPT 43 §5) ───── */
+
+/**
+ * Версия объявлена в `package.json` и подставляется в сборку через
+ * `define` (`vite.config.ts`). Проверяется, что подстановка сработала: в
+ * бандле должна быть ровно та строка версии, которая объявлена.
+ *
+ * Что это ловит: сборку мимо обычного пути. Тогда в интерфейс уходит
+ * запасное значение `0.0.0-dev`, и опубликованная версия перестаёт
+ * соответствовать выпуску — а именно по ней потом пытаются повторить
+ * дефект и подтвердить откат.
+ */
+const declaredVersion = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).version;
+const entryBundle = bundles.find((f) => /^assets\/index-.*\.js$/.test(f) && statSync(join(DIST, f)).size > 100_000);
+if (entryBundle === undefined) {
+  fail('главный чанк не найден — версию в сборке не проверить');
+} else {
+  const code = text(entryBundle);
+  if (!code.includes(`"${declaredVersion}"`) && !code.includes(`'${declaredVersion}'`)) {
+    fail(
+      `версия ${declaredVersion} из package.json не найдена в главном чанке — ` +
+        'подстановка не сработала, и приложение покажет не ту версию',
+    );
+  } else if (code.includes('0.0.0-dev')) {
+    fail('в главном чанке осталось запасное значение версии 0.0.0-dev — сборка шла мимо обычного пути');
+  } else {
+    notes.push(`Версия: ${declaredVersion}`);
+  }
+}
+
 /* ── 5a. 404.html — копия входной страницы (PROMPT 42 §8) ──────────── */
 
 /**

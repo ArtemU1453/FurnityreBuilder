@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Request, Response } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 /**
  * Дымовая проверка ОПУБЛИКОВАННОГО приложения (PROMPT 41).
@@ -138,7 +139,27 @@ test('опубликованное приложение открывается, 
   await page.getByRole('radio', { name: 'Производство' }).click();
   await expect(page.getByRole('main')).toContainText('Деталей', { timeout: 20_000 });
 
-  // ── 7. Ни одной критической жалобы ─────────────────────────────────
+  // ── 7. Опубликована ТА версия ──────────────────────────────────────
+  /*
+    Номер версии в строке состояния — то, что человек назовёт в сообщении
+    о дефекте и по чему потом подтверждают откат. Если по адресу лежит не
+    та версия, которую выпускали, все три вещи расходятся молча
+    (PROMPT 43 §12).
+
+    Источник ожидания — `package.json`, единственное место, где версия
+    объявлена.
+  */
+  const expected = (
+    JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
+      version: string;
+    }
+  ).version;
+  await expect(
+    page.getByText(`v${expected}`, { exact: true }),
+    `опубликовано не то, что выпускали: в интерфейсе нет версии v${expected}`,
+  ).toBeVisible({ timeout: 15_000 });
+
+  // ── 8. Ни одной критической жалобы ─────────────────────────────────
   const report = [
     found.pageErrors.length > 0 ? `Необработанные ошибки:\n  ${found.pageErrors.join('\n  ')}` : '',
     found.consoleErrors.length > 0 ? `Ошибки консоли:\n  ${found.consoleErrors.join('\n  ')}` : '',

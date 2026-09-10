@@ -1,0 +1,102 @@
+# Выпуск версии (PROMPT 43).
+#
+# ## Чем выпуск отличается от выкладки
+#
+# Каждый push в ветку по умолчанию публикуется на боевом адресе — это
+# непрерывная выкладка, и она остаётся как есть. Выпуск — другое: это
+# точка, у которой есть НОМЕР и ТЕГ, и по которой потом повторяют дефект,
+# подтверждают откат и понимают, что именно у человека в браузере.
+#
+# Коммит ≠ выпуск. Поэтому здесь нет ни push, ни расписания: workflow
+# запускает только тег вида `v1.2.3`, поставленный руками.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# `contents: write` нужен ровно для одного: создать сам выпуск. Больше
+# ничего этот workflow не пишет.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Нужна вся история: заметки выпуска берутся из CHANGELOG.md, а
+          # предыдущий тег — для ссылки на список изменений.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Тег и версия обязаны совпадать. Тег `v0.2.0` на дереве, где в
+      # package.json написано `0.1.0`, — это выпуск, который невозможно
+      # воспроизвести: номер в интерфейсе не совпадёт с номером выпуска.
+      - name: Тег совпадает с версией
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(node -p "require('./package.json').version")
+          echo "Тег:     $tag"
+          echo "Версия:  $version"
+          if [ "$tag" != "$version" ]; then
+            echo "Тег v$tag не соответствует версии $version в package.json." >&2
+            exit 1
+          fi
+
+      # Те же ворота, что и у обычного прогона. Выпуск не делается на
+      # непроверенном дереве, даже если тег поставили «на всякий случай».
+      - name: Ворота качества
+        run: npm run verify
+
+      - name: Заметки выпуска из CHANGELOG
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # Раздел этой версии — от её заголовка до следующего.
+          notes=$(awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md)
+          if [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ]; then
+            echo "В CHANGELOG.md нет раздела для версии $version." >&2
+            exit 1
+          fi
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            printf '%s\n' "$notes"
+            echo
+            echo "Приложение: https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/"
+            echo "Коммит: \`${GITHUB_SHA}\`"
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # `gh` есть на раннере GitHub. Стороннего действия для выпуска не
+      # заводится: официальный путь короче и не добавляет зависимости.
+      - name: Создать выпуск
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ steps.notes.outputs.body }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Выпуск $GITHUB_REF_NAME уже существует — опубликованный выпуск не переписывается." >&2
+            exit 1
+          fi
+          printf '%s' "$NOTES" > /tmp/notes.md
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/notes.md \
+            --verify-tag
