@@ -519,9 +519,18 @@ export function App(): React.JSX.Element {
   };
 
   /**
-   * Действия инспектора идут теми же командами, что и панели: инспектор —
-   * ещё одна точка входа в существующую модель команд, а не второй способ
-   * менять проект (§7).
+   * Действия инспектора — первичный путь, и он ДЕЛЕГИРУЕТ (PROMPT 59 §2, §18 D).
+   *
+   * Здесь утверждалось, что инспектор — «ещё одна точка входа в
+   * существующую модель команд, а не второй способ менять проект». Для
+   * дверей и ящиков это было правдой: они вызывали `addDoor` и
+   * `addDrawer`. Для остальных трёх — нет: инспектор собирал свой
+   * `execute`, и «Добавить полки» ставила РОВНО ОДНУ полку, затирая уже
+   * заданное число, тогда как шаг 5 задавал произвольное. Две кнопки с
+   * одинаковой подписью делали разное.
+   *
+   * Теперь делегируют все пять. Реализация у операции одна, и разойтись
+   * ей больше негде: инспектор и шаг вызывают один обработчик.
    */
   const runInspectorAction = (action: InspectorAction): void => {
     switch (action.kind) {
@@ -530,31 +539,25 @@ export function App(): React.JSX.Element {
         addDoor();
         return;
       case 'remove-door':
-        execute(
-          { type: 'RemoveFacade', furnitureIndex: 0, facadeId: action.facadeId },
-          'Убрать дверь',
-        );
+        // Своего выбора не требует: действие предлагается только для
+        // двери УЖЕ выбранного отделения, и `removeDoor` смотрит на то
+        // же выделение.
+        removeDoor();
         return;
       case 'add-drawers':
         setSelectedCellId(action.nodeId);
         addDrawer();
         return;
       case 'add-shelves':
-        execute(
-          {
-            type: 'SetFill',
-            furnitureIndex: 0,
-            nodeId: action.nodeId,
-            fill: createShelvesLeaf(createRandomIdFactory(), 1).fill,
-          },
-          'Добавить полку',
-        );
+        // «Сделать отделение полочным», а не «поставить одну полку»:
+        // сколько именно полок — вопрос шага «Полки», и уже заданное
+        // число сохраняется (`Math.max(1, …)` внутри обработчика).
+        setSelectedCellId(action.nodeId);
+        setCellFillKind('shelves');
         return;
       case 'clear-fill':
-        execute(
-          { type: 'SetFill', furnitureIndex: 0, nodeId: action.nodeId, fill: { kind: 'empty' } },
-          'Очистить ячейку',
-        );
+        setSelectedCellId(action.nodeId);
+        setCellFillKind('empty');
         return;
     }
   };
@@ -2419,7 +2422,7 @@ export function App(): React.JSX.Element {
             <Panel
               id="shelves"
               title="Полки"
-              subtitle="Полка — физическая деталь: она попадает в деталировку, раскрой и кромку."
+              subtitle="Сколько полок в выбранном отделении. Поставить и убрать — кнопками у изделия; здесь задаётся число. Полка — физическая деталь: она попадает в деталировку, раскрой и кромку."
             >
               {selectedCell === undefined ? (
                 <EmptyState
@@ -2465,12 +2468,12 @@ export function App(): React.JSX.Element {
           )}
 
           {step !== 'fill' ? null : (
-            <Panel id="fill" title="Наполнение" subtitle="Что стоит внутри выбранной ячейки.">
+            <Panel id="fill" title="Наполнение" subtitle="Настройка выбранного отделения. То же самое — и быстрее — делают кнопки у изделия; здесь видно все варианты сразу.">
               {selectedCell === undefined ? (
                 <EmptyState
                   compact
                   title="Отделение не выбрано"
-                  description={`${pickCellHint} После выбора здесь появится, что в него можно поставить.`}
+                  description={`${pickCellHint} После выбора действия появятся рядом с изделием, а здесь — все варианты наполнения сразу.`}
                 />
               ) : (
                 <>
@@ -2510,7 +2513,7 @@ export function App(): React.JSX.Element {
             <Panel
               id="doors"
               title="Двери"
-              subtitle="Дверь закрывает ячейку снаружи. То, что стоит внутри, задаётся на шаге «Наполнение»."
+              subtitle="Настройка двери выбранного отделения: сторона петель, материал, кромка, открывание. Поставить и убрать дверь можно и здесь, и кнопками у изделия."
             >
               <div className={styles.grid}>
                 <Select

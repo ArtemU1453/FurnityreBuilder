@@ -47,6 +47,21 @@
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Подпись над действиями инспектора (PROMPT 59 §6): называет, НАД ЧЕМ
+ * они работают. Приглушённая — это вводная строка, а не заголовок.
+ */
+.actionsHint {
+  margin: var(--sp-3) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+}
+
+.actionsHint + .actions {
+  margin-top: var(--sp-2);
+}
+
 .actions {
   margin-top: var(--sp-3);
   display: flex;

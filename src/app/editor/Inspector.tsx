@@ -55,18 +55,31 @@ export function Inspector({ model, onAction }: InspectorProps): React.JSX.Elemen
       ) : null}
 
       {model.actions.length === 0 ? null : (
-        <div className={styles.actions}>
-          {model.actions.map((action) => (
-            <Button
-              key={`${action.kind}-${'nodeId' in action ? String(action.nodeId) : String(action.facadeId)}`}
-              onClick={() => {
-                onAction(action);
-              }}
-            >
-              {ACTION_LABELS[action.kind]}
-            </Button>
-          ))}
-        </div>
+        <>
+          {/*
+            Первичный путь (PROMPT 59 §6).
+
+            Действия над отделением живут здесь — у самого отделения, —
+            и оформлены как основные. Те же операции доступны и на шагах
+            5–7, но там они вторичны: шаг настраивает то, что уже
+            поставлено. Пока обе кнопки выглядели одинаково, человеку
+            приходилось выбирать не действие, а место, где его делать.
+          */}
+          <p className={styles.actionsHint}>Что сделать с этим отделением:</p>
+          <div className={styles.actions}>
+            {model.actions.map((action) => (
+              <Button
+                key={`${action.kind}-${'nodeId' in action ? String(action.nodeId) : String(action.facadeId)}`}
+                variant={action.kind === 'clear-fill' || action.kind === 'remove-door' ? 'secondary' : 'primary'}
+                onClick={() => {
+                  onAction(action);
+                }}
+              >
+                {ACTION_LABELS[action.kind]}
+              </Button>
+            ))}
+          </div>
+        </>
       )}
     </Panel>
   );

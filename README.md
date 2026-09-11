@@ -334,6 +334,9 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/FR06_FURNITURE_STARTING_POINT_VERIFICATION.md`](docs/FR06_FURNITURE_STARTING_POINT_VERIFICATION.md) | Замеры до и после: с чего начинается изделие и куда ведёт подпись |
 | [`docs/FR12_TECHNICAL_LANGUAGE_ANALYSIS.md`](docs/FR12_TECHNICAL_LANGUAGE_ANALYSIS.md) | Откуда в интерфейсе брались `edges`, `back` и `Bounding box` |
 | [`docs/FR12_TECHNICAL_LANGUAGE_VERIFICATION.md`](docs/FR12_TECHNICAL_LANGUAGE_VERIFICATION.md) | Замеры до и после: что переименовано, что оставлено и почему |
+| [`docs/FR07_PARALLEL_PATH_ANALYSIS.md`](docs/FR07_PARALLEL_PATH_ANALYSIS.md) | Инспектор и шаги 5–7: что из этого дубль, а что разные действия |
+| [`docs/FR07_PRIMARY_PATH_VERIFICATION.md`](docs/FR07_PRIMARY_PATH_VERIFICATION.md) | Замеры до и после: девять реализаций пяти операций стали пятью |
+| [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
 | [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |
