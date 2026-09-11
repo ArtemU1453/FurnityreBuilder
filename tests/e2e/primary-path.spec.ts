@@ -114,12 +114,13 @@ test('кнопка инспектора и кнопка шага делают О
   /*
     Проверяется именно то, что было сломано: «Добавить полки» в
     инспекторе ставила ровно одну полку и затирала число, заданное на
-    шаге «Полки». Теперь она делегирует в тот же обработчик, и заданное
-    число сохраняется.
+    шаге «Полки». Теперь она делегирует в тот же обработчик, а с
+    PROMPT 60 предлагается только на ПУСТОМ отделении: её работа —
+    «сделать отделение полочным» (0 → N), а число задаёт шаг.
   */
   await schema(page).getByRole('button', { name: /^Секция 1/ }).click();
   await step(page, 'Полки').click();
-  await page.getByRole('spinbutton', { name: 'Полок в выбранной ячейке', exact: true }).fill('4');
+  await page.getByRole('spinbutton', { name: 'Полок в выбранном отделении', exact: true }).fill('4');
   await expect.poll(async () => metric(page, 'Полок')).toBe(4);
 
   // Очистить и снова сделать полочным — первичной кнопкой.
@@ -127,10 +128,10 @@ test('кнопка инспектора и кнопка шага делают О
   await expect.poll(async () => metric(page, 'Полок')).toBe(0);
   await page.getByRole('button', { name: 'Добавить полки' }).click();
 
-  // Ровно одну полку она больше не навязывает.
+  // Отделение стало полочным, и число задаётся там же, где и раньше.
   await expect.poll(async () => metric(page, 'Полок')).toBeGreaterThan(0);
   await expect(
-    page.getByRole('spinbutton', { name: 'Полок в выбранной ячейке', exact: true }),
+    page.getByRole('spinbutton', { name: 'Полок в выбранном отделении', exact: true }),
   ).toBeVisible();
 });
 
@@ -156,10 +157,10 @@ test('шаги 5–7 называют свою роль, а не соперни�
   await schema(page).getByRole('button', { name: /^Секция 1/ }).click();
 
   await step(page, 'Полки').click();
-  await expect(page.locator('main')).toContainText('Поставить и убрать — кнопками у изделия');
+  await expect(page.locator('main')).toContainText('Единственное место, где задаётся их число');
 
   await step(page, 'Наполнение').click();
-  await expect(page.locator('main')).toContainText('То же самое — и быстрее — делают кнопки у изделия');
+  await expect(page.locator('main')).toContainText('Сколько именно полок — на шаге «Полки»');
 
   await step(page, 'Фасады').click();
   await expect(page.locator('main')).toContainText('Настройка двери выбранного отделения');

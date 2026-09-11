@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeSelection, resolveSelection } from '../../../src/app/editor/selection.js';
+import { describeSelection, fillSummary, resolveSelection } from '../../../src/app/editor/selection.js';
 import { createProject } from '../../../src/domain/project/factory.js';
 import { createSequentialIdFactory } from '../../../src/domain/ids.js';
 import { createDrawersLeaf, createShelvesLeaf } from '../../../src/domain/furniture/defaults.js';
@@ -172,11 +172,63 @@ describe('describeSelection', () => {
 
   it('ячейка с полками не предлагает ящики поверх них', () => {
     const kinds = actionKinds(createShelvesLeaf(createSequentialIdFactory('s'), 2).fill);
-    expect(kinds).toContain('add-shelves');
+    expect(kinds).toContain('clear-fill');
     expect(kinds).not.toContain('add-drawers');
   });
 
   it('пустая ячейка не предлагает очистить наполнение', () => {
     expect(actionKinds()).not.toContain('clear-fill');
+  });
+
+  /**
+   * FR-08 (PROMPT 60 §9). «Добавить полки» — переход 0 → N, и другого
+   * значения у неё нет. На отделении с полками она сохраняла прежнее
+   * число, то есть молча не делала ничего, обещая подписью добавление.
+   */
+  it('ячейка с полками не предлагает «добавить полки»: кнопка ничего бы не сделала', () => {
+    const kinds = actionKinds(createShelvesLeaf(createSequentialIdFactory('s'), 3).fill);
+    expect(kinds).toContain('clear-fill');
+    expect(kinds).not.toContain('add-shelves');
+  });
+
+  it('ячейка с ящиками не предлагает «добавить полки»: это уничтожило бы ящик', () => {
+    const kinds = actionKinds(createDrawersLeaf(createSequentialIdFactory('d'), 1).fill);
+    expect(kinds).not.toContain('add-shelves');
+  });
+});
+
+/**
+ * Количество наполнения видно там, где выбрано отделение (PROMPT 60 §8).
+ *
+ * Число берётся из единственного его места в модели — длины списка.
+ * Второго счётчика нет, поэтому разойтись значению не с чем.
+ */
+describe('fillSummary', () => {
+  it('полки названы вместе с количеством', () => {
+    expect(fillSummary(createShelvesLeaf(createSequentialIdFactory('s'), 3).fill)).toBe('полки, 3 шт');
+  });
+
+  it('число полок — это длина списка деталей, а не отдельное поле', () => {
+    const fill = createShelvesLeaf(createSequentialIdFactory('s'), 5).fill;
+    expect(fill.kind).toBe('shelves');
+    if (fill.kind !== 'shelves') throw new Error('ожидались полки');
+    expect(fillSummary(fill)).toBe(`полки, ${String(fill.shelves.length)} шт`);
+  });
+
+  it('ящики названы вместе с количеством', () => {
+    expect(fillSummary(createDrawersLeaf(createSequentialIdFactory('d'), 2).fill)).toBe('ящики, 2 шт');
+  });
+
+  it('пустое отделение количества не имеет', () => {
+    expect(fillSummary({ kind: 'empty' })).toBe('пусто');
+  });
+
+  it('инспектор ячейки показывает количество полок строкой «Наполнение»', () => {
+    const { project, furniture, geometry } = scene(
+      createShelvesLeaf(createSequentialIdFactory('s'), 4).fill,
+    );
+    const cell = geometry.cells[0]!;
+    const model = describeSelection({ kind: 'cell', nodeId: cell.nodeId }, furniture, geometry, project.materials);
+    expect(model.rows.find((row) => row.label === 'Наполнение')?.value).toBe('полки, 4 шт');
   });
 });

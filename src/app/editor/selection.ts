@@ -2,7 +2,7 @@ import { contentKindOf, contentLabel } from '../../geometry/index.js';
 import { cellName, sectionName } from './cell-identity.js';
 import { partRoleLabel } from '../vocabulary.js';
 import { formatMm } from '../../domain/index.js';
-import type { Furniture, MaterialLibrary, NodeId, PartId } from '../../domain/index.js';
+import type { Furniture, LeafFill, MaterialLibrary, NodeId, PartId } from '../../domain/index.js';
 import type { GeometryResult } from '../../geometry/index.js';
 
 /**
@@ -77,6 +77,34 @@ export function resolveSelection(
 const size = (x: number, y: number, z: number): string =>
   `${formatMm(x)} × ${formatMm(y)} × ${formatMm(z)} мм`;
 
+/**
+ * Наполнение ячейки словами — вместе с количеством (PROMPT 60 §8).
+ *
+ * До FR-08 здесь стояло одно только «полки». На вопрос «сколько здесь
+ * полок» приходилось уходить на шаг «Полки» — то есть состояние модели
+ * было не видно там, куда человек смотрит, ткнув в отделение. Число
+ * берётся из той же и единственной его записи в модели — длины списка
+ * `fill.shelves`; второго счётчика не заводится.
+ *
+ * Задаётся количество по-прежнему только на шаге «Полки»: инспектор
+ * показывает состояние, шаг правит параметр (решение PROMPT 59 §8).
+ */
+export function fillSummary(fill: LeafFill): string {
+  const label = contentLabel(contentKindOf(fill));
+  switch (fill.kind) {
+    case 'shelves':
+      return `${label}, ${String(fill.shelves.length)} шт`;
+    case 'drawers':
+      return `${label}, ${String(fill.drawers.length)} шт`;
+    // У остальных видов количества нет: «пусто» — не ноль полок, а
+    // штанга в отделении одна по определению.
+    case 'empty':
+    case 'rod':
+    case 'rod+shelf':
+      return label;
+  }
+}
+
 /** Строки и действия инспектора для выбранного объекта. */
 export function describeSelection(
   target: SelectionTarget,
@@ -130,7 +158,7 @@ export function describeSelection(
           { label: 'Размер', value: size(cell.box.size.x, cell.box.size.y, cell.box.size.z) },
           { label: 'Положение', value: `X ${formatMm(cell.box.min.x)} · Y ${formatMm(cell.box.min.y)}` },
           { label: 'Ряд · колонка', value: `${String(cell.row + 1)} · ${String(cell.column + 1)}` },
-          { label: 'Наполнение', value: contentLabel(kind) },
+          { label: 'Наполнение', value: fillSummary(cell.fill) },
           { label: 'Фасад', value: doors.length === 0 ? 'нет' : `${String(doors.length)} шт` },
         ],
         // Действия зависят от состояния ячейки: несовместимые не
@@ -140,7 +168,13 @@ export function describeSelection(
           ...(kind === 'drawers' ? [] : [{ kind: 'add-door' as const, nodeId: cell.nodeId }]),
           ...(facade === undefined ? [] : [{ kind: 'remove-door' as const, facadeId: facade.id }]),
           ...(kind === 'empty' ? [{ kind: 'add-drawers' as const, nodeId: cell.nodeId }] : []),
-          ...(kind === 'empty' || kind === 'shelves' ? [{ kind: 'add-shelves' as const, nodeId: cell.nodeId }] : []),
+          // Только на пустом отделении (PROMPT 60 §9). Работа этой
+          // кнопки — переход 0 → N: «сделать отделение полочным». На
+          // отделении, где полки уже стоят, она сохраняла прежнее
+          // число, то есть молча не делала ничего, обещая подписью
+          // добавление. Сколько полок — отдельный вопрос, и у него
+          // одно место: поле шага «Полки».
+          ...(kind === 'empty' ? [{ kind: 'add-shelves' as const, nodeId: cell.nodeId }] : []),
           ...(kind === 'empty' ? [] : [{ kind: 'clear-fill' as const, nodeId: cell.nodeId }]),
         ],
       };

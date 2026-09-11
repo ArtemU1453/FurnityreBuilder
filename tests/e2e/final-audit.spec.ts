@@ -111,7 +111,7 @@ test('поля полок на соседних шагах различимы п
     page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole('spinbutton', { name: 'Полок в выбранной ячейке', exact: true }),
+    page.getByRole('spinbutton', { name: 'Полок в выбранном отделении', exact: true }),
   ).toHaveCount(0);
 
   // На шаге «Полки» — только «в выбранной», и без выбранной ячейки его нет

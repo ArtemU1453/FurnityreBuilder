@@ -117,8 +117,8 @@ test('обычный сценарий на широком экране не по
     .getByRole('navigation', { name: 'Этапы конструктора' })
     .getByRole('button', { name: 'Полки' })
     .click();
-  await page.getByRole('spinbutton', { name: 'Полок в выбранной ячейке', exact: true }).fill('3');
-  await page.getByRole('spinbutton', { name: 'Полок в выбранной ячейке', exact: true }).blur();
+  await page.getByRole('spinbutton', { name: 'Полок в выбранном отделении', exact: true }).fill('3');
+  await page.getByRole('spinbutton', { name: 'Полок в выбранном отделении', exact: true }).blur();
   expect(await latinLeaks(page), 'латиница после наполнения отделения').toEqual([]);
 });
 

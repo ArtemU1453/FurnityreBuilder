@@ -58,7 +58,13 @@ import { EditorCanvas } from './editor/EditorCanvas.js';
 import { Scene3D } from './editor/Scene3D.js';
 import { rotateQuarter } from './editor/RoomPlanner.js';
 import { Inspector } from './editor/Inspector.js';
-import { describeSelection, resolveSelection } from './editor/selection.js';
+import { describeSelection, fillSummary, resolveSelection } from './editor/selection.js';
+import {
+  acceptsShelfCount,
+  makeShelvesFill,
+  shelfCountFill,
+  shelfCountOf,
+} from './editor/shelf-model.js';
 import { draftsOf } from './editor/drafts.js';
 import { FILL_HINTS, FILL_LABELS, FILL_OPTIONS, UI_FILL_KINDS } from './editor/fill-vocabulary.js';
 import { registerServiceWorker } from './service-worker.js';
@@ -468,22 +474,18 @@ export function App(): React.JSX.Element {
       ? undefined
       : geometry.cells.find((cell) => cell.nodeId === selectedCellId);
 
-  /** Наполнение выбранной ячейки — из модели, а не из отдельного состояния. */
-  const selectedFillKind: LeafFill['kind'] = ((): LeafFill['kind'] => {
-    if (selectedCellId === '' || furniture === undefined) return 'empty';
+
+  /** Наполнение выбранной ячейки целиком — источник и вида, и количества. */
+  const selectedFill: LeafFill = ((): LeafFill => {
+    if (selectedCellId === '' || furniture === undefined) return { kind: 'empty' };
     const node = findNode(furniture.root, selectedCellId);
-    return node?.kind === 'leaf' ? node.fill.kind : 'empty';
+    return node?.kind === 'leaf' ? node.fill : { kind: 'empty' };
   })();
 
-  const selectedShelfCount =
-    selectedCellId === '' || furniture === undefined
-      ? 0
-      : ((): number => {
-          const node = findNode(furniture.root, selectedCellId);
-          return node?.kind === 'leaf' && node.fill.kind === 'shelves'
-            ? node.fill.shelves.length
-            : 0;
-        })();
+  /** Вид наполнения — из модели, а не из отдельного состояния. */
+  const selectedFillKind: LeafFill['kind'] = selectedFill.kind;
+
+  const selectedShelfCount = shelfCountOf(selectedFill);
 
   /**
    * Смена наполнения ячейки.
@@ -495,26 +497,40 @@ export function App(): React.JSX.Element {
   const setCellFillKind = (kind: (typeof UI_FILL_KINDS)[number]): void => {
     if (selectedCellId === '') return;
     const ids = createRandomIdFactory();
-    const fill: LeafFill =
+    // «Полки» здесь — ДЕЙСТВИЕ «сделать отделение полочным» (0 → N), а
+    // не количество: сколько их — вопрос шага «Полки» и только его
+    // (PROMPT 60 §5, §6). Когда полки уже стоят, действие ничего не
+    // значит и команда не отправляется.
+    const fill: LeafFill | undefined =
       kind === 'shelves'
-        ? createShelvesLeaf(ids, Math.max(1, selectedShelfCount)).fill
+        ? makeShelvesFill(ids, selectedFill)
         : kind === 'drawers'
           ? createDrawersLeaf(ids, 1).fill
           : { kind: 'empty' };
+    if (fill === undefined) return;
     execute(
       { type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill },
       `Наполнение: ${FILL_LABELS[kind]}`,
     );
   };
 
-  /** Число полок в выбранной ячейке. Той же командой `SetFill`. */
+  /**
+   * Число полок в выбранной ячейке. Той же командой `SetFill`.
+   *
+   * Это ЕДИНСТВЕННОЕ место, где задаётся количество (PROMPT 60 §5).
+   * Работает только по полочному или пустому отделению: до FR-08 поле
+   * шага показывало `0` и на отделении с ящиком — а ввод числа молча
+   * уничтожал ящик. Теперь поле там не показывается вовсе, а проверка
+   * здесь держит то же правило и на случай вызова мимо интерфейса
+   * (§18 E: смена количества не сбрасывает чужое наполнение).
+   */
   const setCellShelfCount = (count: number): void => {
     if (selectedCellId === '') return;
-    const fill: LeafFill =
-      count <= 0 ? { kind: 'empty' } : createShelvesLeaf(createRandomIdFactory(), count).fill;
+    const fill = shelfCountFill(createRandomIdFactory(), selectedFill, count);
+    if (fill === undefined) return;
     execute(
       { type: 'SetFill', furnitureIndex: 0, nodeId: selectedCellId, fill },
-      `Полок в выбранной ячейке: ${String(count)}`,
+      `Полок в выбранном отделении: ${String(Math.max(0, Math.round(count)))}`,
     );
   };
 
@@ -550,8 +566,9 @@ export function App(): React.JSX.Element {
         return;
       case 'add-shelves':
         // «Сделать отделение полочным», а не «поставить одну полку»:
-        // сколько именно полок — вопрос шага «Полки», и уже заданное
-        // число сохраняется (`Math.max(1, …)` внутри обработчика).
+        // сколько именно полок — вопрос шага «Полки». Предлагается
+        // только на пустом отделении (PROMPT 60 §9), поэтому переход
+        // здесь всегда 0 → 1, и кнопка всегда что-то делает.
         setSelectedCellId(action.nodeId);
         setCellFillKind('shelves');
         return;
@@ -2409,9 +2426,13 @@ export function App(): React.JSX.Element {
                       {formatMm(selectedCell.box.size.x)} × {formatMm(selectedCell.box.size.y)} мм
                     </dd>
                   </div>
+                  {/* Вид наполнения И количество — одной строкой, тем же
+                      разбором, что и в инспекторе (PROMPT 60 §8): узнать
+                      «сколько здесь полок» должно быть можно там, где
+                      выбрано отделение. */}
                   <div className={styles.stat}>
                     <dt className={styles.statLabel}>Наполнение</dt>
-                    <dd className={styles.statValue}>{FILL_LABELS[selectedFillKind]}</dd>
+                    <dd className={styles.statValue}>{fillSummary(selectedCell.fill)}</dd>
                   </div>
                 </dl>
               )}
@@ -2422,7 +2443,7 @@ export function App(): React.JSX.Element {
             <Panel
               id="shelves"
               title="Полки"
-              subtitle="Сколько полок в выбранном отделении. Поставить и убрать — кнопками у изделия; здесь задаётся число. Полка — физическая деталь: она попадает в деталировку, раскрой и кромку."
+              subtitle="Сколько полок в выбранном отделении. Единственное место, где задаётся их число: кнопки у изделия и шаг «Наполнение» только делают отделение полочным. Полка — физическая деталь: она попадает в деталировку, раскрой и кромку."
             >
               {selectedCell === undefined ? (
                 <EmptyState
@@ -2441,16 +2462,32 @@ export function App(): React.JSX.Element {
                 />
               ) : (
                 <>
-                  <NumberInput
-                    label="Полок в выбранной ячейке"
-                    value={selectedShelfCount}
-                    min={0}
-                    step={1}
-                    hint="0 — ячейка без полок. Положение полок движок распределяет равномерно."
-                    onChange={(next) => {
-                      if (next >= 0) setCellShelfCount(Math.round(next));
-                    }}
-                  />
+                  {/*
+                  Поле — только там, где полки возможны (PROMPT 60 §18 E).
+                  На отделении с ящиком оно показывало `0`, что читается
+                  как «здесь нет полок», хотя там стоит ящик; ввод любого
+                  числа этот ящик молча уничтожал. Смена количества не
+                  трогает чужое наполнение, потому что на чужом
+                  наполнении количества полок просто нет.
+                */}
+                  {!acceptsShelfCount(selectedFill) ? (
+                    <p className={styles.pending} data-shelves="foreign-fill">
+                      В этом отделении — {FILL_LABELS[selectedFillKind].toLowerCase()}, а не полки.
+                      Чтобы поставить полки, освободите отделение кнопкой «Очистить ячейку» у
+                      изделия или выберите «Пусто» на шаге «Наполнение».
+                    </p>
+                  ) : (
+                    <NumberInput
+                      label="Полок в выбранном отделении"
+                      value={selectedShelfCount}
+                      min={0}
+                      step={1}
+                      hint="0 — отделение без полок. Положение полок движок распределяет равномерно."
+                      onChange={(next) => {
+                        if (next >= 0) setCellShelfCount(Math.round(next));
+                      }}
+                    />
+                  )}
                   {/*
                   Тип опоры («фиксированная» или «съёмная») — параметр
                   каждой полки в модели. Схема опирания съёмной полки
@@ -2458,17 +2495,19 @@ export function App(): React.JSX.Element {
                   здесь не предлагается: он обещал бы расчёт, которого
                   движок пока не делает.
                 */}
-                  <p className={styles.pending}>
-                    Материал и кромка полок задаются на шаге «Материалы» — назначением на роль, а не
-                    по одной полке.
-                  </p>
+                  {!acceptsShelfCount(selectedFill) ? null : (
+                    <p className={styles.pending}>
+                      Материал и кромка полок задаются на шаге «Материалы» — назначением на роль, а
+                      не по одной полке.
+                    </p>
+                  )}
                 </>
               )}
             </Panel>
           )}
 
           {step !== 'fill' ? null : (
-            <Panel id="fill" title="Наполнение" subtitle="Настройка выбранного отделения. То же самое — и быстрее — делают кнопки у изделия; здесь видно все варианты сразу.">
+            <Panel id="fill" title="Наполнение" subtitle="Чем занято выбранное отделение: пусто, полки или ящики. То же самое — и быстрее — делают кнопки у изделия. Сколько именно полок — на шаге «Полки».">
               {selectedCell === undefined ? (
                 <EmptyState
                   compact

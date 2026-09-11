@@ -112,7 +112,7 @@ test('выбор отделения → полки → результат вид
   // Результат виден там же, где человек смотрит: в сводке расчёта.
   await expect(page.locator('main')).toContainText(/Полок/);
   await step(page, 'Полки').click();
-  const count = page.getByRole('spinbutton', { name: 'Полок в выбранной ячейке' });
+  const count = page.getByRole('spinbutton', { name: 'Полок в выбранном отделении' });
   await expect(count).toBeVisible();
   await expect(count).not.toHaveValue('0');
 });
