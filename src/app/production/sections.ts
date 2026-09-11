@@ -18,7 +18,15 @@ import type { LayoutMode } from '../layout.js';
  */
 
 export type ProductionSectionId =
-  'overview' | 'parts' | 'drawings' | 'drilling' | 'cutting' | 'hardware' | 'bom' | 'documentation';
+  | 'overview'
+  | 'parts'
+  | 'drawings'
+  | 'drilling'
+  | 'cutting'
+  | 'hardware'
+  | 'bom'
+  | 'readiness'
+  | 'documentation';
 
 export interface ProductionSection {
   readonly id: ProductionSectionId;
@@ -39,6 +47,24 @@ export const PRODUCTION_SECTIONS: readonly ProductionSection[] = [
   { id: 'cutting', title: 'Раскрой', hint: 'Карты листов, размещение деталей и отход.' },
   { id: 'hardware', title: 'Фурнитура', hint: 'Спецификация позиций и их источники.' },
   { id: 'bom', title: 'Спецификация', hint: 'Детали, фурнитура, материалы и кромка вместе.' },
+  /*
+    Готовность — свой раздел с PROMPT 63 (FR-20).
+
+    Чеклист со списком неподтверждённых правил рисовался ВМЕСТЕ со
+    «Сводкой» и занимал 80…82 % высоты страницы: раздел производства
+    начинался с того, какие внутренние правила ещё не подтверждены, а не
+    с того, что получилось. Список не сокращён и не спрятан — у него
+    теперь своё место, а на входе осталась строка состояния.
+
+    Назван «Готовность», а не «Проверка»: слово «Проверка» уже занято
+    шагом 10 конструктора, и третье место с тем же именем никому не
+    помогло бы.
+  */
+  {
+    id: 'readiness',
+    title: 'Готовность',
+    hint: 'Что посчитано, что требует уточнения и на что это влияет.',
+  },
   { id: 'documentation', title: 'Документы', hint: 'PDF и XLSX: что уйдёт в файл.' },
 ];
 

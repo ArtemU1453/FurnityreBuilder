@@ -11,3 +11,11 @@ export {
 export type { PartFilter, PartRow, PartSortKey } from './parts-view.js';
 export { nodeOrigin, traceOf, traceSummary, placementSummary } from './traceability.js';
 export type { NodeOrigin, PartTrace, TraceInput } from './traceability.js';
+export {
+  RULE_STATUS_WARNING_CODES,
+  describeReadiness,
+  orderConfirmations,
+  severityLabel,
+  summarizeReadiness,
+} from './readiness-summary.js';
+export type { ConfirmationView, ReadinessSummary } from './readiness-summary.js';

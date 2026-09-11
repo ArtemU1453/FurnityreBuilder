@@ -62,7 +62,7 @@ function sample() {
 }
 
 describe('разделы производства', () => {
-  it('восемь разделов в заданном порядке, начиная со сводки', () => {
+  it('девять разделов в заданном порядке, начиная со сводки', () => {
     expect(PRODUCTION_SECTIONS.map((s) => s.id)).toEqual([
       'overview',
       'parts',
@@ -71,12 +71,17 @@ describe('разделы производства', () => {
       'cutting',
       'hardware',
       'bom',
+      // Готовность — свой раздел с PROMPT 63 (FR-20): чеклист
+      // неподтверждённых правил больше не рисуется вместе со сводкой.
+      'readiness',
       'documentation',
     ]);
+    // Раздел по умолчанию не менялся: сводка и раньше отвечала на
+    // «что получится» — её просто раздавливал чеклист рядом.
     expect(FIRST_SECTION).toBe('overview');
   });
 
-  it('на телефоне разделы показываются списком, а не восемью сегментами', () => {
+  it('на телефоне разделы показываются списком, а не сегментами', () => {
     expect(usesSectionList('mobile')).toBe(true);
     expect(usesSectionList('tablet')).toBe(false);
     expect(usesSectionList('desktop')).toBe(false);

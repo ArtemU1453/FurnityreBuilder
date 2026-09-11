@@ -135,14 +135,30 @@ test('файл из будущей версии схемы отвергаетс�
   await expect(page.getByRole('alert')).toContainText(/новой версии|не удалось|ошиб/i);
 });
 
+/**
+ * С PROMPT 63 (FR-20) список правил живёт в разделе «Готовность», а на
+ * входе стоит строка состояния. Требование теста не ослаблено: статус
+ * по-прежнему не выдаётся за готовность, и каждое правило по-прежнему
+ * раскрыто, а не сведено к слову, — проверяется и то, и другое.
+ */
 test('неподтверждённые правила видны и не выдаются за готовность', async ({ page }) => {
   await page.getByRole('radio', { name: 'Производство' }).click();
-  // Статус не «готово»: часть правил ждёт подтверждения.
-  await expect(page.getByRole('region', { name: 'Готовность к производству' })).toContainText(
+
+  // На входе: статус не «готово» и сказано, сколько правил ждёт.
+  const status = page.getByRole('region', { name: 'Состояние расчёта' });
+  await expect(status).toContainText(
     /Требуется подтверждение|Изготовление невозможно|предупреждени/i,
   );
-  // И каждое неподтверждённое правило раскрыто, а не сведено к слову.
-  await expect(page.getByText(/Правило в коде:/).first()).toBeVisible();
+  await expect(status).toContainText(/правил|допущени/i);
+
+  // В разделе «Готовность»: каждое правило раскрыто целиком.
+  await page.getByRole('radio', { name: 'Готовность', exact: true }).check();
+  const panel = page.getByRole('region', { name: 'Готовность к производству' });
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('Влияние:');
+  // Техническая ссылка на месте — за раскрытием, а не первой строкой.
+  await panel.locator('details summary').first().click();
+  await expect(panel).toContainText(/Правило в коде:/);
 });
 
 test('деталь, не помещающаяся на лист, показана как ошибка раскроя', async ({ page }) => {

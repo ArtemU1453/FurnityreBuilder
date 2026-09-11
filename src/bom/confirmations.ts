@@ -1,6 +1,6 @@
 import { HARDWARE_RULES } from '../hardware/index.js';
 import { DRILLING_RULES } from '../drilling/index.js';
-import type { ConfirmationCategory, ConfirmationItem } from './types.js';
+import type { ConfirmationCategory, ConfirmationItem, ConfirmationSeverity } from './types.js';
 
 /**
  * Централизованный список неподтверждённых правил (PROMPT 19 §18).
@@ -34,6 +34,8 @@ const STATIC_CONFIRMATIONS: readonly ConfirmationItem[] = [
     rule: 'Ширина пропила',
     source: 'src/domain/cutting/types.ts (DEFAULT_KERF)',
     impact: 'Раскладка использует временное техническое значение 4 мм: число листов и процент использования могут отличаться от цеховых.',
+    // Листы посчитаны и пригодны: расходится может только их число.
+    severity: 'informational',
   },
   {
     id: 'T-CUT-02',
@@ -41,6 +43,7 @@ const STATIC_CONFIRMATIONS: readonly ConfirmationItem[] = [
     rule: 'База процента использования листа',
     source: 'src/production/layout.ts',
     impact: 'Процент считается от полной площади листа; если референс считает от рабочей области, цифра будет выше.',
+    severity: 'informational',
   },
   {
     id: 'T-CUT-03',
@@ -48,6 +51,7 @@ const STATIC_CONFIRMATIONS: readonly ConfirmationItem[] = [
     rule: 'Обрезная кромка листа по сторонам',
     source: 'src/production/stock.ts',
     impact: 'Применяется одно значение ко всем четырём сторонам: рабочая область может отличаться от цеховой.',
+    severity: 'informational',
   },
   {
     id: 'T-EDG-02',
@@ -55,6 +59,7 @@ const STATIC_CONFIRMATIONS: readonly ConfirmationItem[] = [
     rule: 'Правило назначения кромки по сторонам детали',
     source: 'src/domain/materials/defaults.ts (DEFAULT_EDGE)',
     impact: 'Метраж кромки считается по умолчанию «2 мм спереди, 0.4 по бокам»: при другом правиле изменится длина кромки в спецификации.',
+    severity: 'informational',
   },
   {
     id: 'T-EDG-03',
@@ -62,6 +67,7 @@ const STATIC_CONFIRMATIONS: readonly ConfirmationItem[] = [
     rule: 'Вычитается ли толщина кромки из размера заготовки',
     source: 'src/domain/materials/defaults.ts (DEFAULT_EDGE_SIZING_POLICY)',
     impact: 'По умолчанию не вычитается: при обратном правиле изменятся размеры раскроя каждой оклеиваемой детали.',
+    severity: 'informational',
   },
   {
     id: 'T-DRW-02',
@@ -69,6 +75,8 @@ const STATIC_CONFIRMATIONS: readonly ConfirmationItem[] = [
     rule: 'Конструкция короба ящика',
     source: 'src/geometry/stages/fill.ts',
     impact: 'Деталей короба (боковины, задник, дно) в спецификации нет вовсе: геометрия их не строит.',
+    // Деталей НЕТ в результате: их нечего пилить и нечем собирать.
+    severity: 'action-required',
   },
   {
     id: 'T-DRILL-05',
@@ -76,8 +84,14 @@ const STATIC_CONFIRMATIONS: readonly ConfirmationItem[] = [
     rule: 'Минимальные технологические расстояния присадки',
     source: 'src/drilling/validate.ts (DRILLING_CLEARANCES)',
     impact: 'Проверки отступов от края и между отверстиями не выполняются: близко расположенные отверстия не будут отмечены.',
+    severity: 'informational',
   },
 ];
+
+/** Статус правила → тяжесть для человека. Разбор — `docs/FR20_PRODUCTION_DEFAULT_ANALYSIS.md`. */
+function severityOfRuleStatus(status: string): ConfirmationSeverity {
+  return status === 'needs-confirmation' ? 'action-required' : 'informational';
+}
 
 function fromRules(
   rules: readonly { id: string; title: string; status: string; unknownId?: string }[],
@@ -97,6 +111,14 @@ function fromRules(
         rule.status === 'needs-confirmation'
           ? 'Правило не выдаёт результата: позиций по нему в спецификации нет.'
           : 'Результат посчитан, но часть характеристик позиции не подтверждена.',
+      /*
+        Тяжесть выводится из СТАТУСА правила, а не назначается вручную
+        (PROMPT 63 §7). `needs-confirmation` означает, что правило не
+        выдало результата — позиции нет в спецификации, и купить её
+        нельзя. `ambiguous` означает, что результат посчитан, а
+        неподтверждённой осталась характеристика.
+      */
+      severity: severityOfRuleStatus(rule.status),
     });
   }
   return items;

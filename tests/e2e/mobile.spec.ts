@@ -197,7 +197,9 @@ test.describe('телефон', () => {
     await expect(page.getByRole('button', { name: 'Сохранено' })).toBeVisible();
 
     await page.getByRole('radio', { name: 'Производство' }).click();
-    await expect(page.getByRole('region', { name: 'Готовность к производству' })).toBeVisible();
+    // Раздел открывается результатом (PROMPT 63): сводка и состояние.
+    await expect(page.getByRole('region', { name: 'Сводка' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Состояние расчёта' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Скачать XLSX' })).toBeEnabled();
 
     // Перезагрузка: работа на месте.
@@ -208,15 +210,30 @@ test.describe('телефон', () => {
     await expect(page.getByRole('spinbutton', { name: 'Ширина', exact: true })).toHaveValue('1600');
   });
 
-  test('уточнения на производстве свёрнуты, ошибки — нет (§31, §33)', async ({ page }) => {
+  /**
+   * С PROMPT 63 (FR-20) уточнения не просто свёрнуты — их вообще нет на
+   * входе: вход открывается результатом. Требование §31 («содержимое
+   * приходит по требованию, а не занимает экран заранее») сохранено и
+   * усилено: теперь по требованию приходит и сам раздел.
+   */
+  test('уточнения не занимают вход, но достижимы целиком (§31, §33)', async ({ page }) => {
     await page.goto('./');
     await openScene(page);
     await page.getByRole('radio', { name: 'Производство' }).click();
+
+    // На входе — результат и строка состояния, не список правил.
+    await expect(page.getByRole('region', { name: 'Сводка' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Готовность к производству' })).toHaveCount(0);
+
+    await page.getByRole('combobox', { name: 'Раздел производства' }).selectOption('readiness');
+    const panel = page.getByRole('region', { name: 'Готовность к производству' });
+    await expect(panel).toBeVisible();
+
+    // Уточнения по-прежнему свёрнуты на телефоне, а не простынёй.
     const disclosure = page.getByText(/Требуется уточнение: \d+/).first();
     await expect(disclosure).toBeVisible();
-    // Содержимое приходит по требованию, а не занимает экран заранее.
     await disclosure.click();
-    await expect(page.getByText(/Правило в коде:/).first()).toBeVisible();
+    await expect(panel).toContainText('Влияние:');
   });
 
   test('помещение: холст, мебель и свойства листами (§28)', async ({ page }) => {
@@ -299,7 +316,9 @@ test.describe('крупный проект', () => {
 
     // Расчёт доходит до производства.
     await page.getByRole('radio', { name: 'Производство' }).click();
-    await expect(page.getByRole('region', { name: 'Готовность к производству' })).toBeVisible();
+    // Раздел открывается результатом (PROMPT 63): сводка и состояние.
+    await expect(page.getByRole('region', { name: 'Сводка' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Состояние расчёта' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Скачать XLSX' })).toBeEnabled();
     expect(await overflowOf(page)).toBeLessThanOrEqual(0);
   });

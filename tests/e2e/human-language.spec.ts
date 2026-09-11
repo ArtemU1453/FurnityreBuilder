@@ -179,9 +179,20 @@ test('прослеживаемость неподтверждённого пра
   await page.goto('./');
   await page.getByRole('radio', { name: 'Производство' }).check();
 
-  const main = page.locator('main');
-  await expect(main).toContainText('Правило в коде');
-  await expect(main).toContainText(/T-[A-Z]+-\d+/);
+  /*
+    С PROMPT 63 (FR-20) чеклист живёт в разделе «Готовность», а
+    техническая ссылка — за раскрытием: она нужна тому, кто будет
+    уточнять правило, и не должна быть первым, что читает мебельщик.
+    Требование этого теста не ослаблено — прослеживаемость проверяется
+    целиком, просто по новому адресу.
+  */
+  await page.getByRole('radio', { name: 'Готовность', exact: true }).check();
+  const panel = page.getByRole('region', { name: 'Готовность к производству' });
+  await expect(panel).toBeVisible();
+  await panel.locator('details summary').first().click();
+
+  await expect(panel).toContainText('Правило в коде');
+  await expect(panel).toContainText(/T-[A-Z]+-\d+/);
 });
 
 /**

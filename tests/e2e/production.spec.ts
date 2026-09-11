@@ -38,8 +38,20 @@ test('сводка показывает посчитанное, а не выду
   );
 });
 
-test('готовность к производству открывается со сводки (§4)', async ({ page }) => {
+/**
+ * С PROMPT 63 (FR-20) вход в раздел открывается РЕЗУЛЬТАТОМ, а не
+ * чеклистом: тот занимал 80…82 % высоты страницы. Требование §4 —
+ * «готовность понятна с входа» — сохранено: состояние названо строкой,
+ * а полный чеклист в одном нажатии.
+ */
+test('вход открывается сводкой, состояние названо, чеклист в одном нажатии (§4)', async ({
+  page,
+}) => {
   await openProduction(page);
+  await expect(page.getByRole('region', { name: 'Сводка' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Состояние расчёта' })).toBeVisible();
+
+  await page.getByRole('radio', { name: 'Готовность', exact: true }).check();
   await expect(page.getByRole('region', { name: 'Готовность к производству' })).toBeVisible();
 });
 

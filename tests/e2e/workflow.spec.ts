@@ -68,7 +68,9 @@ test('шаг «Проверка» уводит на раздел произво�
 
   await step(page, 'Проверка').click();
   await expect(page.getByRole('radio', { name: 'Производство' })).toBeChecked();
-  await expect(page.getByRole('region', { name: 'Готовность к производству' })).toBeVisible();
+  // Ориентир — то, чем раздел открывается. С PROMPT 63 это сводка, а
+  // не чеклист готовности: он переехал в свой раздел.
+  await expect(page.getByRole('region', { name: 'Сводка' })).toBeVisible();
 
   // Возврат в конструктор открывает ПОСЛЕДНИЙ его шаг, а не первый:
   // иначе место, где человек работал, теряется на каждом переходе.

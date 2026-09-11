@@ -264,11 +264,14 @@ test('чеклист готовности к производству виден
   // сказано словами, а не только цветом. Формулировка — из единого
   // словаря состояний (PROMPT 26 §14), одна и та же в тулбаре, строке
   // состояния и здесь.
+  // С PROMPT 63 (FR-20) статус стоит на входе в раздел, а полный
+  // чеклист — в разделе «Готовность». Проверяется и то, и другое.
   await expect(
-    page.getByLabel('Готовность к производству').getByText('Требуется подтверждение правил'),
+    page.getByLabel('Состояние расчёта').getByText('Требуется подтверждение правил'),
   ).toBeVisible();
 
   // Все восемь разделов чеклиста на месте.
+  await page.getByRole('radio', { name: 'Готовность', exact: true }).check();
   const production = page.getByLabel('Готовность к производству');
   for (const title of [
     'Геометрия',
@@ -283,6 +286,10 @@ test('чеклист готовности к производству виден
     await expect(production.getByText(title, { exact: true })).toBeVisible();
   }
 
+  // Обратно на вход раздела: дальше проверяется именно строка состояния,
+  // а выбор раздела производства сохраняется между переходами.
+  await page.getByRole('radio', { name: 'Сводка', exact: true }).check();
+
   // Недопустимый габарит переводит изделие в «изготовление невозможно»
   // сразу, без отдельной кнопки «проверить».
   // Габарит правится в конструкторе, а результат виден в производстве:
@@ -294,14 +301,14 @@ test('чеклист готовности к производству виден
   await width().fill('-100');
   await page.getByRole('radio', { name: 'Производство' }).click();
   await expect(
-    page.getByLabel('Готовность к производству').getByText('Изготовление невозможно'),
+    page.getByLabel('Состояние расчёта').getByText('Изготовление невозможно'),
   ).toBeVisible();
 
   await page.getByRole('radio', { name: 'Конструктор' }).click();
   await width().fill('1000');
   await page.getByRole('radio', { name: 'Производство' }).click();
   await expect(
-    page.getByLabel('Готовность к производству').getByText('Требуется подтверждение правил'),
+    page.getByLabel('Состояние расчёта').getByText('Требуется подтверждение правил'),
   ).toBeVisible();
 });
 
@@ -522,7 +529,7 @@ test('путь Библиотека → Конструктор → Помеще�
 
   // 5. Производство: тот же статус, что в строке состояния внизу.
   await page.getByRole('radio', { name: 'Производство' }).click();
-  const readiness = page.getByLabel('Готовность к производству');
+  const readiness = page.getByLabel('Состояние расчёта');
   await expect(readiness).toContainText('Требуется подтверждение правил');
   await expect(page.getByLabel('Состояние проекта')).toContainText(
     'Требуется подтверждение правил',

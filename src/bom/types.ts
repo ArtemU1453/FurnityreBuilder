@@ -178,6 +178,23 @@ export function confirmationCategoryLabel(category: ConfirmationCategory): strin
  * количеством, полученным по выдуманному правилу, выглядит ровно так же,
  * как лист с подтверждённым, — и разницу видно только на производстве.
  */
+/**
+ * Насколько неподтверждённое правило мешает изготовлению (PROMPT 63 §7).
+ *
+ * Граница поведенческая, а не косметическая:
+ *
+ * - `action-required` — позиции или детали **отсутствуют** в результате.
+ *   Их нельзя купить и нельзя распилить, потому что их там нет.
+ * - `informational` — результат посчитан и им можно пользоваться;
+ *   неподтверждённым остаётся значение, которое может отличаться от
+ *   цехового.
+ *
+ * Блокирующий случай сюда не входит: изготовление блокируют ОШИБКИ
+ * расчёта (`Issue` уровня `error`), а не допущения. Ни одно допущение не
+ * мешает выпустить документы.
+ */
+export type ConfirmationSeverity = 'action-required' | 'informational';
+
 export interface ConfirmationItem {
   /** Идентификатор неизвестного из `docs/UNKNOWNS.json`. */
   readonly id: string;
@@ -185,6 +202,7 @@ export interface ConfirmationItem {
   readonly rule: string;
   readonly source: string;
   readonly impact: string;
+  readonly severity: ConfirmationSeverity;
 }
 
 export interface ProductionBOM {

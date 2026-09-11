@@ -9,7 +9,14 @@ import {
 import type { MaterialLibrary } from '../../domain/index.js';
 import type { ProductionReadinessResult } from '../../workflow/index.js';
 import { CHECK_MARK, CHECK_STATUS, PRODUCTION_STATUS } from '../status.js';
-import { PRODUCTION_SECTIONS, SECTION_BY_ID, usesSectionList } from '../production/index.js';
+import {
+  PRODUCTION_SECTIONS,
+  SECTION_BY_ID,
+  describeReadiness,
+  orderConfirmations,
+  summarizeReadiness,
+  usesSectionList,
+} from '../production/index.js';
 import type { ProductionSectionId } from '../production/index.js';
 import type { LayoutMode } from '../layout.js';
 import { DrawingsSection, DrillingSection, PartsSection } from './production/ProductionParts.js';
@@ -124,11 +131,23 @@ export function ProductionScreen(props: ProductionScreenProps): React.JSX.Elemen
       )}
 
       {props.section !== 'overview' ? null : (
-        <ProductionOverview data={props.data} readiness={readiness} onSection={props.onSection} />
+        <>
+          <ProductionOverview data={props.data} readiness={readiness} onSection={props.onSection} />
+          {/*
+            Состояние — ПОСЛЕ результата и одной строкой (PROMPT 63 §8).
+            Здесь стоял весь чеклист готовности: 80…82 % высоты страницы
+            уходило на список внутренних правил, которые ещё не
+            подтверждены. Список не сокращён и не спрятан — он в разделе
+            «Готовность», и отсюда в него ведёт кнопка.
+          */}
+          <ReadinessBanner readiness={readiness} onSection={props.onSection} />
+        </>
       )}
 
       {props.data === undefined ? (
-        props.section === 'overview' || props.section === 'documentation' ? null : (
+        props.section === 'overview' ||
+        props.section === 'readiness' ||
+        props.section === 'documentation' ? null : (
           <Panel id="production-unavailable" title={SECTION_BY_ID[props.section].title} wide>
             <EmptyState
               title="Расчёт недоступен"
@@ -146,7 +165,7 @@ export function ProductionScreen(props: ProductionScreenProps): React.JSX.Elemen
         />
       )}
 
-      {props.section !== 'overview' ? null : (
+      {props.section !== 'readiness' ? null : (
         <Panel
           id="production-readiness"
           title="Готовность к производству"
@@ -343,6 +362,78 @@ function ProductionOverview({
   );
 }
 
+/**
+ * Строка состояния производственного результата (PROMPT 63 §8, §9).
+ *
+ * Иерархия обязана быть РЕЗУЛЬТАТ → СОСТОЯНИЕ → ЗАМЕЧАНИЯ, а не
+ * наоборот. Здесь только третья ступень, и она компактна: статус
+ * словом, перечисление того, что требует внимания, и переход в раздел,
+ * где всё это разобрано.
+ *
+ * Неопределённость не прячется. Она перестаёт быть первым, что человек
+ * читает, придя за раскроем.
+ */
+function ReadinessBanner({
+  readiness,
+  onSection,
+}: {
+  readonly readiness: ProductionReadinessResult | undefined;
+  readonly onSection: (id: ProductionSectionId) => void;
+}): React.JSX.Element | null {
+  if (readiness === undefined) return null;
+  const summary = summarizeReadiness(readiness);
+  const parts = describeReadiness(summary);
+  const view = PRODUCTION_STATUS[readiness.status];
+
+  return (
+    <Panel
+      id="production-status"
+      title="Состояние расчёта"
+      wide
+    >
+      {/*
+        Статус — первой строкой панели и без подзаголовка над ним (§14).
+        На телефоне «Сводка» занимает 375 px, и пояснительный абзац
+        выталкивал индикатор за край первого экрана: человек видел, ЧТО
+        посчитано, но не видел, можно ли этому верить.
+
+        В слот `actions` заголовка индикатор не ставится: этот слот
+        рассчитан на кнопки и не переносится, а подробное описание
+        статуса уводило страницу вбок на 777 px при ширине 360 px.
+      */}
+      <StatusIndicator
+        tone={view.tone}
+        label={view.label}
+        {...(view.hint === undefined ? {} : { detail: view.hint })}
+        live
+      />
+
+      {summary.clean ? (
+        <p className={styles.message}>
+          Все разделы спецификации посчитаны: ошибок, замечаний и неподтверждённых правил нет.
+        </p>
+      ) : (
+        <>
+          {/*
+            Перечисление, а не список правил: подробности — в разделе
+            «Готовность». Здесь человек узнаёт, ЕСТЬ ли о чём читать.
+          */}
+          <p className={styles.message}>{parts.join(' · ')}</p>
+          <div className={styles.actions}>
+            <Button
+              onClick={() => {
+                onSection('readiness');
+              }}
+            >
+              Что требует внимания
+            </Button>
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
 /** Раздел, который сейчас открыт. Данные приходят посчитанными сверху. */
 function ProductionBody({
   section,
@@ -373,30 +464,45 @@ function ProductionBody({
     case 'bom':
       return <BomSection data={data} />;
     case 'overview':
+    case 'readiness':
     case 'documentation':
       return null;
   }
 }
 
-/** Список неподтверждённых правил. Одна разметка на оба вида экрана. */
+/**
+ * Список неподтверждённых правил. Одна разметка на оба вида экрана.
+ *
+ * Порядок чтения задан жёстко (PROMPT 63 §9, §10):
+ *
+ * ```
+ * ЧТО ЗА ПРАВИЛО → НАСКОЛЬКО МЕШАЕТ → НА ЧТО ВЛИЯЕТ → техническая ссылка
+ * ```
+ *
+ * До FR-20 второй строкой шло «Правило в коде: src/hardware/rules/hinge»
+ * — путь к исходнику раньше, чем объяснение, что это вообще значит.
+ * Путь остаётся: он нужен тому, кто будет правило уточнять. Но он
+ * перестал быть первым, что читает человек, пришедший за раскроем.
+ *
+ * Сначала идут правила, из-за которых чего-то НЕТ в результате:
+ * купить и распилить отсутствующее нельзя, а расходящееся значение —
+ * можно, зная о нём.
+ */
 function confirmations(
   items: ProductionReadinessResult['checks'][number]['needsConfirmation'],
 ): React.JSX.Element {
   return (
     <ul className={styles.confirmations}>
-      {items.map((item) => (
-        <li key={item.id} className={styles.confirmation}>
+      {orderConfirmations(items).map((item) => (
+        <li key={item.id} className={styles.confirmation} data-severity={item.severity}>
           <span className={styles.rule}>{item.rule}</span>
-          {/*
-            Ссылка на место в коде — для того, кто будет уточнять правило,
-            а не для мебельщика. Подпись это и говорит: «Применяется:
-            src/hardware/rules/hinge» читалось так, будто пользователю
-            полагается понимать, что это. Информация полезная и остаётся,
-            но названа тем, что она есть.
-          */}
-          <span className={styles.detail}>Правило в коде: {item.source}</span>
+          <span className={styles.detail}>{item.severityLabel}</span>
           <span className={styles.detail}>Влияние: {item.impact}</span>
-          <span className={styles.detail}>Идентификатор: {item.id}</span>
+          <details className={styles.disclosure}>
+            <summary className={styles.summary}>Техническая ссылка</summary>
+            <span className={styles.detail}>Правило в коде: {item.source}</span>
+            <span className={styles.detail}>Идентификатор: {item.id}</span>
+          </details>
         </li>
       ))}
     </ul>
