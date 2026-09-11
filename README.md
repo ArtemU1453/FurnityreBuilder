@@ -350,6 +350,9 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/FR10_FINAL_STEPS_VERIFICATION.md`](docs/FR10_FINAL_STEPS_VERIFICATION.md) | Замеры до и после: 3 общие панели и 19 общих органов → 0 и 0 |
 | [`docs/FINAL_CONSTRUCTION_TO_PRODUCTION_FLOW.md`](docs/FINAL_CONSTRUCTION_TO_PRODUCTION_FLOW.md) | Где заканчивается конструирование и начинается производство |
 | [`docs/FR04_DRAWER_MODEL_ANALYSIS.md`](docs/FR04_DRAWER_MODEL_ANALYSIS.md) | Конструкция ящика: что подтверждено источником, что нет и почему короб пока не строится |
+| [`docs/PRIVET_MAKET_CAPABILITY_MATRIX.md`](docs/PRIVET_MAKET_CAPABILITY_MATRIX.md) | Карта возможностей референса против наших, с классом доказательства у каждой строки |
+| [`docs/PRIVET_MAKET_HARDWARE_REGISTRY.md`](docs/PRIVET_MAKET_HARDWARE_REGISTRY.md) | Реестр фурнитуры: что известно про каждый узел и до какого уровня |
+| [`docs/PRIVET_MAKET_IMPLEMENTATION_PRIORITY.md`](docs/PRIVET_MAKET_IMPLEMENTATION_PRIORITY.md) | Очередь пробелов фурнитуры и что нужно достать, чтобы их закрыть |
 | [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
