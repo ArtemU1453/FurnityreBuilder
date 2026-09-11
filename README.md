@@ -365,6 +365,7 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/B3D_HARDWARE_PLACEMENT_ANALYSIS.md`](docs/B3D_HARDWARE_PLACEMENT_ANALYSIS.md) | Сверка количеств и восстановленная геометрия реального изделия |
 | [`docs/B3D_PM18_PM17_EVIDENCE.md`](docs/B3D_PM18_PM17_EVIDENCE.md) | Какой крепёж на каких стыках и как разложены гвозди задней стенки |
 | [`docs/B3D_DRAWER_EVIDENCE.md`](docs/B3D_DRAWER_EVIDENCE.md) | Чем собран короб ящика и где стоит направляющая |
+| [`docs/SECOND_B3D_COMPARATIVE_ANALYSIS.md`](docs/SECOND_B3D_COMPARATIVE_ANALYSIS.md) | Матрица доказательств и заранее зафиксированные предсказания для второго образца |
 | [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
