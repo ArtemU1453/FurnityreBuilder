@@ -46,6 +46,7 @@ import { DiagnosticsDialog } from './DiagnosticsDialog.js';
 import { describeGridReplacement, gridReplacementLoss, losesWork } from './editor/grid-replacement.js';
 import { cellName, cellNames } from './editor/cell-identity.js';
 import { describeDivide, divideCommands, divideEffect, losesCellWork } from './editor/divide-cell.js';
+import { startingPoint } from './editor/starting-point.js';
 import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
@@ -442,6 +443,16 @@ export function App(): React.JSX.Element {
     хранятся: имя — такая же производная величина, как деталировка.
     Один раз на пересчёт, а не на каждый прямоугольник схемы.
   */
+  /*
+    Что это за объект и что с ним делают дальше (PROMPT 57 §5, §9).
+
+    Выводится из фактического состояния — как и всё производное в этом
+    проекте. Ни поля «этап», ни флага «новичок», ни счётчика показов:
+    подпись сама меняется по мере сборки и сама исчезает как «начальная»,
+    когда начинать уже нечего.
+  */
+  const intro = useMemo(() => startingPoint(furniture, geometry), [furniture, geometry]);
+
   const namesOfCells = useMemo(
     () => (geometry === undefined ? new Map<NodeId, string>() : cellNames(geometry)),
     [geometry],
@@ -3206,6 +3217,40 @@ export function App(): React.JSX.Element {
           ) : null}
         </WorkspaceSlot>
         <div className={workspace.canvas}>
+          {/*
+            Что строим — над изделием, а не в отдельном окне (PROMPT 57
+            §5, §10).
+
+            Строка стоит здесь, потому что отвечает на вопрос про объект
+            и должна быть видна там же, где объект, — на любом размере
+            окна, включая телефон, где панели убраны в лист. Это одна
+            строка, а не мастер и не обучающее окно: она ничего не
+            перекрывает, ничего не требует и не ждёт, пока её закроют.
+
+            Выбора типа мебели здесь нет намеренно: `FurnitureKind`
+            объявляет четыре значения, но ни геометрия, ни производство,
+            ни экспорт по ним не ветвятся — все четыре дают одинаковое
+            изделие (`docs/FR06_FURNITURE_STARTING_POINT_ANALYSIS.md`).
+          */}
+          {intro === undefined ? null : (
+            <p className={workspace.intro} data-stage={intro.stage}>
+              <span className={workspace.introWhat}>{intro.what}</span>
+              {/*
+                На телефоне остаётся только «что это». Каждая строка
+                подписи там отнимается у изделия: замер показал, что две
+                фразы занимают 34 px из 344, отведённых сцене, и она
+                перестаёт занимать экран — то самое свойство мобильной
+                раскладки, ради которого она и сделана (PROMPT 28 §4).
+
+                Потери смысла нет: что делать дальше, на телефоне уже
+                сказано дважды — полосой шагов («Шаг 1 из 11 Размеры») и
+                кнопкой с именем текущего шага. На широком экране этих
+                подсказок рядом с изделием нет, и фраза нужна.
+              */}
+              {mobile ? null : <span className={workspace.introNext}> {intro.next}</span>}
+            </p>
+          )}
+
           {/*
             Вид холста: трёхмерная сцена или плоская схема. Это одно и то
             же изделие, показанное по-разному, поэтому и выделение, и

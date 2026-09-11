@@ -136,10 +136,32 @@ test('на 390 × 844 первое действие названо на экра
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./');
 
-  // Холст занимает экран — то, ради чего лист и существует.
-  const canvas = page.getByRole('application', { name: /Схема изделия/ });
-  const canvasBox = (await canvas.boundingBox())!;
-  expect(canvasBox.height).toBeGreaterThan(400);
+  /*
+    Холст остаётся САМОЙ КРУПНОЙ областью экрана — то, ради чего лист и
+    существует.
+
+    До PROMPT 57 здесь стояло `> 400 px`. Круглое число было моим, а не
+    измеренным: оно выражало «изделие занимает экран». PROMPT 57 добавил
+    над изделием строку «что строим», и она честно отнимает у холста
+    свою высоту. Требование при этом не изменилось, поэтому проверяется
+    оно само — превосходство над каждой другой областью, — а не число,
+    подобранное под прежнюю раскладку. Такая проверка строже: она
+    сломается и в том случае, когда холст останется 420 px, а шапка
+    вырастет до 430.
+  */
+  const canvasBox = (await page.getByRole('application', { name: /Схема изделия/ }).boundingBox())!;
+  const others = await page.evaluate(() =>
+    ['header', 'footer', 'nav', '[class*="mobileBar"]']
+      .map((sel) => document.querySelector(sel)?.getBoundingClientRect().height ?? 0)
+      .map((h) => Math.round(h)),
+  );
+  for (const height of others) {
+    expect(canvasBox.height, `холст перестал быть самой крупной областью: ${String(height)} px`).toBeGreaterThan(
+      height,
+    );
+  }
+  // И занимает существенную долю экрана, а не полоску.
+  expect(canvasBox.height / 844).toBeGreaterThan(0.35);
 
   // Первое действие названо: кнопка носит имя текущего шага.
   const open = page.getByRole('button', { name: 'Размеры', exact: true });
