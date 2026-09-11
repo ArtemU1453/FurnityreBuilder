@@ -332,6 +332,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/FR05_FIRST_ACTION_VERIFICATION.md`](docs/FR05_FIRST_ACTION_VERIFICATION.md) | Замеры до и после: 888 px → 205 px на четырёх размерах окна |
 | [`docs/FR06_FURNITURE_STARTING_POINT_ANALYSIS.md`](docs/FR06_FURNITURE_STARTING_POINT_ANALYSIS.md) | Что модель различает на самом деле и почему выбора типа мебели нет |
 | [`docs/FR06_FURNITURE_STARTING_POINT_VERIFICATION.md`](docs/FR06_FURNITURE_STARTING_POINT_VERIFICATION.md) | Замеры до и после: с чего начинается изделие и куда ведёт подпись |
+| [`docs/FR12_TECHNICAL_LANGUAGE_ANALYSIS.md`](docs/FR12_TECHNICAL_LANGUAGE_ANALYSIS.md) | Откуда в интерфейсе брались `edges`, `back` и `Bounding box` |
+| [`docs/FR12_TECHNICAL_LANGUAGE_VERIFICATION.md`](docs/FR12_TECHNICAL_LANGUAGE_VERIFICATION.md) | Замеры до и после: что переименовано, что оставлено и почему |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
 | [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |

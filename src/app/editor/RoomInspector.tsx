@@ -13,6 +13,7 @@ import {
 import { ROOM_STATUS } from '../status.js';
 import { footprintLabel } from './RoomPlanner.js';
 import styles from './EditorPanels.module.css';
+import { obstacleKindLabel } from '../vocabulary.js';
 
 /**
  * Инспектор помещения (PROMPT 24 §24, PROMPT 26 §12–§13).
@@ -145,7 +146,7 @@ export function RoomInspector(props: RoomInspectorProps): React.JSX.Element {
           ))}
           {props.room.obstacles.map((obstacle) => (
             <div key={obstacle.id} className={styles.row}>
-              <dt className={styles.rowLabel}>{obstacle.name ?? obstacle.kind}</dt>
+              <dt className={styles.rowLabel}>{obstacle.name ?? obstacleKindLabel(obstacle.kind)}</dt>
               <dd className={styles.rowValue}>
                 {formatMm(obstacle.size.x)} × {formatMm(obstacle.size.y)} ×{' '}
                 {formatMm(obstacle.size.z)} мм

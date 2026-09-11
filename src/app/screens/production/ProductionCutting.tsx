@@ -6,6 +6,7 @@ import type { MaterialLibrary } from '../../../domain/index.js';
 import { itemOfSourcePart } from '../../production/index.js';
 import type { ProductionActions, ProductionData, SelectionState } from './types.js';
 import styles from './ProductionSections.module.css';
+import { hardwareKindLabel } from '../../vocabulary.js';
 
 /**
  * Раскрой, фурнитура и спецификация (PROMPT 29 §19–§26).
@@ -224,7 +225,7 @@ export function HardwareSection({
                 <tr key={String(line.definitionId)}>
                   <th scope="row">{line.name}</th>
                   <td>{String(line.definitionId)}</td>
-                  <td>{line.kind}</td>
+                  <td>{hardwareKindLabel(line.kind)}</td>
                   <td className={styles.num}>{line.quantity}</td>
                   <td>{line.unit}</td>
                   <td>

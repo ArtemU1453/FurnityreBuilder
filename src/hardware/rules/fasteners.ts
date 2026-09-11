@@ -1,7 +1,20 @@
 import { issue } from '../../domain/index.js';
-import type { Mm, Part } from '../../domain/index.js';
+import type { BackPanelMount, Mm, Part } from '../../domain/index.js';
 import type { HardwareRule, HardwareRuleContext, HardwareRuleResult } from '../types.js';
 import { HW_BACK_FASTENER, HW_CARCASS_FASTENER } from '../registry.js';
+
+/**
+ * Способ монтажа задней стенки словами — для текста предупреждения.
+ *
+ * Объявлена `Record` по типу: новый способ монтажа не соберётся, пока
+ * для него нет слова.
+ */
+const BACK_MOUNT_WORDS: Readonly<Record<BackPanelMount['kind'], string>> = {
+  none: 'без задней стенки',
+  overlay: 'накладная',
+  'inset-groove': 'в паз',
+  'inset-flush': 'вкладная',
+};
 
 /**
  * Крепёж задней стенки и корпуса (PROMPT 16 §10–11).
@@ -68,7 +81,14 @@ export const backWallFastenerRule: HardwareRule = {
     }
 
     const totalPerimeter = panels.reduce((acc, p) => acc + perimeterOf(p), 0);
-    const mount = ctx.furniture.carcass.back.mount.kind;
+    /*
+      Способ монтажа — словом, а не значением перечисления (PROMPT 58 §12).
+      Здесь стояло `mount.kind`, и в русском предупреждении появлялось
+      «монтаж: «overlay»». Правило само сочиняет эту фразу, поэтому само
+      же отвечает за все её слова: тащить сюда словарь показа из `app/`
+      нельзя — слой чистый и об интерфейсе не знает.
+    */
+    const mount = BACK_MOUNT_WORDS[ctx.furniture.carcass.back.mount.kind];
     return {
       items: [],
       warnings: [

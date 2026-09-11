@@ -47,6 +47,7 @@ import { describeGridReplacement, gridReplacementLoss, losesWork } from './edito
 import { cellName, cellNames } from './editor/cell-identity.js';
 import { describeDivide, divideCommands, divideEffect, losesCellWork } from './editor/divide-cell.js';
 import { startingPoint } from './editor/starting-point.js';
+import { stageList } from './vocabulary.js';
 import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
@@ -3091,7 +3092,13 @@ export function App(): React.JSX.Element {
                 <span className={styles.statValue}>{formatMm(geometry.innerVolume.size.z)} мм</span>
               </li>
               <li className={styles.stat}>
-                <span className={styles.statLabel}>Bounding box (Ш×В×Г)</span>
+                {/*
+                  Не «Bounding box» (PROMPT 58 §7): величина означает
+                  ФАКТИЧЕСКИЙ внешний габарит построенного изделия — тот,
+                  что отличается от заявленного, когда есть свес
+                  столешницы или выступающая фурнитура. Так и названа.
+                */}
+                <span className={styles.statLabel}>Внешний габарит (Ш×В×Г)</span>
                 <span className={styles.statValue}>
                   {formatMm(geometry.boundingBox.totalWidth)} ×{' '}
                   {formatMm(geometry.boundingBox.totalHeight)} ×{' '}
@@ -3118,9 +3125,22 @@ export function App(): React.JSX.Element {
               </>
             ) : null}
 
-            <p className={styles.pending}>
-              Этапы конвейера геометрии, ещё не реализованные: {geometry.pendingStages.join(', ')}.
-            </p>
+            {/*
+              Последствие, а не имя этапа (PROMPT 58 §8).
+
+              Здесь стояло «Этапы конвейера геометрии, ещё не
+              реализованные: edges, drilling» — имена этапов движка в
+              русском интерфейсе. Человеку важно не то, что этап
+              называется `edges`, а то, что геометрия кромки не строится.
+              Сведения не убраны (§9): они переписаны в последствиях и
+              отсылают туда, где подробности уже есть.
+            */}
+            {geometry.pendingStages.length === 0 ? null : (
+              <p className={styles.pending}>
+                В геометрии пока не строятся: {stageList(geometry.pendingStages)}. На деталировку и
+                раскрой это не влияет; что именно не посчитано — в разделе «Производство».
+              </p>
+            )}
           </Panel>
 
           {/*

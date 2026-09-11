@@ -1,5 +1,6 @@
 import { contentKindOf, contentLabel } from '../../geometry/index.js';
 import { cellName, sectionName } from './cell-identity.js';
+import { partRoleLabel } from '../vocabulary.js';
 import { formatMm } from '../../domain/index.js';
 import type { Furniture, MaterialLibrary, NodeId, PartId } from '../../domain/index.js';
 import type { GeometryResult } from '../../geometry/index.js';
@@ -90,7 +91,9 @@ export function describeSelection(
       const material = materials.items[part.materialId];
       return {
         title: part.label,
-        subtitle: `Деталь · ${part.role}`,
+        // Роль словом, а не машинным значением: до PROMPT 58 здесь
+        // стояло «Деталь · back» — латинское имя поля модели.
+        subtitle: `Деталь · ${partRoleLabel(part.role)}`,
         rows: [
           { label: 'Размер раскроя', value: size(part.cut.length, part.cut.width, part.cut.thickness) },
           { label: 'Габарит', value: size(part.size.x, part.size.y, part.size.z) },
