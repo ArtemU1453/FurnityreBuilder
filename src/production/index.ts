@@ -1,5 +1,13 @@
 export * from './types.js';
-export { classifyPart, isManufacturable, productionTypeOf, rotationAllowedFor, toProductionParts } from './parts.js';
+export {
+  PRODUCTION_PART_TYPE_LABELS,
+  classifyPart,
+  isManufacturable,
+  productionPartTypeLabel,
+  productionTypeOf,
+  rotationAllowedFor,
+  toProductionParts,
+} from './parts.js';
 export type { ProductionPartsResult } from './parts.js';
 export { groupForCutting, groupKeyOf } from './grouping.js';
 export { resolveStock, trimFor, usableAreaOf } from './stock.js';

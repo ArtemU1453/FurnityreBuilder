@@ -1,3 +1,4 @@
+import { confirmationCategoryLabel } from '../bom/index.js';
 import { createZip } from './zip.js';
 import type { ProductionExportData } from './types.js';
 
@@ -175,7 +176,7 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
     ['Дата генерации', data.metadata.generatedAt],
     ['Версия приложения', data.metadata.appVersion],
     ['Версия спецификации', data.metadata.bomVersion],
-    ['Статус расчёта', data.metadata.status],
+    ['Статус расчёта', data.metadata.statusLabel],
     ['Ширина, мм', data.dimensions.width],
     ['Высота, мм', data.dimensions.height],
     ['Глубина, мм', data.dimensions.depth],
@@ -194,7 +195,7 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
     ['Предупреждений', data.warnings.length],
     ['Ошибок', data.errors.length],
     ...data.confirmations.map((item): readonly CellValue[] => [
-      `Требует подтверждения: ${item.category} ${item.id}`,
+      `Требует подтверждения: ${confirmationCategoryLabel(item.category)} [${item.id}]`,
       `${item.rule} — ${item.impact}`,
     ]),
     ...data.warnings.map((text): readonly CellValue[] => ['Предупреждение', text]),
@@ -212,9 +213,16 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
     },
     {
       name: 'Детали',
+      /*
+        Колонка `ID` убрана (PROMPT 62 §11). В ней стоял ключ
+        группировки позиции — `bom:back|mat-back-3|3.0|2200.0|1800.0|none|…`,
+        то есть те же `back` и `none`, ради которых затеян FR-19, только
+        склеенные в одну строку. Позицию в документе адресует её номер;
+        связь с физическими деталями изделия — на листе «Раскрой», где
+        каждая деталь названа тем же именем.
+      */
       columns: [
         { header: '№', width: 5 },
-        { header: 'ID', width: 42 },
         { header: 'Деталь', width: 22 },
         { header: 'Тип', width: 14 },
         { header: 'Кол-во', width: 8 },
@@ -222,43 +230,41 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
         { header: 'Ширина, мм', width: 11 },
         { header: 'Толщина, мм', width: 12 },
         { header: 'Материал', width: 26 },
-        { header: 'Кромка', width: 16 },
+        { header: 'Кромка, мм', width: 30 },
         { header: 'Текстура', width: 14 },
       ],
       rows: data.parts.map((row) => [
         row.index,
-        row.id,
         row.name,
-        row.partType,
+        row.partTypeLabel,
         row.quantity,
         row.length,
         row.width,
         row.thickness,
         row.materialName,
         row.edge,
-        row.grain,
+        row.grainLabel,
       ]),
     },
     {
       name: 'Фурнитура',
+      // Те же колонки и те же слова, что на экране и в PDF
+      // (PROMPT 62 §12). Ключ реестра `hw-shelf-support` и сырой
+      // `HardwareKind` из документа убраны.
       columns: [
         { header: '№', width: 5 },
-        { header: 'ID', width: 24 },
-        { header: 'Название', width: 26 },
-        { header: 'Категория', width: 18 },
+        { header: 'Наименование', width: 28 },
+        { header: 'Тип', width: 22 },
         { header: 'Кол-во', width: 8 },
-        { header: 'Ед.', width: 6 },
-        { header: 'Назначение', width: 22 },
-        { header: 'Источник', width: 60 },
+        { header: 'Ед.', width: 8 },
+        { header: 'Для чего', width: 60 },
       ],
       rows: data.hardware.map((row) => [
         row.index,
-        row.definitionId,
         row.name,
-        row.category,
+        row.categoryLabel,
         row.quantity,
-        row.unit,
-        row.purpose,
+        row.unitLabel,
         row.sources.join(', '),
       ]),
     },
@@ -267,10 +273,9 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
       columns: [
         { header: '№', width: 5 },
         { header: 'Деталь', width: 22 },
-        { header: 'ID детали', width: 42 },
         { header: 'Операция', width: 34 },
-        { header: 'Назначение', width: 16 },
-        { header: 'Грань', width: 10 },
+        { header: 'Назначение', width: 22 },
+        { header: 'Грань', width: 16 },
         { header: 'X, мм', width: 10 },
         { header: 'Y, мм', width: 10 },
         { header: 'Мир X', width: 10 },
@@ -284,10 +289,9 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
       rows: data.drilling.map((row) => [
         row.index,
         row.partName,
-        row.partId,
         row.operationId,
-        row.purpose,
-        row.face,
+        row.purposeLabel,
+        row.faceLabel,
         row.x,
         row.y,
         row.worldX,
@@ -304,11 +308,9 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
       columns: [
         { header: '№', width: 5 },
         { header: 'Лист', width: 6 },
-        { header: 'ID листа', width: 26 },
         { header: 'Лист, длина', width: 12 },
         { header: 'Лист, ширина', width: 13 },
-        { header: 'Деталь', width: 22 },
-        { header: 'ID детали', width: 42 },
+        { header: 'Деталь', width: 24 },
         { header: 'X, мм', width: 10 },
         { header: 'Y, мм', width: 10 },
         { header: 'Ширина, мм', width: 11 },
@@ -322,11 +324,9 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
         ...data.placements.map((row): readonly CellValue[] => [
           row.index,
           row.sheetNumber,
-          row.stockId,
           row.stockLength,
           row.stockWidth,
           row.partName,
-          row.partId,
           row.x,
           row.y,
           row.width,
@@ -342,11 +342,9 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
         ...data.unplaced.map((row): readonly CellValue[] => [
           0,
           0,
-          'НЕ РАЗМЕЩЕНО',
           0,
           0,
-          row.partName,
-          row.partId,
+          `${row.partName} — НЕ РАЗМЕЩЕНО: ${row.reasonLabel}`,
           0,
           0,
           0,
@@ -362,7 +360,6 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
       name: 'Материалы',
       columns: [
         { header: '№', width: 5 },
-        { header: 'ID', width: 16 },
         { header: 'Материал', width: 30 },
         { header: 'Категория', width: 14 },
         { header: 'Толщина, мм', width: 12 },
@@ -373,7 +370,6 @@ export function buildProductionSheets(data: ProductionExportData): readonly Shee
       ],
       rows: data.materials.map((row) => [
         row.index,
-        row.materialId,
         row.name,
         row.kind,
         row.thickness,

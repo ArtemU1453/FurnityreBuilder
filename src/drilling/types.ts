@@ -43,6 +43,22 @@ export interface DrillDirection {
 export type DrillThrough = 'through' | 'blind';
 
 /**
+ * Сквозное отверстие или глухое — словом (PROMPT 62 §5).
+ *
+ * Живёт рядом со своим перечислением: `DrillThrough` объявлен в этом
+ * слое, а `domain/vocabulary.ts` его не видит. Слои `bom`, `export` и
+ * `app`, которым подпись нужна, видят `drilling`.
+ */
+export const DRILL_THROUGH_LABELS: Readonly<Record<DrillThrough, string>> = {
+  through: 'сквозное',
+  blind: 'глухое',
+};
+
+export function drillThroughLabel(through: DrillThrough): string {
+  return DRILL_THROUGH_LABELS[through];
+}
+
+/**
  * Технологическая операция сверления.
  *
  * Собственных размеров мебели здесь нет (§2): ни ширины, ни высоты, ни

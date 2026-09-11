@@ -41,6 +41,31 @@ export function categoryOf(type: ProductionPartType): PartCategory {
   }
 }
 
+/**
+ * Раздел спецификации словом (PROMPT 62 §5).
+ *
+ * До FR-19 в строке «Раздел» карточки детали стояло `carcass`,
+ * `back-wall`, `false-panels` — имена вариантов перечисления.
+ *
+ * Живёт рядом со своим перечислением: `PartCategory` объявлен в этом
+ * слое. `Record` обязателен — новый раздел не соберётся без слова.
+ */
+export const PART_CATEGORY_LABELS: Readonly<Record<PartCategory, string>> = {
+  carcass: 'Корпус',
+  shelves: 'Полки',
+  doors: 'Фасады',
+  drawers: 'Ящики',
+  'back-wall': 'Задняя стенка',
+  plinth: 'Цоколь',
+  countertop: 'Столешница',
+  'false-panels': 'Фальшпанели',
+  other: 'Прочее',
+};
+
+export function partCategoryLabel(category: PartCategory): string {
+  return PART_CATEGORY_LABELS[category];
+}
+
 const edgeKeyOf = (edge: EdgeSpec): string =>
   `${String(edge.front)}/${String(edge.back)}/${String(edge.left)}/${String(edge.right)}/${edge.materialId ?? '-'}`;
 

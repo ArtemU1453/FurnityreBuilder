@@ -106,9 +106,18 @@ describe('чертёж детали', () => {
     expect(withHoles.dimensions.filter((d) => d.kind === 'hole-y')).toHaveLength(2);
   });
 
+  /**
+   * С PROMPT 62 (§7) `none` — не «нет подписи», а названное состояние:
+   * у материала нет НАПРАВЛЕННОЙ текстуры, и именно поэтому раскрой
+   * вправе повернуть деталь. Требование теста прежнее: направлением это
+   * состояние не называется.
+   */
   it('текстура называется словами, а её отсутствие не выдаётся за направление', () => {
     expect(buildPartDrawing(item(), []).grainLabel).toBe('вдоль длины');
-    expect(buildPartDrawing(item({ grainDirection: 'none' }), []).grainLabel).toBeUndefined();
+    const plain = buildPartDrawing(item({ grainDirection: 'none' }), []);
+    expect(plain.grainLabel).toBe('без направления');
+    expect(plain.grainLabel).not.toContain('вдоль');
+    expect(plain.grain).toBe('none');
   });
 
   it('описание — те же данные словами, а не подпись «схема детали»', () => {

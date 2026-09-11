@@ -89,7 +89,23 @@ export function productionTypeOf(role: PartRole): ProductionPartType {
   }
 }
 
-const TYPE_NAMES: Readonly<Record<ProductionPartType, string>> = {
+/**
+ * Тип производственной детали словом (PROMPT 62 §5).
+ *
+ * Словарь существовал здесь и раньше, но был приватным и работал только
+ * запасным именем позиции. Колонка «Тип» — на экране, в PDF и в XLSX —
+ * печатала при этом сырое значение: `back`, `partition`, `facade`.
+ * Теперь он экспортируется, и печатают все трое одно и то же.
+ *
+ * Живёт рядом со своим перечислением, а не в `domain/vocabulary.ts`:
+ * `ProductionPartType` объявлен в этом слое, и переносить перечисление
+ * ради подписи запрещено (§2). Слои `bom`, `export` и `app` видят
+ * `production` — этого достаточно.
+ *
+ * `Record<ProductionPartType, string>` обязателен: новый тип детали не
+ * соберётся, пока для него не написано слово.
+ */
+export const PRODUCTION_PART_TYPE_LABELS: Readonly<Record<ProductionPartType, string>> = {
   side: 'Боковина',
   top: 'Крышка',
   bottom: 'Дно',
@@ -103,6 +119,12 @@ const TYPE_NAMES: Readonly<Record<ProductionPartType, string>> = {
   'false-panel': 'Фальшпанель',
   other: 'Деталь',
 };
+
+export function productionPartTypeLabel(type: ProductionPartType): string {
+  return PRODUCTION_PART_TYPE_LABELS[type];
+}
+
+const TYPE_NAMES = PRODUCTION_PART_TYPE_LABELS;
 
 /**
  * Разрешён ли поворот детали на 90° (§10, §18).

@@ -139,6 +139,24 @@ export interface CuttingPlacement {
 /** Почему экземпляр не размещён (§20). */
 export type UnplacedReason = 'TOO_LARGE' | 'NO_SPACE' | 'INVALID_STOCK' | 'INVALID_DIMENSIONS';
 
+/**
+ * Почему деталь не легла на лист — словами (PROMPT 62 §5).
+ *
+ * В выгрузке стояло `TOO_LARGE`. Причина важная: такую деталь либо не
+ * из чего пилить, либо надо менять лист, — и человек обязан понять её
+ * без словаря.
+ */
+export const UNPLACED_REASON_LABELS: Readonly<Record<UnplacedReason, string>> = {
+  TOO_LARGE: 'не помещается на лист',
+  NO_SPACE: 'на листах не осталось места',
+  INVALID_STOCK: 'лист задан неверно',
+  INVALID_DIMENSIONS: 'размеры детали недопустимы',
+};
+
+export function unplacedReasonLabel(reason: UnplacedReason): string {
+  return UNPLACED_REASON_LABELS[reason];
+}
+
 export interface UnplacedPart {
   readonly productionPartId: string;
   readonly instanceIndex: number;

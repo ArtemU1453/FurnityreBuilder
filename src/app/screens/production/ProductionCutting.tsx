@@ -3,10 +3,13 @@ import { formatMm } from '../../../domain/index.js';
 import { EmptyState, Panel, StatusIndicator } from '../../../design-system/index.js';
 import { CuttingMap, buildCuttingView } from '../../../render/index.js';
 import type { MaterialLibrary } from '../../../domain/index.js';
+import type { HardwareItem } from '../../../hardware/index.js';
+import type { PartBOMItem } from '../../../bom/index.js';
 import { itemOfSourcePart } from '../../production/index.js';
 import type { ProductionActions, ProductionData, SelectionState } from './types.js';
 import styles from './ProductionSections.module.css';
-import { hardwareKindLabel } from '../../vocabulary.js';
+import { hardwareKindLabel, hardwareUnitLabel } from '../../vocabulary.js';
+import { unplacedReasonLabel } from '../../../production/index.js';
 
 /**
  * Раскрой, фурнитура и спецификация (PROMPT 29 §19–§26).
@@ -155,7 +158,7 @@ export function CuttingSection({
                           : `${formatMm(part.length)} × ${formatMm(part.width)}`}
                       </td>
                       <td>{item?.materialName ?? '—'}</td>
-                      <td>{`${entry.reason} · ${entry.detail}`}</td>
+                      <td>{`${unplacedReasonLabel(entry.reason)} · ${entry.detail}`}</td>
                     </tr>
                   );
                 })}
@@ -213,54 +216,66 @@ export function HardwareSection({
             <thead>
               <tr>
                 <th scope="col">Наименование</th>
-                <th scope="col">Идентификатор</th>
                 <th scope="col">Тип</th>
                 <th scope="col">Кол-во</th>
                 <th scope="col">Ед.</th>
-                <th scope="col">Источник</th>
+                <th scope="col">Для чего</th>
               </tr>
             </thead>
             <tbody>
               {hardware.lines.map((line) => (
                 <tr key={String(line.definitionId)}>
-                  <th scope="row">{line.name}</th>
-                  <td>{String(line.definitionId)}</td>
+                  {/*
+                    Колонка «Идентификатор» с ключом реестра
+                    (`hw-shelf-support`) убрана из обычной таблицы
+                    (PROMPT 62 §8, §11): поставщиков и артикулов здесь
+                    нет — так и написано в подписи панели, — а ключ
+                    движка человеку в цеху не говорит ничего. Он остаётся
+                    в модели, в выгрузке и в подсказке строки, то есть
+                    прослеживаемость сохранена (§16).
+                  */}
+                  <th scope="row" title={String(line.definitionId)}>
+                    {line.name}
+                  </th>
                   <td>{hardwareKindLabel(line.kind)}</td>
                   <td className={styles.num}>{line.quantity}</td>
-                  <td>{line.unit}</td>
+                  <td>{hardwareUnitLabel(line.unit)}</td>
                   <td>
                     {/*
                       Источник — не текст, а переход: позиция фурнитуры
                       знает деталь, которая её потребовала (§25).
+
+                      До PROMPT 62 подписью перехода был сам `PartId` —
+                      `part:uuid/uuid/роль/uuid`, и четыре таких подряд
+                      давали около двухсот знаков машинного текста в
+                      строке «Полкодержатели». Теперь подпись — имя той
+                      детали из деталировки, а сам идентификатор и
+                      причина появления позиции остаются в подсказке
+                      (§9 B+C, §16: прослеживаемость сохранена, но она
+                      больше не первичный интерфейс).
                     */}
                     <ul className={styles.inlineList}>
-                      {line.sources.slice(0, 4).map((source) => (
-                        <li key={source.id}>
-                          {source.sourcePartId === undefined ? (
-                            <span title={source.reason}>{source.ruleId}</span>
+                      {groupSources(line.sources, data.calculation.bom.parts).map((group) => (
+                        <li key={group.key}>
+                          {group.item === undefined ? (
+                            <span title={`${group.source.ruleId} · ${group.source.reason}`}>
+                              {group.label}
+                            </span>
                           ) : (
                             <button
                               type="button"
                               className={styles.link}
-                              title={source.reason}
+                              title={`${group.source.reason} · ${String(group.source.sourcePartId)}`}
                               onClick={() => {
-                                actions.onSelectItem(
-                                  itemOfSourcePart(
-                                    data.calculation.bom.parts,
-                                    source.sourcePartId!,
-                                  ),
-                                );
+                                actions.onSelectItem(group.item);
                                 actions.onSection('parts');
                               }}
                             >
-                              {source.sourcePartId}
+                              {group.label}
                             </button>
                           )}
                         </li>
                       ))}
-                      {line.sources.length > 4 ? (
-                        <li>{`+${String(line.sources.length - 4)}`}</li>
-                      ) : null}
                     </ul>
                   </td>
                 </tr>
@@ -271,6 +286,43 @@ export function HardwareSection({
       )}
     </Panel>
   );
+}
+
+/**
+ * Источники позиции, сложенные по детали (PROMPT 62 §9).
+ *
+ * Шестнадцать полкодержателей на четырёх полках давали в колонке
+ * «ПолкаПолкаПолкаПолка» — четыре одинаковых слова подряд. Складываются
+ * они так же, как в выгрузке, и по тому же признаку: одна деталь
+ * деталировки — одна строка.
+ */
+function groupSources(
+  sources: readonly HardwareItem[],
+  parts: readonly PartBOMItem[],
+): readonly {
+  key: string;
+  label: string;
+  source: HardwareItem;
+  item: PartBOMItem | undefined;
+}[] {
+  const groups = new Map<string, { source: HardwareItem; item: PartBOMItem | undefined; count: number }>();
+  for (const source of sources) {
+    const item =
+      source.sourcePartId === undefined ? undefined : itemOfSourcePart(parts, source.sourcePartId);
+    const key = item?.id ?? source.reason;
+    const existing = groups.get(key);
+    if (existing === undefined) groups.set(key, { source, item, count: 1 });
+    else existing.count += 1;
+  }
+  return [...groups].map(([key, group]) => ({
+    key,
+    label:
+      group.count === 1
+        ? (group.item?.name ?? group.source.reason)
+        : `${group.item?.name ?? group.source.reason} ×${String(group.count)}`,
+    source: group.source,
+    item: group.item,
+  }));
 }
 
 /** Сводная спецификация: детали, фурнитура, материалы, кромка (§26). */

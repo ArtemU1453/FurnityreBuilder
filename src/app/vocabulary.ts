@@ -1,109 +1,33 @@
-import type { ObstacleKind, PartRole } from '../domain/index.js';
-import type { HardwareKind } from '../domain/hardware/types.js';
-
 /**
- * Словарь: машинное значение → слово для человека (PROMPT 58 §5).
+ * Словарь интерфейса — реэкспорт доменного (PROMPT 62 §4, §12).
  *
- * ## Зачем один модуль, а не подпись по месту
+ * ## Почему слова переехали в домен
  *
- * Аудит PROMPT 53 (`FR-12`) нашёл в интерфейсе `Деталь · back`, а
- * сплошной обход видимого текста добавил к нему сырые `HardwareKind` в
- * спецификации фурнитуры и `ObstacleKind` в списке препятствий. Каждая
- * подпись стояла в своём компоненте, и ничто не мешало появиться
- * четвёртой такой же.
+ * Здесь они были заведены на PROMPT 58 и починили язык КОНСТРУКТОРА.
+ * Производственный раздел они починить не могли: `boundaries` не
+ * пускает `export` в слой `app`, поэтому PDF и XLSX пользовались своими
+ * копиями — и называли `confirmat` то «конфирматом», то «корпусным
+ * крепежом».
  *
- * ## Исчерпывающий Record — это проверка, а не оформление
- *
- * Каждое сопоставление объявлено как `Record<Enum, string>`. Добавление
- * нового значения в домен **не соберётся**, пока для него не написано
- * слово. Это и есть требование «то же сырое значение не может появиться
- * снова незамеченным» (§20 E) — выполняется типами, а не бдительностью.
- *
- * ## Чего здесь нет
- *
- * Ни механизма локализации, ни второго языка. Приложение
- * русскоязычное и одноязычное; латиница в обычном сценарии — утечка, а
- * не перевод. Отраслевые обозначения, которые по-русски так и пишут
- * (`Push-to-open`), словарём не трогаются.
- *
- * Домен не меняется: `PartRole`, `HardwareKind` и `ObstacleKind`
- * остаются в модели, в файлах проектов и в выгрузках такими, как есть
- * (§13). Здесь только показ.
- *
- * ## Файл чистый
- *
- * Ни React, ни DOM. Полнота словаря проверяется обычным тестом.
+ * Определение переехало в `src/domain/vocabulary.ts`, откуда его видят
+ * все слои. Здесь остался реэкспорт: ни один импорт интерфейса не
+ * сломался, а определение по-прежнему ОДНО.
  */
-
-/**
- * Роль детали в изделии.
- *
- * Слова мебельные, а не описательные: «Полкодержатель», а не «держатель
- * для полки». Точность здесь важнее простоты — по этим словам человек
- * разговаривает с цехом (§11).
- */
-export const PART_ROLE_LABELS: Readonly<Record<PartRole, string>> = {
-  side: 'боковина',
-  top: 'крышка',
-  bottom: 'дно',
-  partition: 'перегородка',
-  'shelf-fixed': 'полка несъёмная',
-  'shelf-adjustable': 'полка съёмная',
-  back: 'задняя стенка',
-  plinth: 'цоколь',
-  countertop: 'столешница',
-  facade: 'фасад',
-  'drawer-front': 'фасад ящика',
-  'drawer-side': 'боковина ящика',
-  'drawer-back': 'задняя стенка ящика',
-  'drawer-bottom': 'дно ящика',
-  handle: 'ручка',
-  // Отраслевое название механизма открывания без ручки. По-русски его
-  // так и пишут, поэтому оно не переводится (§1: доменный язык остаётся).
-  'push-to-open': 'push-to-open',
-  filler: 'фальшпанель',
-  other: 'прочее',
-};
-
-export function partRoleLabel(role: PartRole): string {
-  return PART_ROLE_LABELS[role];
-}
-
-/** Вид фурнитуры — так, как её называют в спецификации и в магазине. */
-export const HARDWARE_KIND_LABELS: Readonly<Record<HardwareKind, string>> = {
-  confirmat: 'конфирмат',
-  eccentric: 'эксцентриковая стяжка',
-  dowel: 'шкант',
-  'shelf-support': 'полкодержатель',
-  hinge: 'петля',
-  'hinge-fastener': 'крепёж петли',
-  slide: 'направляющая',
-  handle: 'ручка',
-  'handle-fastener': 'крепёж ручки',
-  'push-latch': 'push-механизм',
-  rod: 'штанга',
-  'rod-flange': 'фланец штанги',
-  leg: 'опора',
-  'plinth-clip': 'клипса цоколя',
-  'back-nail': 'гвоздь задней стенки',
-};
-
-export function hardwareKindLabel(kind: HardwareKind): string {
-  return HARDWARE_KIND_LABELS[kind];
-}
-
-/** Вид препятствия в помещении. */
-export const OBSTACLE_KIND_LABELS: Readonly<Record<ObstacleKind, string>> = {
-  protrusion: 'выступ',
-  column: 'колонна',
-  pipe: 'труба',
-  radiator: 'радиатор',
-  other: 'прочее',
-};
-
-export function obstacleKindLabel(kind: ObstacleKind): string {
-  return OBSTACLE_KIND_LABELS[kind];
-}
+export {
+  EDGE_SIDE_LABELS,
+  GRAIN_LABELS,
+  HARDWARE_KIND_LABELS,
+  HARDWARE_UNIT_LABELS,
+  OBSTACLE_KIND_LABELS,
+  PART_ROLE_LABELS,
+  edgeBandingText,
+  edgeSideAdverb,
+  grainLabel,
+  hardwareKindLabel,
+  hardwareUnitLabel,
+  obstacleKindLabel,
+  partRoleLabel,
+} from '../domain/vocabulary.js';
 
 /**
  * Этапы конвейера геометрии — в том, что они значат для изделия.

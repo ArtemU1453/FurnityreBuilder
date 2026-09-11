@@ -41,6 +41,8 @@ export interface ExportMetadata {
   readonly appVersion: string;
   readonly bomVersion: number;
   readonly status: CalculationStatus;
+  /** То же состояние словами — то, что печатается в документ. */
+  readonly statusLabel: string;
 }
 
 export interface ExportDimensions {
@@ -59,7 +61,10 @@ export interface ExportPartRow {
   readonly id: string;
   readonly name: string;
   readonly partType: ProductionPartType;
+  /** То же значение словом — то, что печатается в документ (PROMPT 62 §5). */
+  readonly partTypeLabel: string;
   readonly category: PartCategory;
+  readonly categoryLabel: string;
   readonly quantity: number;
   readonly length: number;
   readonly width: number;
@@ -68,6 +73,7 @@ export interface ExportPartRow {
   readonly materialName: string;
   readonly edge: string;
   readonly grain: Grain;
+  readonly grainLabel: string;
   /** Идентификаторы физических деталей: трассируемость до ячейки (§12). */
   readonly sourcePartIds: readonly string[];
 }
@@ -77,8 +83,10 @@ export interface ExportHardwareRow {
   readonly definitionId: string;
   readonly name: string;
   readonly category: string;
+  readonly categoryLabel: string;
   readonly quantity: number;
   readonly unit: string;
+  readonly unitLabel: string;
   readonly purpose: string;
   readonly sources: readonly string[];
   readonly ruleId: string;
@@ -90,7 +98,9 @@ export interface ExportDrillingRow {
   readonly partName: string;
   readonly operationId: string;
   readonly purpose: DrillPurpose;
+  readonly purposeLabel: string;
   readonly face: DrillFace;
+  readonly faceLabel: string;
   readonly x: number;
   readonly y: number;
   /** Мировая координата центра отверстия: нужна станку и проверке. */
@@ -126,6 +136,7 @@ export interface ExportUnplacedRow {
   readonly partName: string;
   readonly instance: number;
   readonly reason: UnplacedReason;
+  readonly reasonLabel: string;
   readonly detail: string;
 }
 

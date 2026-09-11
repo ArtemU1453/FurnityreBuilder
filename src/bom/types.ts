@@ -157,6 +157,20 @@ export interface CuttingSummary {
 /** Категория неподтверждённого правила (§18). */
 export type ConfirmationCategory = 'CUTTING' | 'DRILLING' | 'HARDWARE' | 'MATERIAL' | 'EDGE' | 'CONSTRUCTION';
 
+/** К чему относится неподтверждённое правило — словами (PROMPT 62 §5). */
+export const CONFIRMATION_CATEGORY_LABELS: Readonly<Record<ConfirmationCategory, string>> = {
+  CUTTING: 'Раскрой',
+  DRILLING: 'Присадка',
+  HARDWARE: 'Фурнитура',
+  MATERIAL: 'Материалы',
+  EDGE: 'Кромка',
+  CONSTRUCTION: 'Конструкция',
+};
+
+export function confirmationCategoryLabel(category: ConfirmationCategory): string {
+  return CONFIRMATION_CATEGORY_LABELS[category];
+}
+
 /**
  * Неподтверждённое производственное правило.
  *
@@ -188,6 +202,18 @@ export interface ProductionBOM {
 
 /** Статус расчёта (§19). */
 export type CalculationStatus = 'VALID' | 'VALID_WITH_WARNINGS' | 'NEEDS_CONFIRMATION' | 'INVALID';
+
+/** Состояние расчёта — словами; в выгрузке стояло `INVALID` (PROMPT 62 §5). */
+export const CALCULATION_STATUS_LABELS: Readonly<Record<CalculationStatus, string>> = {
+  VALID: 'Готово к производству',
+  VALID_WITH_WARNINGS: 'Готово, есть предупреждения',
+  NEEDS_CONFIRMATION: 'Требуется подтверждение правил',
+  INVALID: 'Есть ошибки — выпускать нельзя',
+};
+
+export function calculationStatusLabel(status: CalculationStatus): string {
+  return CALCULATION_STATUS_LABELS[status];
+}
 
 /**
  * Полный результат расчёта (§19, §24).

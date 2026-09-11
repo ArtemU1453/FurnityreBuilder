@@ -1,7 +1,7 @@
-import { issue } from '../../domain/index.js';
+import { hardwareKindLabel, issue } from '../../domain/index.js';
 import type { HardwareItem, HardwareRule, HardwareRuleContext, HardwareRuleResult } from '../types.js';
 import { buildHardwareItemId } from '../types.js';
-import { HW_HANDLE, HW_HANDLE_FASTENER, HW_PUSH_LATCH } from '../registry.js';
+import { HW_HANDLE, HW_PUSH_LATCH } from '../registry.js';
 
 /**
  * Ручки и push-to-open (PROMPT 16 §12–13).
@@ -73,7 +73,7 @@ export const handleFastenerRule: HardwareRule = {
         issue(
           'HARDWARE_RULE_NEEDS_CONFIRMATION',
           'warning',
-          `Крепёж ручек не рассчитан: число точек крепления на ручку зависит от её типа и референсом не подтверждено (T-HW-08). Ручек в изделии: ${String(handles.length)}, позиция «${String(HW_HANDLE_FASTENER)}» ждёт правила.`,
+          `Крепёж ручек не рассчитан: число точек крепления на ручку зависит от её типа и референсом не подтверждено (T-HW-08). Ручек в изделии: ${String(handles.length)}, позиция «${hardwareKindLabel('handle-fastener')}» ждёт правила.`,
         ),
       ],
       errors: [],

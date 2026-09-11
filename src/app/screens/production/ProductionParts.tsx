@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react';
-import { formatMm } from '../../../domain/index.js';
+import {
+  drillFaceLabel,
+  drillPurposeLabel,
+  formatMm,
+  grainLabel,
+} from '../../../domain/index.js';
 import { Button, EmptyState, Field, Panel, Select } from '../../../design-system/index.js';
 import { PartDrawing } from '../../../render/index.js';
 import { buildPartDrawing, operationsOfItem } from '../../../export/index.js';
+import { drillThroughLabel } from '../../../drilling/index.js';
+import { partCategoryLabel } from '../../../bom/index.js';
+import { productionPartTypeLabel } from '../../../production/index.js';
 import type { PartBOMItem } from '../../../bom/index.js';
 import {
   DEFAULT_PART_FILTER,
@@ -95,7 +103,12 @@ export function PartsSection({ data, selection, actions }: PartsSectionProps): R
           <Select
             label="Тип"
             value={filter.partType ?? ''}
-            options={[{ value: '', label: 'Любой' }, ...types.map((t) => ({ value: t, label: t }))]}
+            // Значение фильтра остаётся машинным — по нему идёт отбор;
+            // подпись человеческая (PROMPT 62 §5).
+            options={[
+              { value: '', label: 'Любой' },
+              ...types.map((t) => ({ value: t, label: productionPartTypeLabel(t) })),
+            ]}
             onChange={(value) => {
               setFilter({
                 ...filter,
@@ -139,7 +152,7 @@ export function PartsSection({ data, selection, actions }: PartsSectionProps): R
                   <th scope="col">Ширина</th>
                   <th scope="col">Толщина</th>
                   <th scope="col">Материал</th>
-                  <th scope="col">Кромка</th>
+                  <th scope="col">Кромка, мм</th>
                   <th scope="col">Текстура</th>
                 </tr>
               </thead>
@@ -161,14 +174,17 @@ export function PartsSection({ data, selection, actions }: PartsSectionProps): R
                         </button>
                       </th>
                       <td>{row.item.name}</td>
-                      <td>{row.item.partType}</td>
+                      {/* Тип словом, а не значением перечисления
+                          (PROMPT 62 §5): здесь стояло `back`, `facade`,
+                          `partition` в таблице, которую несут в цех. */}
+                      <td>{productionPartTypeLabel(row.item.partType)}</td>
                       <td className={styles.num}>{row.item.quantity}</td>
                       <td className={styles.num}>{formatMm(row.item.length)}</td>
                       <td className={styles.num}>{formatMm(row.item.width)}</td>
                       <td className={styles.num}>{formatMm(row.item.thickness)}</td>
                       <td>{row.item.materialName}</td>
                       <td>{row.edge}</td>
-                      <td>{row.item.grainDirection}</td>
+                      <td>{grainLabel(row.item.grainDirection)}</td>
                     </tr>
                   );
                 })}
@@ -232,15 +248,15 @@ function PartDetails({ selection, actions }: PartsSectionProps): React.JSX.Eleme
       <dl className={styles.facts}>
         <div className={styles.fact}>
           <dt>Тип</dt>
-          <dd>{item.partType}</dd>
+          <dd>{productionPartTypeLabel(item.partType)}</dd>
         </div>
         <div className={styles.fact}>
           <dt>Раздел</dt>
-          <dd>{item.category}</dd>
+          <dd>{partCategoryLabel(item.category)}</dd>
         </div>
         <div className={styles.fact}>
           <dt>Текстура</dt>
-          <dd>{item.grainDirection}</dd>
+          <dd>{grainLabel(item.grainDirection)}</dd>
         </div>
         <div className={styles.fact}>
           <dt>Отверстий</dt>
@@ -280,18 +296,28 @@ function PartDetails({ selection, actions }: PartsSectionProps): React.JSX.Eleme
         </ul>
       )}
 
+      {/*
+        Физические детали позиции (PROMPT 62 §9, §11, §16).
+
+        Здесь печатался сам `PartId` — `part:uuid/uuid/роль/uuid`, по
+        двести знаков на строку. Прослеживаемость никуда не делась:
+        идентификатор остаётся в `title` и в переходе «показать в 3D»,
+        то есть доступен целиком. Но первым человек читает, ЧТО это за
+        деталь и какая она по счёту, а не адрес объекта в модели.
+      */}
       <h3 className={styles.subheading}>Физические детали</h3>
       <ul className={styles.list}>
-        {trace.sourceParts.map((partId) => (
+        {trace.sourceParts.map((partId, index) => (
           <li key={partId}>
             <button
               type="button"
               className={styles.link}
+              title={String(partId)}
               onClick={() => {
                 actions.onShowIn3d(partId);
               }}
             >
-              {partId}
+              {`${item.name} — ${String(index + 1)} из ${String(trace.sourceParts.length)}`}
             </button>
           </li>
         ))}
@@ -471,13 +497,13 @@ export function DrillingSection({
                   <td>
                     {partsById.get(operation.productionPartId)?.name ?? operation.productionPartId}
                   </td>
-                  <td>{operation.face}</td>
+                  <td>{drillFaceLabel(operation.face)}</td>
                   <td className={styles.num}>{formatMm(operation.x)}</td>
                   <td className={styles.num}>{formatMm(operation.y)}</td>
                   <td className={styles.num}>{formatMm(operation.diameter)}</td>
                   <td className={styles.num}>{formatMm(operation.depth)}</td>
-                  <td>{operation.through}</td>
-                  <td>{operation.purpose}</td>
+                  <td>{drillThroughLabel(operation.through)}</td>
+                  <td>{drillPurposeLabel(operation.purpose)}</td>
                   {/* Правило и причина — начало трассируемости (§18). */}
                   <td title={operation.reason}>{operation.ruleId}</td>
                 </tr>

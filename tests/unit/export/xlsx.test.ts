@@ -45,9 +45,11 @@ describe('Test 17–19 (§17): книга открывается и содерж
     const workbook = await openWorkbook(bytes);
     const sheet = workbook.getWorksheet('Детали')!;
     const header = (sheet.getRow(1).values as unknown[]).slice(1).map(String);
+    // Колонки `ID` больше нет: в ней стоял ключ группировки позиции
+    // (`bom:back|…|none|…`) — те же машинные значения, ради которых
+    // затеян FR-19 (PROMPT 62 §11). Позицию адресует её номер.
     expect(header).toEqual([
       '№',
-      'ID',
       'Деталь',
       'Тип',
       'Кол-во',
@@ -55,9 +57,10 @@ describe('Test 17–19 (§17): книга открывается и содерж
       'Ширина, мм',
       'Толщина, мм',
       'Материал',
-      'Кромка',
+      'Кромка, мм',
       'Текстура',
     ]);
+    expect(header).not.toContain('ID');
   });
 });
 
@@ -80,10 +83,11 @@ describe('Test 20–23 (§15): качество книги', () => {
     const workbook = await openWorkbook(bytes);
     const sheet = workbook.getWorksheet('Детали')!;
     const row = sheet.getRow(2);
-    for (const column of [5, 6, 7, 8]) {
+    // Кол-во, длина, ширина, толщина — колонки 4…7 после снятия `ID`.
+    for (const column of [4, 5, 6, 7]) {
       expect(typeof row.getCell(column).value).toBe('number');
     }
-    expect(typeof row.getCell(3).value).toBe('string');
+    expect(typeof row.getCell(2).value).toBe('string');
   });
 
   it('Test 22: заголовок закреплён и включён фильтр', async () => {
@@ -98,10 +102,12 @@ describe('Test 20–23 (§15): качество книги', () => {
     const sheet = workbook.getWorksheet('Детали')!;
     data.parts.forEach((part, index) => {
       const row = sheet.getRow(index + 2);
-      expect(row.getCell(2).value).toBe(part.id);
-      expect(row.getCell(5).value).toBe(part.quantity);
-      expect(row.getCell(6).value).toBe(part.length);
-      expect(row.getCell(9).value).toBe(part.materialName);
+      expect(row.getCell(2).value).toBe(part.name);
+      expect(row.getCell(3).value).toBe(part.partTypeLabel);
+      expect(row.getCell(4).value).toBe(part.quantity);
+      expect(row.getCell(5).value).toBe(part.length);
+      expect(row.getCell(8).value).toBe(part.materialName);
+      expect(row.getCell(10).value).toBe(part.grainLabel);
     });
   });
 });

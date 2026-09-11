@@ -1,7 +1,19 @@
-import { formatDirection, operationToWorld } from '../drilling/index.js';
-import type { Part, Project } from '../domain/index.js';
+import { drillThroughLabel, formatDirection, operationToWorld } from '../drilling/index.js';
+import {
+  backMountLabel,
+  baseKindLabel,
+  drillFaceLabel,
+  drillPurposeLabel,
+  grainLabel,
+  hardwareKindLabel,
+  hardwareUnitLabel,
+  materialKindLabel,
+} from '../domain/index.js';
+import type { Part, PartId, Project } from '../domain/index.js';
 import type { GeometryResult } from '../geometry/index.js';
-import type { ProductionCalculationResult } from '../bom/index.js';
+import { calculationStatusLabel, partCategoryLabel } from '../bom/index.js';
+import { productionPartTypeLabel, unplacedReasonLabel } from '../production/index.js';
+import type { PartBOMItem, ProductionCalculationResult } from '../bom/index.js';
 import { areaM2, edgeText, lengthM, mmValue, percentValue } from './format.js';
 import { buildPartDrawings, operationsOfItem } from './part-drawing.js';
 import type {
@@ -38,23 +50,49 @@ export interface BuildExportDataOptions {
   readonly geometry?: ReadonlyMap<string, GeometryResult>;
 }
 
-const PURPOSE_LABELS: Readonly<Record<string, string>> = {
-  hinge: 'петля',
-  'hinge-fastener': 'крепёж петли',
-  slide: 'направляющая',
-  'shelf-support': 'полкодержатель',
-  handle: 'ручка',
-  'handle-fastener': 'крепёж ручки',
-  'push-latch': 'push-механизм',
-  confirmat: 'корпусный крепёж',
-  eccentric: 'эксцентрик',
-  dowel: 'шкант',
-  'back-nail': 'крепёж задней стенки',
-  rod: 'штанга',
-  'rod-flange': 'фланец штанги',
-  leg: 'опора',
-  'plinth-clip': 'клипса цоколя',
-};
+/*
+  Здесь стоял ВТОРОЙ словарь видов фурнитуры — `PURPOSE_LABELS`. Он
+  покрывал то же перечисление `HardwareKind`, что и словарь интерфейса,
+  и называл три значения иначе: `confirmat` был «корпусным крепежом»
+  против «конфирмата», `eccentric` — «эксцентриком» против
+  «эксцентриковой стяжки», `back-nail` — «крепежом задней стенки»
+  против «гвоздя задней стенки». Экран и выгрузка расходились в словах
+  для одного и того же (PROMPT 62 §4).
+
+  Словарь теперь один и лежит в домене, откуда его видят все слои.
+*/
+
+/**
+ * Одинаковые источники складываются: «Полка ×4», а не «Полка, Полка,
+ * Полка, Полка». Шестнадцать полкодержателей на четыре полки давали в
+ * колонке четыре одинаковых слова подряд.
+ */
+function dedupeSources(labels: readonly string[]): readonly string[] {
+  const counts = new Map<string, number>();
+  for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  return [...counts].map(([label, count]) => (count === 1 ? label : `${label} ×${String(count)}`));
+}
+
+/**
+ * Чем названа деталь-источник позиции фурнитуры (PROMPT 62 §9).
+ *
+ * Имя берётся из деталировки — той же таблицы, что и на листе «Детали»,
+ * поэтому строка спецификации и строка раскроя называют одну деталь
+ * одинаково. Сопоставление «UUID → слово» здесь не выдумывается: оно
+ * уже есть в модели, `PartBOMItem.sourcePartIds`.
+ *
+ * Когда источник — узел модели, а не деталь (позиция приписана ячейке
+ * или створке), имени детали не существует, и честнее показать причину
+ * появления позиции: её правило формулирует по-человечески.
+ */
+function sourceLabel(
+  items: readonly PartBOMItem[],
+  source: { readonly sourcePartId?: PartId; readonly reason: string },
+): string {
+  const partId = source.sourcePartId;
+  if (partId === undefined) return source.reason;
+  return items.find((item) => item.sourcePartIds.includes(partId))?.name ?? source.reason;
+}
 
 const SCHEME_LABELS: Readonly<Record<string, string>> = {
   'sides-through': 'боковины проходят насквозь',
@@ -82,8 +120,12 @@ export function buildProductionExportData(
     index: index + 1,
     id: item.id,
     name: item.name,
+    // Машинное значение остаётся в модели выгрузки — по нему можно
+    // отбирать и сверять; в документ печатается подпись (PROMPT 62 §5).
     partType: item.partType,
+    partTypeLabel: productionPartTypeLabel(item.partType),
     category: item.category,
+    categoryLabel: partCategoryLabel(item.category),
     quantity: item.quantity,
     length: mmValue(item.length),
     width: mmValue(item.width),
@@ -92,6 +134,7 @@ export function buildProductionExportData(
     materialName: item.materialName,
     edge: edgeText(item.edgeBanding),
     grain: item.grainDirection,
+    grainLabel: grainLabel(item.grainDirection),
     sourcePartIds: item.sourcePartIds.map((id) => String(id)),
   }));
 
@@ -100,16 +143,38 @@ export function buildProductionExportData(
     definitionId: String(line.definitionId),
     name: line.name,
     category: line.kind,
+    categoryLabel: hardwareKindLabel(line.kind),
     quantity: line.quantity,
     unit: line.unit,
-    purpose: PURPOSE_LABELS[line.kind] ?? line.kind,
-    // Источник позиции — деталь или узел модели: по нему в будущем можно
-    // подсветить, откуда взялась строка спецификации (§12).
-    sources: line.sources.map((item) => String(item.sourcePartId ?? item.sourceNodeId ?? '—')),
+    unitLabel: hardwareUnitLabel(line.unit),
+    purpose: hardwareKindLabel(line.kind),
+    /*
+      Источник позиции (PROMPT 62 §9).
+
+      Печатался сам `PartId` — `part:uuid/uuid/роль/uuid`. В строке
+      «Полкодержатели» их было четыре, около двухсот знаков. Теперь
+      печатается имя детали из деталировки — то же, что человек видит в
+      таблице выше и найдёт на чертеже. Прослеживаемость не потеряна:
+      идентификаторы физических деталей остаются в колонке
+      `sourcePartIds` листа «Детали».
+    */
+    sources: dedupeSources(line.sources.map((item) => sourceLabel(bom.parts, item))),
     ruleId: line.sources[0]?.ruleId ?? '',
   }));
 
-  const partNameById = new Map(bom.parts.map((item) => [item.id, item.name]));
+  /*
+    Имя детали по идентификатору ПРОИЗВОДСТВЕННОЙ детали (PROMPT 62 §5).
+
+    Карта строилась по `item.id` — ключу позиции спецификации
+    (`bom:back|…`), а искали в ней по `productionPartId` (`pp:back|…`).
+    Совпадения не случалось никогда, и во все листы — раскроя, присадки,
+    неразмещённых — уходил запасной вариант: сам машинный ключ. Позиция
+    знает свои производственные детали полем `productionPartIds`; по нему
+    карта и строится.
+  */
+  const partNameById = new Map(
+    bom.parts.flatMap((item) => item.productionPartIds.map((id) => [id, item.name] as const)),
+  );
 
   const drilling: ExportDrillingRow[] = result.drilling.operations.map((operation, index) => {
     const part = partsById.get(String(operation.sourcePartId));
@@ -120,7 +185,9 @@ export function buildProductionExportData(
       partName: partNameById.get(operation.productionPartId) ?? operation.productionPartId,
       operationId: operation.id,
       purpose: operation.purpose,
+      purposeLabel: drillPurposeLabel(operation.purpose),
       face: operation.face,
+      faceLabel: drillFaceLabel(operation.face),
       x: mmValue(operation.x),
       y: mmValue(operation.y),
       worldX: mmValue(world?.point.x ?? 0),
@@ -129,7 +196,7 @@ export function buildProductionExportData(
       diameter: mmValue(operation.diameter),
       depth: mmValue(operation.depth),
       direction: world === undefined ? '—' : formatDirection(world.direction),
-      through: operation.through,
+      through: drillThroughLabel(operation.through),
     };
   });
 
@@ -192,6 +259,7 @@ export function buildProductionExportData(
     partName: partNameById.get(item.productionPartId) ?? item.productionPartId,
     instance: item.instanceIndex + 1,
     reason: item.reason,
+    reasonLabel: unplacedReasonLabel(item.reason),
     detail: item.detail,
   }));
 
@@ -225,7 +293,7 @@ export function buildProductionExportData(
         index: index + 1,
         materialId,
         name: material?.name ?? materialId,
-        kind: material?.kind ?? 'other',
+        kind: materialKindLabel(material?.kind ?? 'other'),
         thickness: mmValue(material?.thickness ?? 0),
         partPositions: value.positions,
         partQuantity: value.quantity,
@@ -262,6 +330,7 @@ export function buildProductionExportData(
       appVersion: options.appVersion ?? project.metadata.appVersion,
       bomVersion: bom.version,
       status: result.status,
+      statusLabel: calculationStatusLabel(result.status),
     },
     dimensions: {
       width: mmValue(furniture?.dimensions.width ?? 0),
@@ -271,11 +340,12 @@ export function buildProductionExportData(
       constructionScheme:
         SCHEME_LABELS[project.settings.construction.verticalPriority] ??
         project.settings.construction.verticalPriority,
-      backPanel: furniture?.carcass.back.mount.kind ?? '—',
+      backPanel:
+        furniture === undefined ? '—' : backMountLabel(furniture.carcass.back.mount.kind),
       base:
         furniture?.carcass.base === undefined
           ? 'нет'
-          : `${furniture.carcass.base.kind}, ${String(mmValue(furniture.carcass.base.height))} мм`,
+          : `${baseKindLabel(furniture.carcass.base.kind)}, ${String(mmValue(furniture.carcass.base.height))} мм`,
     },
     parts,
     drawings,
@@ -288,8 +358,16 @@ export function buildProductionExportData(
     edgeBanding,
     edgeSummary: bom.edgeBanding,
     confirmations: bom.confirmations,
-    warnings: result.warnings.map((issue) => `${issue.code}: ${issue.message}`),
-    errors: result.errors.map((issue) => `${issue.code}: ${issue.message}`),
+    /*
+      Сначала то, что это значит, потом откуда оно (PROMPT 62 §16).
+
+      Было `DRAWER_BOX_NOT_IMPLEMENTED: Короб ящика …` — машинный код
+      первым словом строки, которую читает человек. Сообщение уже
+      человеческое; код — прослеживаемость, и остаётся ею, только
+      позади, а не впереди.
+    */
+    warnings: result.warnings.map((issue) => `${issue.message} [${issue.code}]`),
+    errors: result.errors.map((issue) => `${issue.message} [${issue.code}]`),
     totals: {
       partPositions: parts.length,
       partQuantity: parts.reduce((sum, row) => sum + row.quantity, 0),

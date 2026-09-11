@@ -1,4 +1,4 @@
-import { formatMm } from '../domain/index.js';
+import { edgeSideAdverb, formatMm, grainLabel } from '../domain/index.js';
 import type { DrillFace, DrillPurpose, EdgeSpec, Grain, Mm } from '../domain/index.js';
 import type { DrillingOperation } from '../drilling/index.js';
 import type { PartBOMItem } from '../bom/index.js';
@@ -115,7 +115,7 @@ export interface PartDrawingView {
   readonly materialName: string;
   readonly grain: Grain;
   /** Куда идёт текстура на чертеже. `undefined` — текстуры нет. */
-  readonly grainLabel: string | undefined;
+  readonly grainLabel: string;
   readonly edges: readonly DrawingEdge[];
   readonly holes: readonly DrawingHole[];
   readonly edgeHoles: readonly DrawingEdgeHole[];
@@ -157,18 +157,13 @@ const FACE_LABELS: Readonly<Record<DrillFace, string>> = {
   back: 'торец сзади',
 };
 
-const EDGE_LABELS: Readonly<Record<DrawingEdge['side'], string>> = {
-  front: 'спереди',
-  back: 'сзади',
-  left: 'слева',
-  right: 'справа',
-};
-
-const GRAIN_LABELS: Readonly<Record<Grain, string | undefined>> = {
-  'along-length': 'вдоль длины',
-  'along-width': 'вдоль ширины',
-  none: undefined,
-};
+/*
+  Здесь стояли ещё два приватных словаря — сторон кромки и текстуры.
+  Работали они только на чертеже, а таблица деталировки рядом печатала
+  то же самое машинными значениями: `front 2, left 0.4` и `none`
+  (PROMPT 62 §4). Оба переехали в `domain/vocabulary.ts`, откуда ими
+  пользуются и экран, и PDF, и XLSX.
+*/
 
 /**
  * Пласти: только на них отверстие видно на контуре чертежа.
@@ -203,7 +198,7 @@ function toHole(operation: DrillingOperation): DrawingHole {
 function edgesOf(edge: EdgeSpec): DrawingEdge[] {
   const sides: DrawingEdge['side'][] = ['front', 'back', 'left', 'right'];
   return sides
-    .map((side) => ({ side, sideLabel: EDGE_LABELS[side], thickness: edge[side] }))
+    .map((side) => ({ side, sideLabel: edgeSideAdverb(side), thickness: edge[side] }))
     .filter((item) => item.thickness > 0);
 }
 
@@ -265,7 +260,9 @@ function describe(view: Omit<PartDrawingView, 'description'>): string {
     `Габарит ${formatMm(view.length)} × ${formatMm(view.width)} × ${formatMm(view.thickness)} мм, ${String(view.quantity)} шт, материал ${view.materialName}.`,
   ];
   parts.push(
-    view.grainLabel === undefined ? 'Текстуры нет.' : `Направление текстуры: ${view.grainLabel}.`,
+    // «Текстуры нет» было неточно: у плиты может быть декор, ненаправленным
+    // он при этом остаётся. Словарь называет это состояние прямо (§7).
+    `Направление текстуры: ${view.grainLabel}.`,
   );
   parts.push(
     view.edges.length === 0
@@ -317,7 +314,10 @@ export function buildPartDrawing(
     quantity: item.quantity,
     materialName: item.materialName,
     grain: item.grainDirection,
-    grainLabel: GRAIN_LABELS[item.grainDirection],
+    // Текстура называется одним словарём с деталировкой. `none` —
+    // «без направления»: это свойство материала, которым раскрой
+    // пользуется, а не «не задано» (§7).
+    grainLabel: grainLabel(item.grainDirection),
     edges: edgesOf(item.edgeBanding),
     holes,
     edgeHoles,

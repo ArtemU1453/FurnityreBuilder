@@ -1,6 +1,6 @@
 import { buildGeometry } from '../geometry/index.js';
 import { calculateHardware, mergeHardwareBoms } from '../hardware/index.js';
-import { calculateCutting, toProductionParts } from '../production/index.js';
+import { calculateCutting, toProductionParts, unplacedReasonLabel } from '../production/index.js';
 import { calculateDrilling } from '../drilling/index.js';
 import { hasErrors, issue } from '../domain/index.js';
 import type { FurnitureId, Issue, Project } from '../domain/index.js';
@@ -127,6 +127,16 @@ export function calculateProduction(project: Project, options: CalculateProducti
     ...cutting.errors,
   ];
 
+  /**
+   * Имя неразмещённой детали — из деталировки, по тому же
+   * `productionPartIds`, которым позиция связана с физическими деталями.
+   * Второго сопоставления не заводится; если позиции не нашлось, честнее
+   * показать ключ, чем выдумать имя.
+   */
+  const nameOfUnplaced = (productionPartId: string): string =>
+    partsBom.items.find((item) => item.productionPartIds.includes(productionPartId))?.name ??
+    productionPartId;
+
   // Неразмещённая деталь — ошибка спецификации, а не раскроя: по такой
   // спецификации изделие изготовить нельзя, сколько бы листов ни купили.
   for (const unplaced of cutting.unplaced) {
@@ -134,7 +144,10 @@ export function calculateProduction(project: Project, options: CalculateProducti
       issue(
         'BOM_PART_NOT_PLACED',
         'error',
-        `Деталь «${unplaced.productionPartId}» (экземпляр ${String(unplaced.instanceIndex + 1)}) не размещена на листе: ${unplaced.reason}. ${unplaced.detail}`,
+        // Деталь названа своим именем, а не ключом группировки
+        // (`pp:back|x-2|2100.0|…`), и причина — словами, а не `TOO_LARGE`
+        // (PROMPT 62 §5). Ключ остаётся в `unplaced` для прослеживаемости.
+        `Деталь «${nameOfUnplaced(unplaced.productionPartId)}» (экземпляр ${String(unplaced.instanceIndex + 1)}) не размещена на листе: ${unplacedReasonLabel(unplaced.reason)}. ${unplaced.detail}`,
       ),
     );
   }

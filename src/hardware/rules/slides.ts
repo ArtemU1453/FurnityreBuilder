@@ -1,4 +1,4 @@
-import { issue, isLeaf, visitNodes } from '../../domain/index.js';
+import { issue, isLeaf, slideTypeLabel, visitNodes } from '../../domain/index.js';
 import type { Drawer, SlideType } from '../../domain/index.js';
 import type { HardwareItem, HardwareRule, HardwareRuleContext, HardwareRuleResult } from '../types.js';
 import { buildHardwareItemId } from '../types.js';
@@ -55,7 +55,7 @@ export const slideRule: HardwareRule = {
     const drawers = collectDrawers(ctx);
     if (drawers.length === 0) return { items: [], warnings: [], errors: [] };
 
-    const items: HardwareItem[] = drawers.map(({ drawer, cellId }) => ({
+    const items: HardwareItem[] = drawers.map(({ drawer }) => ({
       id: buildHardwareItemId('slide', drawer.id, HW_SLIDE),
       definitionId: HW_SLIDE,
       kind: 'slide' as const,
@@ -63,7 +63,14 @@ export const slideRule: HardwareRule = {
       quantity: slidesPerDrawer(drawer.slide.type),
       sourceNodeId: drawer.id,
       ruleId: 'slide',
-      reason: `${String(slidesPerDrawer(drawer.slide.type))} направляющие на ящик: тип «${drawer.slide.type}» парный, по одной на сторону короба (ячейка ${cellId})`,
+      /*
+        Ячейка из текста убрана (PROMPT 62 §11): здесь печатался её
+        UUID — `(ячейка 06f439a4-…)`. Прослеживаемость не потеряна и даже
+        точнее: `sourceNodeId` записывает сам ЯЩИК, а он у ячейки не
+        один. Объяснение стало тем, чем должно быть, — правилом, а не
+        адресом объекта в модели.
+      */
+      reason: `${String(slidesPerDrawer(drawer.slide.type))} направляющие на ящик: тип «${slideTypeLabel(drawer.slide.type)}» парный, по одной на сторону короба`,
     }));
 
     return {

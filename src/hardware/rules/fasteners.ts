@@ -1,4 +1,4 @@
-import { issue } from '../../domain/index.js';
+import { hardwareKindLabel, issue } from '../../domain/index.js';
 import type { BackPanelMount, Mm, Part } from '../../domain/index.js';
 import type { HardwareRule, HardwareRuleContext, HardwareRuleResult } from '../types.js';
 import { HW_BACK_FASTENER, HW_CARCASS_FASTENER } from '../registry.js';
@@ -95,7 +95,7 @@ export const backWallFastenerRule: HardwareRule = {
         issue(
           'HARDWARE_RULE_NEEDS_CONFIRMATION',
           'warning',
-          `Крепёж задней стенки не рассчитан: расстояние между креплениями референсом не подтверждено (T-HW-03). Сегментов стенки: ${String(panels.length)}, суммарный периметр: ${String(totalPerimeter)} мм, монтаж: «${mount}». Позиция «${String(HW_BACK_FASTENER)}» ждёт шага крепления.`,
+          `Крепёж задней стенки не рассчитан: расстояние между креплениями референсом не подтверждено (T-HW-03). Сегментов стенки: ${String(panels.length)}, суммарный периметр: ${String(totalPerimeter)} мм, монтаж: «${mount}». Позиция «${hardwareKindLabel('back-nail')}» ждёт шага крепления.`,
         ),
       ],
       errors: [],
@@ -190,7 +190,7 @@ export const carcassFastenerRule: HardwareRule = {
         issue(
           'HARDWARE_RULE_NEEDS_CONFIRMATION',
           'warning',
-          `Крепёж корпуса не рассчитан: количество крепежа на стык референсом не подтверждено (T-HW-03). Стыков «вертикаль — горизонталь» найдено: ${String(joints.length)}. Позиция «${String(HW_CARCASS_FASTENER)}» ждёт правила на стык.`,
+          `Крепёж корпуса не рассчитан: количество крепежа на стык референсом не подтверждено (T-HW-03). Стыков «вертикаль — горизонталь» найдено: ${String(joints.length)}. Позиция «${hardwareKindLabel('confirmat')}» ждёт правила на стык.`,
         ),
       ],
       errors: [],

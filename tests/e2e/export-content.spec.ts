@@ -127,10 +127,12 @@ test('XLSX содержит то же изделие, что показывал 
   details?.eachRow((row, index) => {
     if (index === 1) return; // заголовок
     rows += 1;
-    const length = Number(row.getCell(6).value);
-    const width = Number(row.getCell(7).value);
-    const thickness = Number(row.getCell(8).value);
-    quantity += Number(row.getCell(5).value);
+    // Колонки сдвинулись на одну: с PROMPT 62 на листе нет `ID`
+    // позиции — в нём стоял ключ группировки `bom:back|…|none|…`.
+    const length = Number(row.getCell(5).value);
+    const width = Number(row.getCell(6).value);
+    const thickness = Number(row.getCell(7).value);
+    quantity += Number(row.getCell(4).value);
     expect(Number.isFinite(length) && length > 0, `строка ${String(index)}: длина ${String(length)}`).toBe(true);
     expect(Number.isFinite(width) && width > 0, `строка ${String(index)}: ширина ${String(width)}`).toBe(true);
     expect(Number.isFinite(thickness) && thickness > 0, `строка ${String(index)}: толщина`).toBe(true);

@@ -1,7 +1,7 @@
-import { issue } from '../../domain/index.js';
+import { hardwareKindLabel, issue } from '../../domain/index.js';
 import type { FacadeGroup, Mm } from '../../domain/index.js';
 import type { HardwareRule, HardwareRuleContext, HardwareRuleResult } from '../types.js';
-import { HW_HINGE, HW_HINGE_FASTENER } from '../registry.js';
+import { HW_HINGE } from '../registry.js';
 
 /**
  * Петли распашных дверей (PROMPT 16 §6–7).
@@ -101,7 +101,7 @@ export const hingeRule: HardwareRule = {
         issue(
           'HARDWARE_RULE_NEEDS_CONFIRMATION',
           'warning',
-          `Петли не рассчитаны: пороги количества петель по высоте створки референсом не подтверждены (T-DOOR-05). Створок, которым нужны петли: ${String(leaves.length)}${heights.length > 0 ? `, высоты: ${heights.map((h) => String(h)).join(', ')} мм` : ''}. Позиция «${String(HW_HINGE)}» ждёт таблицы порогов.`,
+          `Петли не рассчитаны: пороги количества петель по высоте створки референсом не подтверждены (T-DOOR-05). Створок, которым нужны петли: ${String(leaves.length)}${heights.length > 0 ? `, высоты: ${heights.map((h) => String(h)).join(', ')} мм` : ''}. Позиция «${hardwareKindLabel('hinge')}» ждёт таблицы порогов.`,
         ),
       ],
       errors: [],
@@ -134,7 +134,7 @@ export const hingeFastenerRule: HardwareRule = {
         issue(
           'HARDWARE_RULE_NEEDS_CONFIRMATION',
           'warning',
-          `Крепёж петель не рассчитан: количество производно от числа петель (T-DOOR-05, не подтверждено) и от числа точек крепления на петлю (T-HW-03, не подтверждено). Позиция «${String(HW_HINGE_FASTENER)}» ждёт обоих правил.`,
+          `Крепёж петель не рассчитан: количество производно от числа петель (T-DOOR-05, не подтверждено) и от числа точек крепления на петлю (T-HW-03, не подтверждено). Позиция «${hardwareKindLabel('hinge-fastener')}» ждёт обоих правил.`,
         ),
       ],
       errors: [],

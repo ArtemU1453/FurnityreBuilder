@@ -1,4 +1,4 @@
-import { formatMm } from '../../domain/index.js';
+import { edgeBandingText, formatMm } from '../../domain/index.js';
 import type { MaterialId, PartId } from '../../domain/index.js';
 import type { PartBOMItem } from '../../bom/index.js';
 import type { ProductionPartType } from '../../production/index.js';
@@ -50,12 +50,17 @@ export interface PartRow {
   readonly edge: string;
 }
 
-const EDGE_SIDES = ['front', 'back', 'left', 'right'] as const;
-
+/**
+ * Кромка строкой — общим словарём (PROMPT 62 §6).
+ *
+ * Здесь стояло `front 2, left 0.4, right 0.4`: имена полей `EdgeSpec` в
+ * таблице, которую человек несёт в цех. Экспорт при этом печатал то же
+ * самое ещё иначе — `2/0.4/0.4/0.4`, четыре числа без сторон. Обе
+ * строки заменены одной доменной функцией, поэтому экран, PDF и XLSX
+ * теперь говорят про кромку одинаково.
+ */
 function edgeText(item: PartBOMItem): string {
-  const sides = EDGE_SIDES.filter((side) => item.edgeBanding[side] > 0);
-  if (sides.length === 0) return 'нет';
-  return sides.map((side) => `${side} ${formatMm(item.edgeBanding[side])}`).join(', ');
+  return edgeBandingText(item.edgeBanding, formatMm);
 }
 
 /** Нумерация — по порядку спецификации, и она не зависит от фильтра. */

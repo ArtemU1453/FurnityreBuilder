@@ -9,6 +9,7 @@ export * from './units.js';
 export * from './ids.js';
 export * from './coordinates.js';
 export * from './diagnostics.js';
+export * from './vocabulary.js';
 
 export * from './materials/types.js';
 export * from './materials/defaults.js';

@@ -1,6 +1,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import type { PDFFont, PDFPage } from 'pdf-lib';
+import { confirmationCategoryLabel } from '../bom/index.js';
 import { mmText, sizeText } from './format.js';
 import type { PartDrawingView } from './part-drawing.js';
 import type { ExportCuttingSheet, ProductionExportData } from './types.js';
@@ -28,6 +29,16 @@ import type { ExportCuttingSheet, ProductionExportData } from './types.js';
 const A4 = { width: 595.28, height: 841.89 } as const;
 /** A3 — для карт раскроя: лист 2750 мм на A4 нечитаем. */
 const A3 = { width: 841.89, height: 1190.55 } as const;
+/**
+ * A4 альбомный — для спецификации деталей (PROMPT 62 §6).
+ *
+ * С FR-19 кромка называет стороны словами: «спереди 2, слева 0.4,
+ * справа 0.4» вместо `2/0.4/0.4/0.4`. В книжную A4 девять колонок с
+ * такой строкой не помещаются — она обрезалась на середине, а обрезанная
+ * кромка в раскроечном листе хуже машинной. Разворот даёт 770 пунктов
+ * против 523 и снимает выбор между «понятно» и «целиком».
+ */
+const A4_LANDSCAPE = { width: 841.89, height: 595.28 } as const;
 
 const MARGIN = 36;
 const TITLE_SIZE = 18;
@@ -256,7 +267,7 @@ function drawTitlePage(layout: Layout, data: ProductionExportData): void {
       ['Дата генерации', metadata.generatedAt],
       ['Версия приложения', metadata.appVersion],
       ['Версия спецификации', String(metadata.bomVersion)],
-      ['Статус расчёта', metadata.status],
+      ['Статус расчёта', metadata.statusLabel],
       [
         'Габарит, мм',
         sizeText(data.dimensions.width, data.dimensions.height, data.dimensions.depth),
@@ -346,25 +357,27 @@ function drawDimensionsPage(layout: Layout, data: ProductionExportData): void {
 }
 
 function drawPartsPage(layout: Layout, data: ProductionExportData): void {
-  layout.newPage();
+  // Своя раскладка уже создала первую страницу: `newPage` здесь дал бы
+  // пустой лист перед таблицей.
   layout.text('Спецификация деталей', { size: TITLE_SIZE });
   layout.gap(8);
   layout.table(
     [
       { header: '№', width: 22, align: 'right' },
-      { header: 'Деталь', width: 110 },
-      { header: 'Тип', width: 62 },
-      { header: 'Кол-во', width: 38, align: 'right' },
-      { header: 'Длина', width: 45, align: 'right' },
-      { header: 'Ширина', width: 45, align: 'right' },
-      { header: 'Толщ.', width: 38, align: 'right' },
-      { header: 'Материал', width: 120 },
-      { header: 'Кромка', width: 63 },
+      { header: 'Деталь', width: 120 },
+      { header: 'Тип', width: 80 },
+      { header: 'Кол-во', width: 40, align: 'right' },
+      { header: 'Длина', width: 48, align: 'right' },
+      { header: 'Ширина', width: 48, align: 'right' },
+      { header: 'Толщ.', width: 42, align: 'right' },
+      { header: 'Материал', width: 130 },
+      // Сумма — 720 при 770 доступных на развороте A4.
+      { header: 'Кромка, мм', width: 190 },
     ],
     data.parts.map((row) => [
       String(row.index),
       row.name,
-      row.partType,
+      row.partTypeLabel,
       String(row.quantity),
       mmText(row.length),
       mmText(row.width),
@@ -386,24 +399,32 @@ function drawHardwarePage(layout: Layout, data: ProductionExportData): void {
     );
     return;
   }
+  /*
+    Колонки те же, что на экране (PROMPT 62 §12), и по той же причине.
+    Ушли две: `ID` с ключом реестра (`hw-shelf-support`) и «Категория» с
+    сырым `HardwareKind` (`shelf-support`) — ключ движка и имя варианта
+    перечисления в документе для цеха. На их месте — «Для чего»: детали,
+    которые эту позицию потребовали, названные так же, как в
+    деталировке. Прослеживаемость до физической детали остаётся на листе
+    «Детали» (§16).
+  */
   layout.table(
     [
       { header: '№', width: 22, align: 'right' },
-      { header: 'ID', width: 110 },
-      { header: 'Название', width: 130 },
-      { header: 'Категория', width: 90 },
-      { header: 'Кол-во', width: 45, align: 'right' },
-      { header: 'Ед.', width: 30 },
-      { header: 'Назначение', width: 96 },
+      { header: 'Наименование', width: 140 },
+      { header: 'Тип', width: 100 },
+      { header: 'Кол-во', width: 42, align: 'right' },
+      { header: 'Ед.', width: 38 },
+      // Сумма — 523, ровно A4 книжная за вычетом полей.
+      { header: 'Для чего', width: 181 },
     ],
     data.hardware.map((row) => [
       String(row.index),
-      row.definitionId,
       row.name,
-      row.category,
+      row.categoryLabel,
       String(row.quantity),
-      row.unit,
-      row.purpose,
+      row.unitLabel,
+      row.sources.slice(0, 4).join(', '),
     ]),
   );
 }
@@ -435,8 +456,8 @@ function drawDrillingPages(layout: Layout, data: ProductionExportData): void {
     data.drilling.map((row) => [
       String(row.index),
       row.partName,
-      row.purpose,
-      row.face,
+      row.purposeLabel,
+      row.faceLabel,
       mmText(row.x),
       mmText(row.y),
       mmText(row.diameter),
@@ -459,7 +480,7 @@ function drawPartDrawing(layout: Layout, drawing: PartDrawingView): void {
   layout.newPage();
   layout.text(`Чертёж детали: ${drawing.name}`, { size: HEADING_SIZE });
   layout.text(
-    `${sizeText(drawing.length, drawing.width, drawing.thickness)} мм · ${drawing.materialName} · кромка ${edgeSummary(drawing)} · текстура ${drawing.grainLabel ?? 'нет'} · ${String(drawing.quantity)} шт`,
+    `${sizeText(drawing.length, drawing.width, drawing.thickness)} мм · ${drawing.materialName} · кромка ${edgeSummary(drawing)} · текстура ${drawing.grainLabel} · ${String(drawing.quantity)} шт`,
     { color: MUTED },
   );
   layout.gap(10);
@@ -602,7 +623,12 @@ function drawConfirmationsPage(layout: Layout, data: ProductionExportData): void
       { header: 'Правило', width: 150 },
       { header: 'Последствие', width: 243 },
     ],
-    data.confirmations.map((item) => [item.category, item.id, item.rule, item.impact]),
+    data.confirmations.map((item) => [
+      confirmationCategoryLabel(item.category),
+      item.id,
+      item.rule,
+      item.impact,
+    ]),
   );
 }
 
@@ -632,7 +658,9 @@ export async function createProductionPdf(
   const layout = new Layout(doc, font, A4);
   drawTitlePage(layout, data);
   drawDimensionsPage(layout, data);
-  drawPartsPage(layout, data);
+  // Спецификация — на развороте, своим слоем: страницы добавляются в
+  // порядке вызова, поэтому она остаётся на своём месте в документе.
+  drawPartsPage(new Layout(doc, font, A4_LANDSCAPE), data);
   drawHardwarePage(layout, data);
   drawDrillingPages(layout, data);
 
@@ -650,7 +678,7 @@ export async function createProductionPdf(
         { header: 'Причина', width: 90 },
         { header: 'Пояснение', width: 223 },
       ],
-      data.unplaced.map((row) => [row.partName, String(row.instance), row.reason, row.detail]),
+      data.unplaced.map((row) => [row.partName, String(row.instance), row.reasonLabel, row.detail]),
     );
   }
 

@@ -206,10 +206,30 @@ describe('Test 16 (§3): общие размеры берутся из моде�
     expect(data.dimensions.height).toBe(2345);
     expect(data.dimensions.depth).toBe(456);
     expect(data.dimensions.base).toContain('120');
-    expect(data.dimensions.backPanel).toBe('overlay');
+    // С PROMPT 62 (§5) крепление задней стенки названо словом, а не
+    // вариантом перечисления: `overlay` в документе для цеха ничего не
+    // значит. В модели значение осталось прежним.
+    expect(data.dimensions.backPanel).toBe('накладная');
   });
 
-  it('деталь без кромки показывается нулями, а не пустой строкой', () => {
-    expect(edgeText(NO_EDGE)).toBe('0/0/0/0');
+  /**
+   * С PROMPT 62 (§6) кромка называется сторонами и толщинами, а не
+   * позиционной записью `2/0.4/0.4/0.4`, порядок которой надо знать
+   * наизусть. Требование этого теста не ослаблено: пустой строки
+   * по-прежнему не бывает, отсутствие кромки названо словами.
+   */
+  it('деталь без кромки говорит об этом словами, а не пустой строкой', () => {
+    expect(edgeText(NO_EDGE)).toBe('без кромки');
+    expect(edgeText(NO_EDGE)).not.toBe('');
+  });
+
+  it('кромка называет сторону, а не порядковый номер поля', () => {
+    const text = edgeText({ ...NO_EDGE, front: 2, left: 0.4 });
+    expect(text).toContain('спереди 2');
+    expect(text).toContain('слева 0.4');
+    // Стороны без кромки не перечисляются: вопрос «где кромка», а не
+    // «каково значение каждого из четырёх полей».
+    expect(text).not.toContain('сзади');
+    expect(text).not.toMatch(/[A-Za-z]/);
   });
 });

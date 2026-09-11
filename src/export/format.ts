@@ -1,4 +1,4 @@
-import { roundMm } from '../domain/index.js';
+import { edgeBandingText, roundMm } from '../domain/index.js';
 import type { EdgeSpec, Mm } from '../domain/index.js';
 
 /**
@@ -56,8 +56,16 @@ export function percentValue(ratio: number): number {
 }
 
 /** Кромка одной строкой: «2/0/0.4/0.4» — перёд/зад/лево/право. */
+/**
+ * Кромка строкой — тем же словарём, что и на экране (PROMPT 62 §6, §12).
+ *
+ * Здесь стояло `2/0.4/0.4/0.4`: четыре числа, порядок которых надо
+ * знать наизусть, и ни одного слова о том, какая это сторона. Экран при
+ * этом печатал `front 2, left 0.4` — имена полей модели. Две разные
+ * машинные записи одного и того же заменены одной доменной функцией.
+ */
 export function edgeText(edge: EdgeSpec): string {
-  return `${mmText(edge.front)}/${mmText(edge.back)}/${mmText(edge.left)}/${mmText(edge.right)}`;
+  return edgeBandingText(edge, mmText);
 }
 
 /** Габарит одной строкой: «2000 × 497 × 16». */
