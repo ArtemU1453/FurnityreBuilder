@@ -21,7 +21,20 @@ import type { Page } from '@playwright/test';
  * помощник просто возвращается.
  */
 export async function applyGrid(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  /*
+    С PROMPT 55 пересборка всего изделия сеткой — ОТДЕЛЬНОЕ явное
+    действие, а не кнопка по умолчанию шага «Ячейки» (FR-02:
+    действие по умолчанию стирало секции предыдущего шага). До него надо
+    раскрыть свой раздел — ровно то, что делает здесь помощник.
+
+    Утверждения сценариев при этом не меняются: они как хотели сетку на
+    всё изделие, так и получают её. Изменилась дверь, а не комната.
+  */
+  const rebuild = page.getByRole('button', { name: /Пересобрать всё изделие сеткой/ });
+  if (!(await rebuild.isVisible())) {
+    await page.getByText('Начать внутреннее устройство заново').click();
+  }
+  await rebuild.click();
 
   const confirm = page.getByRole('dialog', { name: 'Сетка заменит внутреннее устройство' });
   if (await confirm.isVisible()) {

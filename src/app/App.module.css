@@ -61,6 +61,49 @@
   line-height: var(--t-caption-lh);
 }
 
+/*
+  Пояснение под кнопкой (PROMPT 55 §11): что действие сделает, до того
+  как его нажмут. Тон приглушённый — это объяснение, а не второй
+  заголовок.
+*/
+.hint {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+}
+
+/*
+  Разрушительное действие — за раскрытием (PROMPT 55 §2, §6).
+
+  Не спрятано: заголовок виден всегда и говорит, что внутри. Но оно НЕ
+  стоит в одном ряду с созидательными кнопками и не может быть нажато
+  случайно вместо них — ровно то смешение типов действий, из которого
+  вырос FR-02.
+*/
+.reset {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.resetSummary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--t-caption-size);
+  line-height: var(--t-caption-lh);
+}
+
+.resetSummary:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent-500));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.reset > .hint {
+  margin-bottom: var(--sp-2);
+}
+
 /* Технический вывод спецификации фурнитуры (PROMPT 16 §26): моноширинный
    список строк, а не таблица — это отладочный вывод, а не интерфейс. */
 .hardwareDebug {

@@ -45,6 +45,7 @@ import { useGlobalErrors } from './use-global-errors.js';
 import { DiagnosticsDialog } from './DiagnosticsDialog.js';
 import { describeGridReplacement, gridReplacementLoss, losesWork } from './editor/grid-replacement.js';
 import { cellName, cellNames } from './editor/cell-identity.js';
+import { describeDivide, divideCommands, divideEffect, losesCellWork } from './editor/divide-cell.js';
 import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
 import { useProjectStorage } from './use-project-storage.js';
@@ -1063,6 +1064,7 @@ export function App(): React.JSX.Element {
 
   /** Спрошено ли подтверждение замены дерева сеткой (PROMPT 46 §18). */
   const [gridConfirm, setGridConfirm] = useState(false);
+  const [divideConfirm, setDivideConfirm] = useState(false);
 
   const restore = storage.restore;
   const markClean = storage.markClean;
@@ -1271,6 +1273,74 @@ export function App(): React.JSX.Element {
       return;
     }
     buildGrid();
+  };
+
+  /*
+    Безопасное деление ОДНОГО отделения (PROMPT 55 §4, §6).
+
+    Дефект FR-02: действием по умолчанию шага «Ячейки» была замена всего
+    дерева (`SetRoot`), и при значениях по умолчанию 1 × 1 три секции,
+    набранные шагом раньше, превращались в одну пустую ячейку —
+    7 деталей / 3 секции / 2 перегородки → 5 / 1 / 0. Подпись шага при
+    этом всегда обещала другое: «ряды и колонки ВНУТРИ секции».
+
+    Теперь по умолчанию делается обещанное. Команды складывает чистый
+    `divide-cell.ts`, а транзакция собирает их в ОДИН шаг истории —
+    ровно то свойство, ради которого когда-то выбрали `SetRoot`.
+  */
+  /*
+    Что делим: выбранное отделение, а при единственном — его само.
+
+    Требовать выбор там, где выбирать не из чего, — лишний шаг: у нового
+    изделия отделение ровно одно, и «выберите отделение» звучало бы как
+    задача, а не как подсказка. Как только отделений становится больше
+    одного, выбор обязателен: угадывать, какое из них имел в виду
+    человек, приложение не должно.
+  */
+  const divideTarget: NodeId | undefined =
+    selectedCellId !== ''
+      ? selectedCellId
+      : geometry !== undefined && geometry.cells.length === 1
+        ? geometry.cells[0]?.nodeId
+        : undefined;
+
+  const runDivide = (): void => {
+    if (divideTarget === undefined || furniture === undefined) return;
+    const commands = divideCommands(
+      furniture,
+      { nodeId: divideTarget, rows: rowsDraft, columns: columnsDraft, shelves: shelvesDraft },
+      createRandomIdFactory(),
+    );
+    if (commands.length === 0) return;
+    const label = `Отделение ${cellNameOf(divideTarget)}: ${String(rowsDraft)}×${String(columnsDraft)}${
+      shelvesDraft > 0 ? `, полок: ${String(shelvesDraft)}` : ''
+    }`;
+    beginTransaction(label);
+    try {
+      for (const command of commands) execute(command, label);
+    } finally {
+      // Транзакция закрывается даже если команда бросила: незакрытая
+      // склеивала бы в свой шаг всё, что человек сделает дальше.
+      endTransaction();
+    }
+  };
+
+  const divideOutcome =
+    divideTarget === undefined
+      ? undefined
+      : divideEffect(furniture, {
+          nodeId: divideTarget,
+          rows: rowsDraft,
+          columns: columnsDraft,
+          shelves: shelvesDraft,
+        });
+
+  const applyDivide = (): void => {
+    if (divideOutcome !== undefined && losesCellWork(divideOutcome)) {
+      setDivideConfirm(true);
+      return;
+    }
+    runDivide();
   };
 
   // Изменение числа секций идёт ОТДЕЛЬНОЙ командой, а не пересборкой дерева
@@ -1828,6 +1898,48 @@ export function App(): React.JSX.Element {
       />
 
       {/*
+        Подтверждение деления ОДНОГО отделения (PROMPT 55 §7).
+
+        Спрашивается только тогда, когда внутри выбранного отделения уже
+        что-то есть: собственное деление или наполнение. Пустое
+        отделение делится молча — вопрос там был бы шумом.
+
+        Это не замена исправления, а его дополнение: подтверждение
+        появляется у действия, которое ДЕЙСТВИТЕЛЬНО заменяет сделанное,
+        и говорит, что именно, — а обычное продолжение работы вопросов
+        не задаёт вовсе.
+      */}
+      <Dialog
+        open={divideConfirm}
+        title="Отделение уже занято"
+        description={`${divideOutcome === undefined ? '' : describeDivide(divideOutcome)} Остальное изделие — секции, перегородки и соседние отделения — не изменится. Действие отменяется через «Отменить».`}
+        onClose={() => {
+          setDivideConfirm(false);
+        }}
+        actions={
+          <>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setDivideConfirm(false);
+                runDivide();
+              }}
+            >
+              Разделить
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setDivideConfirm(false);
+              }}
+            >
+              Отмена
+            </Button>
+          </>
+        }
+      />
+
+      {/*
         Данные для отчёта о непойманной ошибке (PROMPT 45 §9). Лист
         живёт вне разделов: ошибка вне отрисовки не привязана ни к
         одному из них, и открыт может быть любой.
@@ -2195,14 +2307,64 @@ export function App(): React.JSX.Element {
                 />
               </div>
               {/*
-                Кнопка называет всё, что применит, включая полки: до этого
-                она обещала «сетку 2×3» и молча ставила ещё и полки
-                (PROMPT 31 §3 — неожиданные изменения).
+                Действие по умолчанию — СОЗИДАТЕЛЬНОЕ (PROMPT 55 §2, §4, §6).
+
+                Оно делит выбранное отделение и не трогает ничего за его
+                пределами: секции, перегородки, габариты и соседние
+                отделения остаются как были. Кнопка называет всё, что
+                применит, включая полки (PROMPT 31 §3), и называет то
+                отделение, к которому применит, — иначе «применить сетку»
+                снова читалось бы как «ко всему изделию».
               */}
-              <Button onClick={applyGrid}>
-                Применить сетку {rowsDraft}×{columnsDraft}
-                {shelvesDraft > 0 ? `, полок: ${String(shelvesDraft)}` : ''}
+              <Button
+                variant="primary"
+                disabled={divideTarget === undefined || divideOutcome?.noop === true}
+                onClick={applyDivide}
+              >
+                {divideTarget === undefined
+                  ? 'Разделить отделение'
+                  : `Разделить «${cellNameOf(divideTarget)}» на ${rowsDraft}×${columnsDraft}${
+                      shelvesDraft > 0 ? `, полок: ${String(shelvesDraft)}` : ''
+                    }`}
               </Button>
+              {/*
+                Почему действие недоступно — словами и рядом с ним самим
+                (PROMPT 55 §11). Отключённая кнопка без объяснения
+                неотличима от сломанной.
+              */}
+              {divideTarget === undefined ? (
+                <p className={styles.hint}>
+                  Отделений несколько — выберите то, которое делим: {pickCellHint.charAt(0).toLowerCase()}
+                  {pickCellHint.slice(1)}
+                </p>
+              ) : divideOutcome?.noop === true ? (
+                <p className={styles.hint}>
+                  1 × 1 без полок — делить нечего. Задайте число строк, колонок или полок.
+                </p>
+              ) : null}
+
+              {/*
+                РАЗРУШИТЕЛЬНОЕ действие стоит отдельно, называется тем,
+                что делает, и никогда не является действием по умолчанию
+                (PROMPT 55 §6). Раньше оно и было единственной кнопкой
+                этой панели под подписью «Применить сетку N×M» — отсюда
+                FR-02: обычное продолжение работы стирало результат
+                предыдущего шага.
+
+                Возможность не удалена (§6): пересобрать изделие сеткой
+                с нуля по-прежнему можно, но теперь это надо выбрать.
+              */}
+              <details className={styles.reset}>
+                <summary className={styles.resetSummary}>Начать внутреннее устройство заново</summary>
+                <p className={styles.hint}>
+                  Заменит внутреннее устройство ВСЕГО изделия сеткой {rowsDraft}×{columnsDraft}. Секции,
+                  ряды и наполнение будут построены заново. Габариты, корпус и материалы останутся
+                  прежними.
+                </p>
+                <Button variant="secondary" onClick={applyGrid}>
+                  Пересобрать всё изделие сеткой {rowsDraft}×{columnsDraft}
+                </Button>
+              </details>
 
               {selectedCell === undefined ? (
                 <EmptyState

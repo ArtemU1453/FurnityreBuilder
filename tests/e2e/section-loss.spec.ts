@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { applyGrid } from './apply-grid.js';
 import type { Page } from '@playwright/test';
 
 /**
@@ -45,13 +46,29 @@ test.beforeEach(async ({ page }) => {
   await page.goto('./');
 });
 
+/**
+ * Нажать «Пересобрать всё изделие сеткой», НЕ отвечая на вопрос.
+ *
+ * С PROMPT 55 это действие живёт за собственным раскрытием и больше не
+ * является кнопкой по умолчанию шага «Ячейки» (FR-02). Предмет проверки
+ * здесь — сам диалог, поэтому общий `applyGrid`, который на него
+ * отвечает, не годится.
+ */
+async function applyGridWithoutConfirming(page: Page): Promise<void> {
+  const rebuild = page.getByRole('button', { name: /Пересобрать всё изделие сеткой/ });
+  if (!(await rebuild.isVisible())) {
+    await page.getByText('Начать внутреннее устройство заново').click();
+  }
+  await rebuild.click();
+}
+
 test('сетка не стирает секции без предупреждения', async ({ page }) => {
   await makeSections(page, '3');
   expect(await partitions(page), 'три секции не построились').toBeGreaterThan(0);
 
   await step(page, 'Ячейки').click();
   await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGridWithoutConfirming(page);
 
   // Приложение спрашивает — и называет, что именно исчезнет.
   const dialog = page.getByRole('dialog', { name: 'Сетка заменит внутреннее устройство' });
@@ -70,11 +87,7 @@ test('согласие заменяет структуру и поле «Сек�
 
   await step(page, 'Ячейки').click();
   await page.getByRole('spinbutton', { name: 'Полок в каждой ячейке', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
-  await page
-    .getByRole('dialog', { name: 'Сетка заменит внутреннее устройство' })
-    .getByRole('button', { name: 'Заменить' })
-    .click();
+  await applyGrid(page);
 
   // Замена произошла: перегородок больше нет, полки появились.
   expect(await partitions(page)).toBe(0);
@@ -91,6 +104,6 @@ test('пустое изделие заменяется сеткой без ли�
   // научил бы соглашаться не читая.
   await step(page, 'Ячейки').click();
   await page.getByRole('spinbutton', { name: 'Строк', exact: true }).fill('2');
-  await page.getByRole('button', { name: /Применить сетку/ }).click();
+  await applyGridWithoutConfirming(page);
   await expect(page.getByRole('dialog', { name: 'Сетка заменит внутреннее устройство' })).toBeHidden();
 });
