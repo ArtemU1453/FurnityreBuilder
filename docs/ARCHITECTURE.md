@@ -545,15 +545,30 @@ inner.z1 = carcassZ0 + Dcarcass                             // фронт кор
 
 **Ящик:**
 
+> ⚠ **Короб НЕ строится. Это не описание реализации, а НАБРОСОК, у
+> которого подтверждена одна строка из шести** (PROMPT 65, `OUTCOME C`,
+> `docs/FR04_DRAWER_MODEL_ANALYSIS.md`). Реализовано ровно то, что
+> помечено `CONFIRMED`; остальное здесь — чтобы было видно, каких
+> величин не хватает, а не чтобы по нему писать код.
+
 ```
 opening.w = cell.x1 − cell.x0
-box.width  = opening.w − 2 · slide.sideClearance        // ASSUMPTION 13, T-DRW-02
+box.width  = opening.w − 2 · slide.sideClearance   // CONFIRMED T-DRW-06: 12.7 на сторону
 box.length = maxNominalLength ≤ (cell.z1 − cell.z0) − rearClearance
-side.height = box.sideHeight
-front/back деталь короба = box.width − 2·T   (при схеме «царги между стенками»)
+                                                   // T-DRW-07: rearClearance не подтверждён,
+                                                   // правило выбора номинала — T-DRW-03
+side.height = box.sideHeight                       // T-DRW-07: источники расходятся
+box.y       = ?                                    // T-DRW-07: высота установки направляющей
+front/back деталь короба = box.width − 2·T         // T-DRW-07: стыковка не подтверждена,
+                                                   // как и само наличие передней стенки
 дно: mount 'groove'      → (box.width − 2T + 2·grooveDepth) × (box.length − 2T + 2·grooveDepth)
      mount 'nailed-under'→ box.width × box.length
+                                                   // T-DRW-07: grooveDepth и отступ паза
+                                                   // публикуются данными конкретной серии
 ```
+
+Строится сегодня только фасад ящика (`src/geometry/drawers.ts`), и
+геометрия сообщает об этом диагностикой `DRAWER_BOX_NOT_IMPLEMENTED`.
 
 **Фасад, режим `overlay`, n створок на проём шириной `Wf`:**
 

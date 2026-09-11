@@ -349,6 +349,7 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/FR10_FINAL_STEPS_ANALYSIS.md`](docs/FR10_FINAL_STEPS_ANALYSIS.md) | Чем были заняты шаги 10 и 11 и почему это был один экран дважды |
 | [`docs/FR10_FINAL_STEPS_VERIFICATION.md`](docs/FR10_FINAL_STEPS_VERIFICATION.md) | Замеры до и после: 3 общие панели и 19 общих органов → 0 и 0 |
 | [`docs/FINAL_CONSTRUCTION_TO_PRODUCTION_FLOW.md`](docs/FINAL_CONSTRUCTION_TO_PRODUCTION_FLOW.md) | Где заканчивается конструирование и начинается производство |
+| [`docs/FR04_DRAWER_MODEL_ANALYSIS.md`](docs/FR04_DRAWER_MODEL_ANALYSIS.md) | Конструкция ящика: что подтверждено источником, что нет и почему короб пока не строится |
 | [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |

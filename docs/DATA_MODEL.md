@@ -595,7 +595,7 @@ export interface DrawerFacadeSpec {
 // ASSUMPTION (до T-DRW-02): шариковые направляющие полного выдвижения,
 // зазор 13 мм с каждой стороны — наиболее распространённый стандарт.
 export const DEFAULT_SLIDE: SlideSpec = {
-  type: 'ball-full', nominalLength: 450, sideClearance: 13,
+  type: 'ball-full', nominalLength: 450, sideClearance: 12.7,
 };
 ```
 
@@ -1207,7 +1207,9 @@ Undo/redo реализуется патчами Immer (`produceWithPatches`), а
 | Плоская сетка или дерево у референса | T-GRID-01 (наша модель покрывает оба) |
 | `OverlaySpec` — режим и зазоры | T-DOOR-02 |
 | Правило количества петель | T-DOOR-05 |
-| `SlideSpec.sideClearance`, ряд длин | T-DRW-02, T-DRW-03 |
+| `SlideSpec.sideClearance` | **T-DRW-06 — подтверждено** (12.7 мм на сторону, PROMPT 65) |
+| Ряд номинальных длин направляющей | T-DRW-03 |
+| Конструкция короба (высота боковины, положение, дно, задник) | T-DRW-07 |
 | Формула размеров полки, `frontSetback` | T-SHF-01 |
 | `EdgeSizingPolicy.subtractFromPartSize` | T-EDG-03 |
 | Правило сторон оклейки | T-EDG-02 |
