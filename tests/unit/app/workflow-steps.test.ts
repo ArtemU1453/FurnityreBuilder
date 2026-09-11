@@ -35,13 +35,42 @@ describe('порядок шагов', () => {
     expect(WORKFLOW_STEPS[0]?.id).toBe('dimensions');
   });
 
-  it('проверка и производство — в конце и на своём экране', () => {
-    expect(STEP_BY_ID.validation.screen).toBe('production');
+  /**
+   * FR-10 (PROMPT 64): у последних шагов разные экраны, потому что у них
+   * разные задачи.
+   *
+   * Оба объявляли `screen: 'production'` и открывали один и тот же экран
+   * в одном и том же разделе — 1817 знаков текста у обоих, совпадающих
+   * посимвольно. Шаг «Обзор» отвечает на вопрос конструктора
+   * («достроено ли изделие»), поэтому живёт в конструкторе; шаг
+   * «Производство» — на вопрос производства.
+   */
+  it('только последний шаг живёт в производстве: у шагов разные задачи', () => {
+    expect(STEP_BY_ID.validation.screen).toBe('editor');
     expect(STEP_BY_ID.production.screen).toBe('production');
+
+    // Производственный шаг ровно один — иначе два шага снова показывали
+    // бы один экран.
+    expect(WORKFLOW_STEPS.filter((step) => step.screen === 'production')).toHaveLength(1);
+
     // Все остальные — в конструкторе.
-    for (const step of WORKFLOW_STEPS.slice(0, 9)) {
+    for (const step of WORKFLOW_STEPS.slice(0, 10)) {
       expect(step.screen, step.id).toBe('editor');
     }
+  });
+
+  /** §17: структурная защита от возврата одинаковых шагов. */
+  it('ни одно название шага не повторяется и «Проверки» среди них нет', () => {
+    const titles = WORKFLOW_STEPS.map((step) => step.title);
+    expect(new Set(titles).size).toBe(titles.length);
+    // Слово занято разделом производства «Готовность» и историей
+    // шага 10: третьего места с ним не заводится (PROMPT 64 §10).
+    expect(titles).not.toContain('Проверка');
+  });
+
+  it('подсказки шагов тоже не повторяются: у каждого своя задача', () => {
+    const hints = WORKFLOW_STEPS.map((step) => step.hint);
+    expect(new Set(hints).size).toBe(hints.length);
   });
 
   it('переходы вперёд и назад проходят весь список', () => {

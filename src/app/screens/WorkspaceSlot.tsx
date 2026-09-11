@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Dialog } from '../../design-system/index.js';
 import type { LayoutMode } from '../layout.js';
@@ -39,17 +40,40 @@ export interface WorkspaceSlotProps {
   readonly title: string;
   readonly open: boolean;
   readonly onClose: () => void;
+  /**
+   * Ключ, смена которого возвращает колонку к началу (PROMPT 64 §14).
+   *
+   * Колонка прокручивается отдельно от холста, и до FR-10 её положение
+   * переживало смену шага: перейдя с длинной панели на короткую, человек
+   * видел пустоту — заголовок новой панели оказывался на −452 px при
+   * окне 900 px. Дефект был общий для всех шагов и проявился, когда у
+   * шага 10 появилась собственная панель.
+   *
+   * Обычно сюда передают имя текущего шага: сменился шаг — колонка
+   * показывает его сначала.
+   */
+  readonly resetScrollKey?: string;
   readonly children: ReactNode;
 }
 
 export function WorkspaceSlot(props: WorkspaceSlotProps): React.JSX.Element {
+  const column = useRef<HTMLDivElement | null>(null);
+  const key = props.resetScrollKey;
+
+  useEffect(() => {
+    if (key === undefined) return;
+    column.current?.scrollTo({ top: 0 });
+  }, [key]);
+
   if (!usesSheets(props.mode)) {
     return props.side === 'inspector' ? (
       <aside className={styles.inspector} aria-label={props.label}>
         {props.children}
       </aside>
     ) : (
-      <div className={styles.sidebar}>{props.children}</div>
+      <div className={styles.sidebar} ref={column}>
+        {props.children}
+      </div>
     );
   }
 

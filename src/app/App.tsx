@@ -47,6 +47,7 @@ import { describeGridReplacement, gridReplacementLoss, losesWork } from './edito
 import { cellName, cellNames } from './editor/cell-identity.js';
 import { describeDivide, divideCommands, divideEffect, losesCellWork } from './editor/divide-cell.js';
 import { startingPoint } from './editor/starting-point.js';
+import { constructionOverview, describeOverview } from './editor/construction-overview.js';
 import { stageList } from './vocabulary.js';
 import { validateProductionReadiness } from '../workflow/index.js';
 import { useSessionStore } from '../state/index.js';
@@ -459,6 +460,17 @@ export function App(): React.JSX.Element {
     когда начинать уже нечего.
   */
   const intro = useMemo(() => startingPoint(furniture, geometry), [furniture, geometry]);
+
+  /**
+   * Состав изделия для шага «Обзор» (PROMPT 64, FR-10).
+   *
+   * Выводится из модели мебели, а не из производственного расчёта:
+   * шаг конструктора отвечает на вопрос конструктора.
+   */
+  const overview = useMemo(
+    () => constructionOverview(furniture, geometry),
+    [furniture, geometry],
+  );
 
   const namesOfCells = useMemo(
     () => (geometry === undefined ? new Map<NodeId, string>() : cellNames(geometry)),
@@ -902,7 +914,9 @@ export function App(): React.JSX.Element {
    */
   const [step, setStep] = useState<StepId>(FIRST_STEP);
   const lastEditorStepRef = useRef<StepId>(FIRST_STEP);
-  const lastProductionStepRef = useRef<StepId>('validation');
+  // Единственный шаг раздела «Производство» — он же и последний
+  // (PROMPT 64: шаг 10 вернулся в конструктор).
+  const lastProductionStepRef = useRef<StepId>('production');
   /** Где уже были: нужно только лестнице шагов, чтобы отличать «не открывали». */
   const [visited, setVisited] = useState<ReadonlySet<StepId>>(() => new Set([FIRST_STEP]));
 
@@ -2211,6 +2225,7 @@ export function App(): React.JSX.Element {
           title={STEP_BY_ID[step].title}
           open={sheet === 'params'}
           onClose={closeSheet}
+          resetScrollKey={step}
         >
           {step !== 'dimensions' ? null : (
             <Panel id="dimensions" title="Размеры" subtitle="Габарит изделия и толщина плиты.">
@@ -3052,6 +3067,100 @@ export function App(): React.JSX.Element {
                   }}
                 />
               </div>
+            </Panel>
+          )}
+
+          {/*
+            Шаг 10 «Обзор» — исправление FR-10 (PROMPT 64).
+
+            Он жил в производстве и открывал тот же экран, что и шаг 11:
+            1817 знаков текста у обоих, совпадающих посимвольно, 19 общих
+            органов управления при нуле своих. Теперь у него свой вопрос
+            и свой ответ — состав изделия и его незакрытые места, —
+            выведенные из модели мебели, а не из производственного
+            расчёта. Ни одна производственная величина здесь не считается.
+          */}
+          {step !== 'validation' ? null : (
+            <Panel
+              id="overview"
+              title="Обзор изделия"
+              subtitle="Что уже собрано и какие места остались открытыми. Производственные документы — на следующем шаге."
+            >
+              {overview === undefined ? (
+                <EmptyState
+                  compact
+                  title="Изделие не построено"
+                  description="Задайте габариты на шаге «Размеры» — обзор появится вместе с изделием."
+                />
+              ) : (
+                <>
+                  <dl className={styles.stats}>
+                    <div className={styles.stat}>
+                      <dt className={styles.statLabel}>Габарит</dt>
+                      <dd className={styles.statValue}>
+                        {formatMm(furniture.dimensions.width)} ×{' '}
+                        {formatMm(furniture.dimensions.height)} ×{' '}
+                        {formatMm(furniture.dimensions.depth)} мм
+                      </dd>
+                    </div>
+                    <div className={styles.stat}>
+                      <dt className={styles.statLabel}>Отделений</dt>
+                      <dd className={styles.statValue}>
+                        {overview.cells}, из них занято {overview.filled}
+                      </dd>
+                    </div>
+                    <div className={styles.stat}>
+                      <dt className={styles.statLabel}>Фасадов</dt>
+                      <dd className={styles.statValue}>{overview.facades}</dd>
+                    </div>
+                  </dl>
+
+                  {/*
+                    Незавершённость — не ошибка (§12). Открытая ниша —
+                    обычная мебель, и перечисление здесь утвердительное:
+                    это принятые решения, а не список претензий. Слова
+                    «ошибка» на этом шаге нет ни разу — ошибки расчёта
+                    живут в производстве и выглядят иначе.
+                  */}
+                  {overview.complete ? (
+                    <p className={styles.pending}>
+                      Все отделения заняты и закрыты фасадами. Дополнять в конструкции нечего.
+                    </p>
+                  ) : (
+                    <>
+                      <p className={styles.pending}>{describeOverview(overview).join('. ')}.</p>
+                      <ul className={styles.spots}>
+                        {overview.empty.slice(0, 6).map((spot) => (
+                          <li key={`empty-${spot.nodeId}`}>
+                            <Button
+                              variant="secondary"
+                              onClick={() => {
+                                setSelectedCellId(spot.nodeId);
+                                selectNodes([spot.nodeId]);
+                                goToStep('fill');
+                              }}
+                            >
+                              {`${spot.name}: положить что-нибудь внутрь`}
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  {/* Основное действие шага — переход к другой задаче. */}
+                  <div className={styles.rowActions}>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        goToStep('production');
+                      }}
+                    >
+                      Перейти к производству
+                    </Button>
+                  </div>
+                </>
+              )}
             </Panel>
           )}
 

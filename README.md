@@ -71,7 +71,9 @@
 - надстройки: столешница со свесом, антресоль, фальшпанели, зазор до потолка;
 - задняя стенка и цоколь с царгами;
 - материалы корпуса, полок и фасадов, кромка, схема сборки;
-- сценарий из 11 шагов, ведущий от габаритов к производству;
+- сценарий из 11 шагов, ведущий от габаритов к производству: десять из
+  них конструируют изделие, последний выдаёт производственный результат
+  ([`docs/FINAL_CONSTRUCTION_TO_PRODUCTION_FLOW.md`](docs/FINAL_CONSTRUCTION_TO_PRODUCTION_FLOW.md));
 - отмена и повтор для всех 44 команд модели.
 
 ### Просмотр
@@ -338,6 +340,15 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/FR12_TECHNICAL_LANGUAGE_VERIFICATION.md`](docs/FR12_TECHNICAL_LANGUAGE_VERIFICATION.md) | Замеры до и после: что переименовано, что оставлено и почему |
 | [`docs/FR07_PARALLEL_PATH_ANALYSIS.md`](docs/FR07_PARALLEL_PATH_ANALYSIS.md) | Инспектор и шаги 5–7: что из этого дубль, а что разные действия |
 | [`docs/FR07_PRIMARY_PATH_VERIFICATION.md`](docs/FR07_PRIMARY_PATH_VERIFICATION.md) | Замеры до и после: девять реализаций пяти операций стали пятью |
+| [`docs/FR08_SHELF_INTERACTION_ANALYSIS.md`](docs/FR08_SHELF_INTERACTION_ANALYSIS.md) | Почему «сколько полок» имело два разных ответа в двух местах |
+| [`docs/FR08_SHELF_MODEL_VERIFICATION.md`](docs/FR08_SHELF_MODEL_VERIFICATION.md) | Замеры до и после: один вопрос о полках, один ответ |
+| [`docs/FR19_PRODUCTION_LANGUAGE_ANALYSIS.md`](docs/FR19_PRODUCTION_LANGUAGE_ANALYSIS.md) | Четыре островка словаря и почему имена деталей не находились нигде |
+| [`docs/FR19_PRODUCTION_LANGUAGE_VERIFICATION.md`](docs/FR19_PRODUCTION_LANGUAGE_VERIFICATION.md) | Замеры до и после: 23/72 ячеек с латиницей → 0/72, PDF и XLSX вскрыты |
+| [`docs/FR20_PRODUCTION_DEFAULT_ANALYSIS.md`](docs/FR20_PRODUCTION_DEFAULT_ANALYSIS.md) | Почему вход в производство занимала стена неподтверждённых правил |
+| [`docs/FR20_PRODUCTION_DEFAULT_VERIFICATION.md`](docs/FR20_PRODUCTION_DEFAULT_VERIFICATION.md) | Замеры до и после: 80…82 % высоты → 0 px на входе |
+| [`docs/FR10_FINAL_STEPS_ANALYSIS.md`](docs/FR10_FINAL_STEPS_ANALYSIS.md) | Чем были заняты шаги 10 и 11 и почему это был один экран дважды |
+| [`docs/FR10_FINAL_STEPS_VERIFICATION.md`](docs/FR10_FINAL_STEPS_VERIFICATION.md) | Замеры до и после: 3 общие панели и 19 общих органов → 0 и 0 |
+| [`docs/FINAL_CONSTRUCTION_TO_PRODUCTION_FLOW.md`](docs/FINAL_CONSTRUCTION_TO_PRODUCTION_FLOW.md) | Где заканчивается конструирование и начинается производство |
 | [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |

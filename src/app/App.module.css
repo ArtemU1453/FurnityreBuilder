@@ -54,6 +54,28 @@
   line-height: var(--t-caption-lh);
 }
 
+/*
+ * Перечень незакрытых мест на шаге «Обзор» (PROMPT 64).
+ *
+ * Список, а не таблица: каждый пункт — переход к отделению, и читать
+ * его нужно построчно, в том числе скринридером.
+ */
+.spots {
+  display: grid;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Основное действие шага отделено от перечисления. */
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
 .pending {
   margin: 0;
   color: var(--text-tertiary);
