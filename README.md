@@ -359,6 +359,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/BACK_PANEL_FASTENER_RULE_ANALYSIS.md`](docs/BACK_PANEL_FASTENER_RULE_ANALYSIS.md) | Почему периметр задней стенки нельзя просто поделить на шаг |
 | [`docs/DRILLING_PIPELINE_BLOCKER_ANALYSIS.md`](docs/DRILLING_PIPELINE_BLOCKER_ANALYSIS.md) | Семь правил присадки, ноль операций: два разных блокера |
 | [`docs/HARDWARE_IMPLEMENTATION_READINESS.md`](docs/HARDWARE_IMPLEMENTATION_READINESS.md) | Сводка готовности правил фурнитуры и спецификация контрольного изделия |
+| [`docs/HARDWARE_RULE_SOURCE_VERIFICATION.md`](docs/HARDWARE_RULE_SOURCE_VERIFICATION.md) | Что подтвердили и что опровергли реальные производственные документы |
+| [`docs/FR04_DRAWER_REFERENCE_EVIDENCE_UPDATE.md`](docs/FR04_DRAWER_REFERENCE_EVIDENCE_UPDATE.md) | Состав короба ящика и направляющая по производственной деталировке |
 | [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
