@@ -361,6 +361,10 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/HARDWARE_IMPLEMENTATION_READINESS.md`](docs/HARDWARE_IMPLEMENTATION_READINESS.md) | Сводка готовности правил фурнитуры и спецификация контрольного изделия |
 | [`docs/HARDWARE_RULE_SOURCE_VERIFICATION.md`](docs/HARDWARE_RULE_SOURCE_VERIFICATION.md) | Что подтвердили и что опровергли реальные производственные документы |
 | [`docs/FR04_DRAWER_REFERENCE_EVIDENCE_UPDATE.md`](docs/FR04_DRAWER_REFERENCE_EVIDENCE_UPDATE.md) | Состав короба ящика и направляющая по производственной деталировке |
+| [`docs/B3D_FORMAT_FORENSICS.md`](docs/B3D_FORMAT_FORENSICS.md) | Разбор проектного файла: контейнер, таблица имён, поток записей |
+| [`docs/B3D_HARDWARE_PLACEMENT_ANALYSIS.md`](docs/B3D_HARDWARE_PLACEMENT_ANALYSIS.md) | Сверка количеств и восстановленная геометрия реального изделия |
+| [`docs/B3D_PM18_PM17_EVIDENCE.md`](docs/B3D_PM18_PM17_EVIDENCE.md) | Какой крепёж на каких стыках и как разложены гвозди задней стенки |
+| [`docs/B3D_DRAWER_EVIDENCE.md`](docs/B3D_DRAWER_EVIDENCE.md) | Чем собран короб ящика и где стоит направляющая |
 | [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
