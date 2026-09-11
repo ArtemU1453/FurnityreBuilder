@@ -327,6 +327,9 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/FR02_CONSTRUCTION_RESET_ANALYSIS.md`](docs/FR02_CONSTRUCTION_RESET_ANALYSIS.md) | Почему действие по умолчанию шага 4 отменяло шаг 3 |
 | [`docs/FR02_CONSTRUCTION_RESET_VERIFICATION.md`](docs/FR02_CONSTRUCTION_RESET_VERIFICATION.md) | Замеры до и после: 7/3/2 → 5/1/0 больше не воспроизводится |
 | [`docs/CONSTRUCTION_STEP_STATE_MODEL.md`](docs/CONSTRUCTION_STEP_STATE_MODEL.md) | Что каждый шаг делает с моделью и может ли уничтожить сделанное |
+| [`docs/FR05_FIRST_ACTION_ANALYSIS.md`](docs/FR05_FIRST_ACTION_ANALYSIS.md) | Какое действие первое, почему его не было видно и аудит одиннадцати шагов |
+| [`docs/FR05_DESKTOP_MOBILE_HIERARCHY_COMPARISON.md`](docs/FR05_DESKTOP_MOBILE_HIERARCHY_COMPARISON.md) | Чему настольная раскладка научилась у телефонной — и где телефон был не прав |
+| [`docs/FR05_FIRST_ACTION_VERIFICATION.md`](docs/FR05_FIRST_ACTION_VERIFICATION.md) | Замеры до и после: 888 px → 205 px на четырёх размерах окна |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
 | [`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`](docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) | Что проверить при самой выкладке и сразу после неё |

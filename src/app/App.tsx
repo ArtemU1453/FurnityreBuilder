@@ -2180,10 +2180,6 @@ export function App(): React.JSX.Element {
           open={sheet === 'params'}
           onClose={closeSheet}
         >
-          {!usesFullStepRail(layout) ? null : (
-            <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
-          )}
-
           {step !== 'dimensions' ? null : (
             <Panel id="dimensions" title="Размеры" subtitle="Габарит изделия и толщина плиты.">
               <div className={styles.grid}>
@@ -3003,6 +2999,26 @@ export function App(): React.JSX.Element {
                 />
               </div>
             </Panel>
+          )}
+
+          {/*
+            Лестница шагов стоит ПОСЛЕ панели шага (PROMPT 56 §12, §18).
+
+            До PROMPT 56 она открывала боковую колонку и занимала 672 px
+            по высоте. Следствие измерено аудитом PROMPT 53: в окнах
+            1440 × 900 и 1280 × 800 ни одно поле габарита не попадало на
+            экран — первое действие нового человека лежало за краем окна,
+            а из 22 видимых органов управления 20 были навигацией.
+
+            Порядок теперь повторяет порядок внимания: сначала то, что
+            человек делает, потом то, куда он пойдёт дальше. Лестница не
+            свёрнута и не сокращена — она осталась целиком, со всеми
+            одиннадцатью шагами, состояниями и переходами: спрятать
+            навигацию значило бы разменять одну непонятность на другую
+            (§5, §9).
+          */}
+          {!usesFullStepRail(layout) ? null : (
+            <WorkflowNav steps={workflowSteps} current={step} onStep={goToStep} />
           )}
 
           <Panel id="result" title="Результат расчёта" tone="sunken">
