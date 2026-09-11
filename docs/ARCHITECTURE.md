@@ -57,6 +57,7 @@ Persistence            — IndexedDB, JSON
 
 ```js
 const LAYERS = [
+  { type: 'evidence',     pattern: 'src/evidence/**/*' }, // PROMPT 65
   { type: 'domain',       pattern: 'src/domain/**/*' },
   { type: 'geometry',     pattern: 'src/geometry/**/*' },
   { type: 'validation',   pattern: 'src/validation/**/*' },
@@ -103,6 +104,12 @@ const rules = [
 `window`/`document`/хранилищу в слоях `domain`, `geometry`, `validation`
 (`no-restricted-imports` + `no-restricted-globals`) — и отдельно запрет
 UI-фреймворка в `persistence`/`motion`, которым он тоже не нужен.
+
+`evidence` стоит первым не по алфавиту: это единственный слой, которому
+**не разрешено импортировать ничего**, включая домен. Он отвечает, почему
+производственное правило ещё нельзя реализовывать
+(`docs/PRODUCTION_RULE_EVIDENCE_GATE.md`), и зависимость от расчётных
+слоёв сделала бы его частью того, что он сторожит.
 
 **Критерий приёмки этапа 01:** попытка импортировать React в `src/geometry`
 роняет сборку CI.

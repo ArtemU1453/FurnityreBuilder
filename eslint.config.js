@@ -15,6 +15,11 @@ import reactHooks from 'eslint-plugin-react-hooks';
  *   app → design-system → motion
  */
 const LAYERS = [
+  // evidence — ворота готовности производственных правил (PROMPT 65 §7).
+  // Слой не считает производство и НИЧЕГО не импортирует: он отвечает,
+  // почему правило ещё нельзя реализовывать. Зависимость от расчётных
+  // слоёв сделала бы ворота частью того, что они сторожат.
+  { type: 'evidence', pattern: 'src/evidence/**/*' },
   { type: 'domain', pattern: 'src/domain/**/*' },
   { type: 'geometry', pattern: 'src/geometry/**/*' },
   { type: 'hardware', pattern: 'src/hardware/**/*' },
@@ -50,6 +55,8 @@ const LAYERS = [
 /** Layers that must stay free of React, the DOM and every browser API. */
 const PURE_LAYERS = [
   'src/domain/**/*.ts',
+  // PROMPT 65 §7: ворота готовности — чистые данные и вывод по ним.
+  'src/evidence/**/*.ts',
   'src/geometry/**/*.ts',
   'src/validation/**/*.ts',
   // PROMPT 16 §14: расчёт фурнитуры обязан быть независим от React и DOM.
@@ -139,6 +146,9 @@ export default tseslint.config(
           default: 'disallow',
           message: 'Layer "${file.type}" must not import from "${dependency.type}". See docs/ARCHITECTURE.md §1.',
           rules: [
+            // Ворота ни от чего не зависят: иначе они смотрели бы на то,
+            // что сторожат, и перестали бы быть независимой проверкой.
+            { from: 'evidence', allow: ['evidence'] },
             { from: 'domain', allow: ['domain'] },
             { from: 'geometry', allow: ['geometry', 'domain'] },
             // Расчёт фурнитуры — производная от геометрии, поэтому видит её
