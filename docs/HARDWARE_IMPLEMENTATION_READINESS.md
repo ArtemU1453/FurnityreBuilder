@@ -22,6 +22,13 @@ PROMPT 66 §5, §7, §11. Сводка: что подтверждено, что 
 
 **Подтверждённых правил, готовых к реализации: ноль.**
 
+Статусы не изменились и после разбора приложенного справочника
+фурнитуры (.xlsx):
+[`HARDWARE_REFERENCE_XLSX_FORENSICS.md`](HARDWARE_REFERENCE_XLSX_FORENSICS.md)
+— что в файле есть,
+[`HARDWARE_REFERENCE_EVIDENCE_VERIFICATION.md`](HARDWARE_REFERENCE_EVIDENCE_VERIFICATION.md)
+— почему из этого не следует ни одного правила.
+
 Ни одно не дотягивает даже до `PARTIALLY_CONFIRMED`: частичное
 подтверждение означало бы, что часть правила получена из источника, а
 получено не было ничего.
