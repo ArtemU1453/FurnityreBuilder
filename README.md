@@ -367,6 +367,8 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/B3D_DRAWER_EVIDENCE.md`](docs/B3D_DRAWER_EVIDENCE.md) | Чем собран короб ящика и где стоит направляющая |
 | [`docs/SECOND_B3D_COMPARATIVE_ANALYSIS.md`](docs/SECOND_B3D_COMPARATIVE_ANALYSIS.md) | Матрица доказательств и заранее зафиксированные предсказания для второго образца |
 | [`docs/PM17_PRODUCT_B_EVIDENCE_SEARCH.md`](docs/PM17_PRODUCT_B_EVIDENCE_SEARCH.md) | Поиск спецификации второго изделия: что найдено, чего нет и какая прошлая ошибка исправлена |
+| [`docs/FR04_MULTI_DRAWER_EVIDENCE_ANALYSIS.md`](docs/FR04_MULTI_DRAWER_EVIDENCE_ANALYSIS.md) | Четыре ящика одного изделия: четыре образца или четыре копии |
+| [`docs/FR04_MULTI_DRAWER_EVIDENCE_VERIFICATION.md`](docs/FR04_MULTI_DRAWER_EVIDENCE_VERIFICATION.md) | Проверка выводов многообразцового анализа ящиков |
 | [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
