@@ -353,6 +353,12 @@ domain → geometry → hardware/production → drilling → bom → export → 
 | [`docs/PRIVET_MAKET_CAPABILITY_MATRIX.md`](docs/PRIVET_MAKET_CAPABILITY_MATRIX.md) | Карта возможностей референса против наших, с классом доказательства у каждой строки |
 | [`docs/PRIVET_MAKET_HARDWARE_REGISTRY.md`](docs/PRIVET_MAKET_HARDWARE_REGISTRY.md) | Реестр фурнитуры: что известно про каждый узел и до какого уровня |
 | [`docs/PRIVET_MAKET_IMPLEMENTATION_PRIORITY.md`](docs/PRIVET_MAKET_IMPLEMENTATION_PRIORITY.md) | Очередь пробелов фурнитуры и что нужно достать, чтобы их закрыть |
+| [`docs/ASSEMBLY_HARDWARE_RULE_SOURCE_AUDIT.md`](docs/ASSEMBLY_HARDWARE_RULE_SOURCE_AUDIT.md) | Попытка получить первичные источники по крепежу и петлям: что закрыто и чего не хватает |
+| [`docs/CARCASS_FASTENER_RULE_ANALYSIS.md`](docs/CARCASS_FASTENER_RULE_ANALYSIS.md) | Какие стыки корпуса находятся, какие пропущены и чего не хватает для строки спецификации |
+| [`docs/HINGE_RULE_ANALYSIS.md`](docs/HINGE_RULE_ANALYSIS.md) | Почему количество петель нельзя свести к высоте створки |
+| [`docs/BACK_PANEL_FASTENER_RULE_ANALYSIS.md`](docs/BACK_PANEL_FASTENER_RULE_ANALYSIS.md) | Почему периметр задней стенки нельзя просто поделить на шаг |
+| [`docs/DRILLING_PIPELINE_BLOCKER_ANALYSIS.md`](docs/DRILLING_PIPELINE_BLOCKER_ANALYSIS.md) | Семь правил присадки, ноль операций: два разных блокера |
+| [`docs/HARDWARE_IMPLEMENTATION_READINESS.md`](docs/HARDWARE_IMPLEMENTATION_READINESS.md) | Сводка готовности правил фурнитуры и спецификация контрольного изделия |
 | [`docs/CORE_CONSTRUCTION_ACTION_PATHS.md`](docs/CORE_CONSTRUCTION_ACTION_PATHS.md) | Где что делать: первичный и вторичный путь для каждого действия |
 | [`docs/USING_THE_APPLICATION.md`](docs/USING_THE_APPLICATION.md) | Как пользоваться приложением — без единой технической подробности |
 | [`docs/PUBLIC_LAUNCH_READINESS.md`](docs/PUBLIC_LAUNCH_READINESS.md) | Приёмка глазами пользователя: что проверено и какие дефекты найдены |
